@@ -10,7 +10,11 @@
       "title": "Start here",
       "abstract": "",
       "pages": [
-        { "slug": "welcome", "kind": "article", "title": "Welcome" }
+        {
+          "slug": "welcome",
+          "kind": "article",
+          "title": "Welcome"
+        }
       ]
     },
     {
@@ -18,17 +22,33 @@
       "title": "First preview",
       "abstract": "The app asks for permission to use the camera and shows a live preview on the full screen. If the user denies the permission, the app shows a status message.",
       "pages": [
-        { "slug": "ch01-concepts", "kind": "article", "title": "Concepts: first preview" },
-        { "slug": "ch01-build", "kind": "tutorial", "title": "Build: first preview" }
+        {
+          "slug": "ch01-concepts",
+          "kind": "article",
+          "title": "Concepts: first preview"
+        },
+        {
+          "slug": "ch01-build",
+          "kind": "tutorial",
+          "title": "Build: first preview"
+        }
       ]
     },
     {
       "number": 2,
       "title": "Cameras",
-      "abstract": "A button changes between the back camera and the front camera with a blur transition. The app also follows the camera that the system prefers.",
+      "abstract": "A button changes between the back camera and the front camera with a blur transition. The app also follows the camera that the system prefers. A rotation coordinator keeps the preview level.",
       "pages": [
-        { "slug": "ch02-concepts", "kind": "article", "title": "Concepts: cameras" },
-        { "slug": "ch02-build", "kind": "tutorial", "title": "Build: cameras" }
+        {
+          "slug": "ch02-concepts",
+          "kind": "article",
+          "title": "Concepts: cameras"
+        },
+        {
+          "slug": "ch02-build",
+          "kind": "tutorial",
+          "title": "Build: cameras"
+        }
       ]
     },
     {
@@ -36,8 +56,16 @@
       "title": "Take a photo",
       "abstract": "The capture button takes a photo and the screen flashes. The app logs the size of the photo data.",
       "pages": [
-        { "slug": "ch03-concepts", "kind": "article", "title": "Concepts: take a photo" },
-        { "slug": "ch03-build", "kind": "tutorial", "title": "Build: take a photo" }
+        {
+          "slug": "ch03-concepts",
+          "kind": "article",
+          "title": "Concepts: take a photo"
+        },
+        {
+          "slug": "ch03-build",
+          "kind": "tutorial",
+          "title": "Build: take a photo"
+        }
       ]
     },
     {
@@ -45,17 +73,33 @@
       "title": "Save to Photos",
       "abstract": "Each photo goes to the Photos library together with its location. A thumbnail of the last photo appears, and a tap on it opens the photo picker.",
       "pages": [
-        { "slug": "ch04-concepts", "kind": "article", "title": "Concepts: save to Photos" },
-        { "slug": "ch04-build", "kind": "tutorial", "title": "Build: save to Photos" }
+        {
+          "slug": "ch04-concepts",
+          "kind": "article",
+          "title": "Concepts: save to Photos"
+        },
+        {
+          "slug": "ch04-build",
+          "kind": "tutorial",
+          "title": "Build: save to Photos"
+        }
       ]
     },
     {
       "number": 5,
-      "title": "Rotation and layout",
-      "abstract": "Photos get the correct orientation and the preview stays level. The interface adapts to iPhone and iPad sizes, and the preview gets a viewfinder frame.",
+      "title": "Layout",
+      "abstract": "The interface adapts to iPhone and iPad sizes, and the preview gets a viewfinder frame.",
       "pages": [
-        { "slug": "ch05-concepts", "kind": "article", "title": "Concepts: rotation and layout" },
-        { "slug": "ch05-build", "kind": "tutorial", "title": "Build: rotation and layout" }
+        {
+          "slug": "ch05-concepts",
+          "kind": "article",
+          "title": "Concepts: layout"
+        },
+        {
+          "slug": "ch05-build",
+          "kind": "tutorial",
+          "title": "Build: layout"
+        }
       ]
     },
     {
@@ -63,8 +107,16 @@
       "title": "Focus and exposure",
       "abstract": "A tap on the preview sets the focus and the exposure at that point. The camera goes back to continuous mode when the scene changes.",
       "pages": [
-        { "slug": "ch06-concepts", "kind": "article", "title": "Concepts: focus and exposure" },
-        { "slug": "ch06-build", "kind": "tutorial", "title": "Build: focus and exposure" }
+        {
+          "slug": "ch06-concepts",
+          "kind": "article",
+          "title": "Concepts: focus and exposure"
+        },
+        {
+          "slug": "ch06-build",
+          "kind": "tutorial",
+          "title": "Build: focus and exposure"
+        }
       ]
     },
     {
@@ -72,8 +124,16 @@
       "title": "Photo features",
       "abstract": "The app captures Live Photos and shows a \"LIVE\" badge. It also gets a quality prioritization picker, deferred photo delivery, and responsive capture.",
       "pages": [
-        { "slug": "ch07-concepts", "kind": "article", "title": "Concepts: photo features" },
-        { "slug": "ch07-build", "kind": "tutorial", "title": "Build: photo features" }
+        {
+          "slug": "ch07-concepts",
+          "kind": "article",
+          "title": "Concepts: photo features"
+        },
+        {
+          "slug": "ch07-build",
+          "kind": "tutorial",
+          "title": "Build: photo features"
+        }
       ]
     },
     {
@@ -81,8 +141,16 @@
       "title": "Record video",
       "abstract": "A mode picker and a swipe change between photo and video. The app records movies with sound, shows the recording time, and saves each movie to Photos.",
       "pages": [
-        { "slug": "ch08-concepts", "kind": "article", "title": "Concepts: record video" },
-        { "slug": "ch08-build", "kind": "tutorial", "title": "Build: record video" }
+        {
+          "slug": "ch08-concepts",
+          "kind": "article",
+          "title": "Concepts: record video"
+        },
+        {
+          "slug": "ch08-build",
+          "kind": "tutorial",
+          "title": "Build: record video"
+        }
       ]
     },
     {
@@ -90,8 +158,16 @@
       "title": "HDR video",
       "abstract": "An HDR button appears in video mode when the camera supports 10-bit HDR. The app then records HDR video.",
       "pages": [
-        { "slug": "ch09-concepts", "kind": "article", "title": "Concepts: HDR video" },
-        { "slug": "ch09-build", "kind": "tutorial", "title": "Build: HDR video" }
+        {
+          "slug": "ch09-concepts",
+          "kind": "article",
+          "title": "Concepts: HDR video"
+        },
+        {
+          "slug": "ch09-build",
+          "kind": "tutorial",
+          "title": "Build: HDR video"
+        }
       ]
     },
     {
@@ -99,8 +175,16 @@
       "title": "A robust session",
       "abstract": "The app shows a message during an interruption and recovers from a media services reset. It starts fast, hides the controls until the session runs, and covers the old preview frame when it comes back from the background.",
       "pages": [
-        { "slug": "ch10-concepts", "kind": "article", "title": "Concepts: a robust session" },
-        { "slug": "ch10-build", "kind": "tutorial", "title": "Build: a robust session" }
+        {
+          "slug": "ch10-concepts",
+          "kind": "article",
+          "title": "Concepts: a robust session"
+        },
+        {
+          "slug": "ch10-build",
+          "kind": "tutorial",
+          "title": "Build: a robust session"
+        }
       ]
     },
     {
@@ -108,8 +192,16 @@
       "title": "Hardware buttons and AirPods",
       "abstract": "The volume buttons, the Action button, the Camera Control, and a click on an AirPods stem capture media with the correct sounds. AirPods record high-quality audio.",
       "pages": [
-        { "slug": "ch11-concepts", "kind": "article", "title": "Concepts: hardware buttons and AirPods" },
-        { "slug": "ch11-build", "kind": "tutorial", "title": "Build: hardware buttons and AirPods" }
+        {
+          "slug": "ch11-concepts",
+          "kind": "article",
+          "title": "Concepts: hardware buttons and AirPods"
+        },
+        {
+          "slug": "ch11-build",
+          "kind": "tutorial",
+          "title": "Build: hardware buttons and AirPods"
+        }
       ]
     },
     {
@@ -117,8 +209,16 @@
       "title": "Camera Control",
       "abstract": "The Camera Control shows zoom, exposure bias, and a custom slider for the lens position. The app interface becomes minimal while the control overlay is on the screen.",
       "pages": [
-        { "slug": "ch12-concepts", "kind": "article", "title": "Concepts: Camera Control" },
-        { "slug": "ch12-build", "kind": "tutorial", "title": "Build: Camera Control" }
+        {
+          "slug": "ch12-concepts",
+          "kind": "article",
+          "title": "Concepts: Camera Control"
+        },
+        {
+          "slug": "ch12-build",
+          "kind": "tutorial",
+          "title": "Build: Camera Control"
+        }
       ]
     },
     {
@@ -126,8 +226,16 @@
       "title": "Lock Screen and Control Center",
       "abstract": "The app starts from the Lock Screen, Control Center, and the Action button through a capture extension and a control. The app and the extension share their state.",
       "pages": [
-        { "slug": "ch13-concepts", "kind": "article", "title": "Concepts: Lock Screen and Control Center" },
-        { "slug": "ch13-build", "kind": "tutorial", "title": "Build: Lock Screen and Control Center" }
+        {
+          "slug": "ch13-concepts",
+          "kind": "article",
+          "title": "Concepts: Lock Screen and Control Center"
+        },
+        {
+          "slug": "ch13-build",
+          "kind": "tutorial",
+          "title": "Build: Lock Screen and Control Center"
+        }
       ]
     },
     {
@@ -135,7 +243,11 @@
       "title": "Finish",
       "abstract": "",
       "pages": [
-        { "slug": "wrap-up", "kind": "article", "title": "Wrap-up" }
+        {
+          "slug": "wrap-up",
+          "kind": "article",
+          "title": "Wrap-up"
+        }
       ]
     }
   ]

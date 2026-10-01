@@ -1,7 +1,7 @@
 ---
 kind: tutorial
 chapter: 3
-title: Take a photo
+title: Build: take a photo
 abstract: Add a photo output, turn its delegate callbacks into async code, and take a photo with a capture button.
 estimatedMinutes: 45
 startBranch: chapter-02
