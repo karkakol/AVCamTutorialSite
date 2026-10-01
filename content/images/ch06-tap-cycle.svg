@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260">
+  <title>The two states of the camera: continuous modes at the center, and a lock on the tapped point until the subject area changes</title>
+  <defs>
+    <marker id="ch06-cycle-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <rect x="20" y="76" width="250" height="108" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="145" y="106" fill="currentColor" font-weight="600">Continuous</text>
+    <text x="145" y="128" fill="var(--muted)" font-size="13">continuous focus and exposure</text>
+    <text x="145" y="146" fill="var(--muted)" font-size="13">point (0.5, 0.5)</text>
+    <text x="145" y="164" fill="var(--muted)" font-size="13">monitoring off</text>
+
+    <rect x="450" y="76" width="250" height="108" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="575" y="106" fill="currentColor" font-weight="600">Locked on a point</text>
+    <text x="575" y="128" fill="var(--muted)" font-size="13">one operation, then locked</text>
+    <text x="575" y="146" fill="var(--muted)" font-size="13">the tapped point</text>
+    <text x="575" y="164" fill="var(--muted)" font-size="13">monitoring on</text>
+
+    <text x="360" y="26" fill="currentColor">Tap on the preview</text>
+    <text x="360" y="244" fill="currentColor">The subject area changes</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch06-cycle-arrow)">
+    <path d="M190 74 C240 30 480 30 530 74"/>
+    <path d="M530 186 C480 226 240 226 190 186"/>
+  </g>
+</svg>

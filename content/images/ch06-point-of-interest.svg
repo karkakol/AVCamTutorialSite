@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 310">
+  <title>A tap at a view point in a portrait preview, and the same place as a device point in the landscape image from the sensor</title>
+  <defs>
+    <marker id="ch06-point-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- The preview view in portrait -->
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="135" y="24" fill="currentColor" font-weight="600">Preview view, portrait</text>
+    <text x="135" y="44" fill="var(--muted)" font-size="13">points, origin at the top left</text>
+  </g>
+  <rect x="60" y="74" width="150" height="200" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <circle cx="60" cy="74" r="4" fill="var(--muted)"/>
+  <circle cx="210" cy="74" r="4" fill="var(--accent)"/>
+  <circle cx="105" cy="124" r="7" fill="var(--accent)"/>
+  <g font-family="inherit" font-size="13">
+    <text x="60" y="66" fill="var(--muted)">(0, 0)</text>
+    <text x="220" y="70" fill="var(--accent)">device (0, 0)</text>
+    <text x="135" y="150" fill="currentColor" text-anchor="middle">tap at (90, 100)</text>
+    <text x="135" y="296" fill="var(--muted)" text-anchor="middle">300 × 400 points</text>
+  </g>
+
+  <!-- The conversion -->
+  <g font-family="inherit" font-size="13" text-anchor="middle">
+    <text x="335" y="158" fill="currentColor">captureDevicePointConverted</text>
+    <text x="335" y="176" fill="currentColor">(fromLayerPoint:)</text>
+    <text x="335" y="218" fill="var(--muted)">rotation, crop, mirror</text>
+  </g>
+  <path d="M240 192 H430" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch06-point-arrow)"/>
+
+  <!-- The image from the sensor -->
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="580" y="24" fill="currentColor" font-weight="600">Image from the sensor, landscape</text>
+    <text x="580" y="44" fill="var(--muted)" font-size="13">0 to 1 on each axis</text>
+  </g>
+  <rect x="460" y="84" width="240" height="180" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch06-point-arrow)">
+    <path d="M474 98 H544"/>
+    <path d="M474 98 V158"/>
+  </g>
+  <circle cx="460" cy="84" r="4" fill="var(--accent)"/>
+  <circle cx="580" cy="174" r="4" fill="var(--muted)"/>
+  <circle cx="520" cy="210" r="7" fill="var(--accent)"/>
+  <g font-family="inherit" font-size="13">
+    <text x="460" y="74" fill="var(--accent)">(0, 0)</text>
+    <text x="700" y="284" fill="var(--muted)" text-anchor="end">(1, 1)</text>
+    <text x="552" y="103" fill="var(--muted)">x</text>
+    <text x="470" y="176" fill="var(--muted)">y</text>
+    <text x="592" y="170" fill="var(--muted)">(0.5, 0.5)</text>
+    <text x="592" y="187" fill="var(--muted)">the default</text>
+    <text x="520" y="238" fill="currentColor" text-anchor="middle">(0.25, 0.70)</text>
+  </g>
+</svg>

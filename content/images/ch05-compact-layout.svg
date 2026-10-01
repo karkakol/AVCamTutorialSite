@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420">
+  <title>The compact layout: a 3:4 viewfinder frame that is moved up by 44 points, with the toolbar in the black bar below it</title>
+  <defs>
+    <marker id="ch05-layout-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- The window of the app -->
+  <rect x="270" y="18" width="178" height="386" rx="22" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+
+  <!-- The viewfinder frame, 3:4 -->
+  <rect x="270" y="79" width="178" height="237" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)" stroke-width="2"/>
+  <g stroke="var(--accent)" stroke-opacity="0.45" stroke-width="1" fill="none">
+    <path d="M270 316 L330 232 L372 276 L404 244 L448 300"/>
+    <circle cx="408" cy="124" r="13"/>
+  </g>
+
+  <!-- The toolbar -->
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="286" y="337" width="22" height="22" rx="4"/>
+    <circle cx="359" cy="348" r="14"/>
+    <circle cx="359" cy="348" r="10" fill="currentColor" stroke="none"/>
+    <circle cx="421" cy="348" r="11"/>
+  </g>
+
+  <g font-family="inherit" font-size="14">
+    <text x="359" y="194" text-anchor="middle" fill="currentColor" font-weight="600">Viewfinder frame</text>
+    <text x="359" y="214" text-anchor="middle" fill="var(--muted)" font-size="13">3:4, as the photo</text>
+
+    <!-- Left labels -->
+    <text x="238" y="46" text-anchor="end" fill="currentColor">Black bar</text>
+    <text x="238" y="64" text-anchor="end" fill="var(--muted)" font-size="13">empty in this chapter</text>
+
+    <text x="238" y="344" text-anchor="end" fill="currentColor">Main toolbar</text>
+    <text x="238" y="362" text-anchor="end" fill="var(--muted)" font-size="13">80 points high</text>
+
+    <!-- Right labels -->
+    <text x="480" y="112" fill="currentColor">Width of the window</text>
+    <text x="480" y="130" fill="var(--muted)" font-size="13">height = width × 4 ÷ 3</text>
+
+    <text x="512" y="296" fill="currentColor">Moved up by 44 points</text>
+    <text x="512" y="314" fill="var(--muted)" font-size="13">from the center position</text>
+
+    <text x="512" y="384" fill="currentColor">bottomPadding</text>
+    <text x="512" y="402" fill="var(--muted)" font-size="13">space below the toolbar</text>
+  </g>
+
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+    <!-- The offset arrow -->
+    <path d="M492 322 L492 282" marker-end="url(#ch05-layout-arrow)"/>
+    <!-- The bottom padding bracket -->
+    <path d="M462 366 L470 366 L470 396 L462 396"/>
+    <path d="M470 381 L504 381"/>
+    <!-- Leader lines -->
+    <path d="M244 42 L266 42"/>
+    <path d="M244 348 L266 348"/>
+    <path d="M452 108 L474 108"/>
+  </g>
+</svg>

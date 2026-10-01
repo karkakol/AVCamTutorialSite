@@ -85,7 +85,51 @@ export function openRepo(siteRoot) {
       }
       return diffCache.get(key);
     },
+
+    /**
+     * The lines that `git diff start branch` removes from Swift files.
+     * A removed line whose text is also an added line of the same file is a moved line and is left out.
+     * @returns {Map<string, {text: string}[]> | null}
+     */
+    removedSwiftLines(start, branch) {
+      if (!this.hasBranch(start) || !this.hasBranch(branch)) return null;
+      const out = git(['diff', '--no-color', '--no-ext-diff', '-M', '--unified=0', start, branch, '--', '*.swift']);
+      return parseRemovedLines(out);
+    },
   };
+}
+
+function parseRemovedLines(diffText) {
+  const files = new Map();
+  let oldName = null;
+  let removed = [];
+  let added = new Set();
+  const flush = (newName) => {
+    // A deleted file has no new name; the page lists it in `uncovered:`.
+    const file = newName || oldName;
+    if (file && removed.length) {
+      files.set(file, removed.filter((l) => !added.has(l.text.trim())));
+    }
+  };
+  let newName = null;
+  for (const raw of diffText.split('\n')) {
+    if (raw.startsWith('diff --git')) {
+      flush(newName);
+      oldName = null; newName = null; removed = []; added = new Set();
+    } else if (raw.startsWith('--- ')) {
+      const name = unquote(raw.slice(4).trim());
+      oldName = name === '/dev/null' ? null : (name.startsWith('a/') ? name.slice(2) : name);
+    } else if (raw.startsWith('+++ ')) {
+      const name = unquote(raw.slice(4).trim());
+      newName = name === '/dev/null' ? null : (name.startsWith('b/') ? name.slice(2) : name);
+    } else if (raw.startsWith('-') && !raw.startsWith('---')) {
+      removed.push({ text: raw.slice(1).replace(/\r$/, '') });
+    } else if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      added.add(raw.slice(1).trim());
+    }
+  }
+  flush(newName);
+  return files;
 }
 
 function parseAddedLines(diffText) {

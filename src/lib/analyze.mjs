@@ -143,6 +143,35 @@ function analyzeCoverage(page, repo, missingBranches) {
     }
   }
 
+  // Removed lines: each Swift line that the chapter removes must be in a `remove` fence of that file.
+  const removed = repo.removedSwiftLines(page.startBranch, page.branch);
+  if (removed) {
+    const shown = new Map(); // file -> Set<trimmed text>
+    for (const section of page.sections) {
+      for (const item of section.items) {
+        if (item.type !== 'step' || !item.block || item.block.type !== 'code') continue;
+        for (const r of item.block.removes || []) {
+          const file = r.file || item.block.code.file;
+          if (!shown.has(file)) shown.set(file, new Set());
+          for (const t of r.lines) shown.get(file).add(String(t).trim());
+        }
+      }
+    }
+    for (const [file, lines] of removed) {
+      if (uncoveredFiles.has(file)) continue;
+      const have = shown.get(file) || new Set();
+      for (const l of lines) {
+        if (blank(l.text) || have.has(l.text.trim())) continue;
+        page.problems.push({
+          level: 'error',
+          line: 0,
+          where: 'removed lines',
+          message: `${file}: a line is removed between "${page.startBranch}" and "${page.branch}", but no "remove" fence shows it.\n      | ${l.text}`,
+        });
+      }
+    }
+  }
+
   // Each file in `uncovered:` must be explained on the page.
   const bodyText = page.source.replace(/^---[\s\S]*?\n---/, '');
   for (const file of page.uncovered) {

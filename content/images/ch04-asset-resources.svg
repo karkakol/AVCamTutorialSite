@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250">
+  <title>An asset is one item in the Photos library. It is made of one or more resources, and it has properties such as a location and an identifier.</title>
+  <rect x="16" y="16" width="688" height="218" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+  <text x="32" y="44" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">One asset (PHAsset)</text>
+  <text x="32" y="78" font-family="inherit" font-size="13" fill="var(--muted)">Resources: the files of the asset</text>
+  <text x="492" y="78" font-family="inherit" font-size="13" fill="var(--muted)">Properties</text>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="32" y="92" width="136" height="120" rx="10" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="184" y="92" width="136" height="120" rx="10" stroke-dasharray="6 4"/>
+    <rect x="336" y="92" width="136" height="120" rx="10" stroke-dasharray="6 4"/>
+    <rect x="492" y="92" width="196" height="120" rx="10"/>
+  </g>
+  <g font-family="inherit" font-size="15" font-weight="600" fill="currentColor" text-anchor="middle">
+    <text x="100" y="136">.photo</text>
+    <text x="252" y="136">.pairedVideo</text>
+    <text x="404" y="136">.video</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="100" y="160">the image file</text>
+    <text x="252" y="160">Live Photo movie</text>
+    <text x="404" y="160">a movie file</text>
+    <text x="252" y="186">chapter 7</text>
+    <text x="404" y="186">chapter 8</text>
+  </g>
+  <text x="100" y="186" font-family="inherit" font-size="13" fill="var(--accent)" text-anchor="middle">this chapter</text>
+  <g font-family="inherit" font-size="14" fill="currentColor">
+    <text x="508" y="124">location</text>
+    <text x="508" y="150">creation date</text>
+    <text x="508" y="176">local identifier</text>
+  </g>
+  <text x="508" y="200" font-family="inherit" font-size="13" fill="var(--muted)">also in the placeholder</text>
+</svg>

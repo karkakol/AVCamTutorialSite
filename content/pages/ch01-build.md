@@ -609,7 +609,16 @@ You also write a `Camera` protocol and a second model for Xcode previews, becaus
 ### Step
 Open `AVCamApp.swift`. Replace the header comment from the template with the header of the sample, and import `os`.
 
-Each file of the sample starts with a comment of this form. The `os` module contains the `Logger` type.
+Each file of the sample starts with a comment of this form. The `os` module contains the `Logger` type. The template header in your file shows your name and your date.
+
+```swift file=AVCam/AVCamApp.swift remove
+//
+//  AVCamApp.swift
+//  AVCam
+//
+//  Created by Karol Kakol on 01/10/2026.
+//
+```
 
 ```swift file=AVCam/AVCamApp.swift highlight=1-8
 /*

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400">
+  <title>The path of one photo through the media library actor: location, authorization, change block, fetch of the new asset, and thumbnail request. The thumbnail goes through a stream to the model and the thumbnail button.</title>
+  <defs>
+    <marker id="ch04-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="ch04-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <rect x="8" y="16" width="704" height="140" rx="12" fill="none" stroke="var(--accent)" stroke-width="2"/>
+  <text x="22" y="42" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">MediaLibrary actor: save(photo:)</text>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="18" y="64" width="124" height="76" rx="10"/>
+    <rect x="158" y="64" width="124" height="76" rx="10"/>
+    <rect x="298" y="64" width="124" height="76" rx="10"/>
+    <rect x="438" y="64" width="124" height="76" rx="10"/>
+    <rect x="578" y="64" width="124" height="76" rx="10"/>
+    <rect x="18" y="232" width="124" height="64" rx="10"/>
+    <rect x="290" y="232" width="270" height="64" rx="10"/>
+    <rect x="578" y="232" width="124" height="64" rx="10"/>
+    <rect x="578" y="328" width="124" height="60" rx="10"/>
+    <rect x="370" y="328" width="170" height="60" rx="10"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="80" y="84">1</text>
+    <text x="220" y="84">2</text>
+    <text x="360" y="84">3</text>
+    <text x="500" y="84">4</text>
+    <text x="640" y="84">5</text>
+  </g>
+  <g font-family="inherit" font-size="14" font-weight="600" fill="currentColor" text-anchor="middle">
+    <text x="80" y="104">Location</text>
+    <text x="220" y="104">Authorization</text>
+    <text x="360" y="104">Change block</text>
+    <text x="500" y="104">Fetch asset</text>
+    <text x="640" y="104">Thumbnail</text>
+    <text x="80" y="260">CameraModel</text>
+    <text x="425" y="260">Photos library</text>
+    <text x="640" y="260">thumbnails</text>
+    <text x="640" y="354">thumbnail</text>
+    <text x="455" y="354">ThumbnailButton</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="80" y="124">first update</text>
+    <text x="220" y="124">add-only</text>
+    <text x="360" y="124">creation request</text>
+    <text x="500" y="124">by placeholder ID</text>
+    <text x="640" y="124">256 x 256 image</text>
+    <text x="80" y="280">capturePhoto()</text>
+    <text x="425" y="280">a database that the system owns</text>
+    <text x="640" y="280">AsyncStream</text>
+    <text x="640" y="374">in CameraModel</text>
+    <text x="455" y="374">shows the image</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch04-arrow)">
+    <path d="M142 102 H155"/>
+    <path d="M282 102 H295"/>
+    <path d="M422 102 H435"/>
+    <path d="M562 102 H575"/>
+    <path d="M80 232 V143"/>
+    <path d="M360 140 V229"/>
+    <path d="M500 232 V143"/>
+  </g>
+  <g stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch04-arrow-accent)">
+    <path d="M640 140 V229"/>
+    <path d="M640 296 V325"/>
+    <path d="M578 358 H543"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="90" y="196">Photo data</text>
+    <text x="370" y="196">writes</text>
+    <text x="510" y="196">reads</text>
+    <text x="630" y="196" text-anchor="end" fill="var(--accent)">yields</text>
+  </g>
+</svg>
