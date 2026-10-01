@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340">
+  <title>How AVCam turns the delegate callbacks into async code: a continuation for the result, a stream for the progress, and a task that keeps the delegate alive</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="20" y="24" width="200" height="64" rx="10"/>
+    <rect x="500" y="24" width="200" height="64" rx="10"/>
+    <rect x="260" y="120" width="200" height="84" rx="10" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="20" y="252" width="200" height="64" rx="10"/>
+    <rect x="500" y="252" width="200" height="64" rx="10"/>
+  </g>
+  <g font-family="inherit" font-size="15" font-weight="600" fill="currentColor" text-anchor="middle">
+    <text x="120" y="52">capturePhoto()</text>
+    <text x="600" y="52">AVCapturePhotoOutput</text>
+    <text x="360" y="158">PhotoCaptureDelegate</text>
+    <text x="120" y="280">Progress task</text>
+    <text x="600" y="280">captureActivity</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="120" y="72">waits for one Photo</text>
+    <text x="600" y="72">sends the callbacks</text>
+    <text x="360" y="180">one object for each capture</text>
+    <text x="120" y="300">reads the activity stream</text>
+    <text x="600" y="300">published to the interface</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <path d="M600 88 V150 H463"/>
+    <path d="M260 150 H120 V91"/>
+    <path d="M260 176 H150 V249"/>
+    <path d="M220 296 H497"/>
+  </g>
+  <path d="M220 268 H360 V207" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arrow-accent)"/>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="612" y="116">callbacks</text>
+    <text x="130" y="118">resume: one Photo</text>
+    <text x="160" y="226">stream: many values</text>
+    <text x="430" y="288" text-anchor="middle">writes each value</text>
+    <text x="372" y="240" fill="var(--accent)">keeps the delegate alive</text>
+  </g>
+</svg>

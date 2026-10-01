@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 430">
+  <title>The architecture of AVCam: SwiftUI views and the camera model on the main actor; the capture service, the photo and movie capture objects, and the media library off the main actor.</title>
+  <defs>
+    <marker id="ch00-architecture-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="15" text-anchor="middle">
+    <rect x="8" y="8" width="704" height="180" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="24" y="32" fill="var(--muted)" font-size="13" text-anchor="start">Main actor</text>
+
+    <rect x="36" y="56" width="210" height="104" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="141" y="92" fill="currentColor" font-weight="600">SwiftUI views</text>
+    <text x="141" y="114" fill="var(--muted)" font-size="13">CameraView, CameraUI,</text>
+    <text x="141" y="133" fill="var(--muted)" font-size="13">CameraPreview</text>
+
+    <rect x="308" y="56" width="210" height="104" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="413" y="92" fill="currentColor" font-weight="600">CameraModel</text>
+    <text x="413" y="114" fill="var(--muted)" font-size="13">@Observable</text>
+    <text x="413" y="133" fill="var(--muted)" font-size="13">the state for the views</text>
+
+    <rect x="8" y="232" width="704" height="190" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="24" y="256" fill="var(--muted)" font-size="13" text-anchor="start">Off the main actor</text>
+
+    <rect x="36" y="286" width="210" height="104" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="141" y="322" fill="currentColor" font-weight="600">MediaLibrary</text>
+    <text x="141" y="344" fill="var(--muted)" font-size="13">actor</text>
+    <text x="141" y="363" fill="var(--muted)" font-size="13">saves to Photos</text>
+
+    <rect x="308" y="286" width="210" height="104" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="413" y="322" fill="currentColor" font-weight="600">CaptureService</text>
+    <text x="413" y="344" fill="var(--muted)" font-size="13">actor on the session queue</text>
+    <text x="413" y="363" fill="var(--muted)" font-size="13">owns the capture session</text>
+
+    <rect x="566" y="280" width="130" height="50" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="631" y="310" fill="currentColor">PhotoCapture</text>
+    <rect x="566" y="346" width="130" height="50" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="631" y="376" fill="currentColor">MovieCapture</text>
+
+    <text x="424" y="216" fill="var(--muted)" font-size="13" text-anchor="start">await</text>
+    <text x="196" y="216" fill="var(--muted)" font-size="13" text-anchor="end">await</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch00-architecture-arrow)">
+    <path d="M246 108 H306"/>
+    <path d="M413 160 V284"/>
+    <path d="M350 160 C350 230 200 220 200 284"/>
+    <path d="M518 322 C540 322 542 305 564 305"/>
+    <path d="M518 354 C540 354 542 371 564 371"/>
+  </g>
+</svg>

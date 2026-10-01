@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
+  <title>The capture pipeline of chapter 1: a camera, a device input, a capture session, and a preview layer. A photo output and a movie file output come in later chapters.</title>
+  <defs>
+    <marker id="ch01-pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="15" text-anchor="middle">
+    <rect x="8" y="95" width="116" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="66" y="126" fill="currentColor" font-weight="600">Camera</text>
+    <text x="66" y="147" fill="var(--muted)" font-size="13">AVCaptureDevice</text>
+
+    <rect x="150" y="95" width="148" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="224" y="126" fill="currentColor" font-weight="600">Device input</text>
+    <text x="224" y="147" fill="var(--muted)" font-size="13">AVCaptureDeviceInput</text>
+
+    <rect x="324" y="75" width="136" height="110" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="392" y="126" fill="currentColor" font-weight="600">Capture session</text>
+    <text x="392" y="147" fill="var(--muted)" font-size="13">AVCaptureSession</text>
+
+    <rect x="494" y="20" width="218" height="64" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="603" y="48" fill="currentColor" font-weight="600">Preview layer</text>
+    <text x="603" y="69" fill="var(--muted)" font-size="13">AVCaptureVideoPreviewLayer</text>
+
+    <rect x="494" y="98" width="218" height="64" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="603" y="126" fill="var(--muted)" font-weight="600">Photo output</text>
+    <text x="603" y="147" fill="var(--muted)" font-size="13">chapter 3</text>
+
+    <rect x="494" y="176" width="218" height="64" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="603" y="204" fill="var(--muted)" font-weight="600">Movie file output</text>
+    <text x="603" y="225" fill="var(--muted)" font-size="13">chapter 8</text>
+
+    <text x="360" y="282" fill="var(--muted)" font-size="13">Each arrow that leaves the session is a connection (AVCaptureConnection). Dashed parts come later.</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch01-pipeline-arrow)">
+    <path d="M124 130 H148"/>
+    <path d="M298 130 H322"/>
+    <path d="M460 110 C478 110 474 52 492 52"/>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" stroke-dasharray="6 5" marker-end="url(#ch01-pipeline-arrow)">
+    <path d="M460 130 H492"/>
+    <path d="M460 150 C478 150 474 208 492 208"/>
+  </g>
+</svg>

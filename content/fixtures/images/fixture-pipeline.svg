@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220">
+  <title>The capture pipeline: a camera input, a session, and two outputs</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="15" text-anchor="middle">
+    <rect x="20" y="80" width="170" height="60" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="105" y="115" fill="currentColor">Camera input</text>
+    <rect x="275" y="60" width="170" height="100" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="360" y="106" fill="currentColor" font-weight="600">Capture session</text>
+    <text x="360" y="128" fill="var(--muted)" font-size="13">connects the parts</text>
+    <rect x="530" y="30" width="170" height="60" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="615" y="65" fill="currentColor">Photo output</text>
+    <rect x="530" y="130" width="170" height="60" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="615" y="165" fill="currentColor">Preview layer</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <path d="M190 110 H273"/>
+    <path d="M445 90 C485 90 490 60 528 60"/>
+    <path d="M445 130 C485 130 490 160 528 160"/>
+  </g>
+</svg>

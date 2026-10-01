@@ -1,0 +1,19 @@
+{
+  "name": "avcam-tutorial-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static tutorial site: rebuild the AVCam camera sample chapter by chapter.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node src/build.mjs",
+    "dev": "node src/dev.mjs",
+    "validate": "node src/validate.mjs"
+  },
+  "devDependencies": {
+    "markdown-it": "^14.3.2",
+    "shiki": "^3.23.0"
+  }
+}

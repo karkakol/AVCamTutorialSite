@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 330">
+  <title>Three physical back cameras and the three virtual devices that group them</title>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="40" y="26" text-anchor="start" fill="var(--muted)" font-size="13">Virtual devices: one device object that uses two or three cameras</text>
+
+    <rect x="40" y="40" width="640" height="42" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="360" y="66" fill="currentColor"><tspan font-weight="600">Triple camera</tspan><tspan fill="var(--muted)" font-size="13">  .builtInTripleCamera</tspan></text>
+
+    <rect x="40" y="94" width="420" height="42" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="250" y="120" fill="currentColor"><tspan font-weight="600">Dual wide camera</tspan><tspan fill="var(--muted)" font-size="13">  .builtInDualWideCamera</tspan></text>
+
+    <rect x="260" y="148" width="420" height="42" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="470" y="174" fill="currentColor"><tspan font-weight="600">Dual camera</tspan><tspan fill="var(--muted)" font-size="13">  .builtInDualCamera</tspan></text>
+
+    <text x="40" y="222" text-anchor="start" fill="var(--muted)" font-size="13">Physical devices: one lens and one sensor each</text>
+
+    <rect x="40" y="236" width="200" height="74" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="140" y="268" fill="currentColor" font-weight="600">Ultra-wide</text>
+    <text x="140" y="290" fill="var(--muted)" font-size="13">.builtInUltraWideCamera</text>
+
+    <rect x="260" y="236" width="200" height="74" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="360" y="268" fill="currentColor" font-weight="600">Wide</text>
+    <text x="360" y="290" fill="var(--muted)" font-size="13">.builtInWideAngleCamera</text>
+
+    <rect x="480" y="236" width="200" height="74" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="580" y="268" fill="currentColor" font-weight="600">Telephoto</text>
+    <text x="580" y="290" fill="var(--muted)" font-size="13">.builtInTelephotoCamera</text>
+  </g>
+</svg>

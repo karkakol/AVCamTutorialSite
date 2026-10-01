@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250">
+  <title>The path of a capture activity value from the photo capture delegate to the interface</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="180" y="28">for await</text>
+    <text x="360" y="28">assign(to:)</text>
+    <text x="540" y="28">.values</text>
+  </g>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="15" y="44" width="150" height="76" rx="10"/>
+    <rect x="195" y="44" width="150" height="76" rx="10"/>
+    <rect x="375" y="44" width="150" height="76" rx="10"/>
+    <rect x="555" y="44" width="150" height="76" rx="10" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="375" y="184" width="150" height="50" rx="10"/>
+    <rect x="555" y="184" width="150" height="50" rx="10"/>
+  </g>
+  <g font-family="inherit" font-size="13" font-weight="600" fill="currentColor" text-anchor="middle">
+    <text x="90" y="78">PhotoCaptureDelegate</text>
+    <text x="270" y="78">PhotoCapture</text>
+    <text x="450" y="78">CaptureService</text>
+    <text x="630" y="78">CameraModel</text>
+    <text x="450" y="214">flashScreen()</text>
+    <text x="630" y="214">captureActivity</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="90" y="100">activity stream</text>
+    <text x="270" y="100">@Published</text>
+    <text x="450" y="100">@Published</text>
+    <text x="630" y="100">observeState()</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <path d="M165 82 H193"/>
+    <path d="M345 82 H373"/>
+    <path d="M525 82 H553"/>
+    <path d="M650 120 V182"/>
+    <path d="M590 120 C590 160 450 140 450 182"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="438" y="166" text-anchor="end">willCapture is true</text>
+    <text x="660" y="156">other</text>
+    <text x="660" y="172">values</text>
+  </g>
+</svg>

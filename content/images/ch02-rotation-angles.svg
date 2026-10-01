@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240">
+  <title>A rotation coordinator gives a preview angle to the preview layer and a capture angle to the outputs</title>
+  <defs>
+    <marker id="ch02-rotation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <rect x="20" y="70" width="200" height="100" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="120" y="108" fill="currentColor" font-weight="600">Rotation coordinator</text>
+    <text x="120" y="130" fill="var(--muted)" font-size="13">one camera</text>
+    <text x="120" y="148" fill="var(--muted)" font-size="13">+ one preview layer</text>
+
+    <rect x="480" y="20" width="220" height="80" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="590" y="52" fill="currentColor" font-weight="600">Preview layer</text>
+    <text x="590" y="74" fill="var(--muted)" font-size="13">connection (this chapter)</text>
+
+    <rect x="480" y="140" width="220" height="80" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="590" y="172" fill="currentColor" font-weight="600">Photo and movie outputs</text>
+    <text x="590" y="194" fill="var(--muted)" font-size="13">connections (chapter 3)</text>
+
+    <text x="350" y="44" fill="currentColor">Preview angle</text>
+    <text x="350" y="64" fill="var(--muted)" font-size="13">level on the screen</text>
+    <text x="350" y="196" fill="currentColor">Capture angle</text>
+    <text x="350" y="216" fill="var(--muted)" font-size="13">level relative to gravity</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch02-rotation-arrow)">
+    <path d="M220 100 C300 100 300 76 478 62"/>
+    <path d="M220 140 C300 140 300 166 478 180"/>
+  </g>
+</svg>

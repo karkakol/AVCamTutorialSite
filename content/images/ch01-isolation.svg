@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340">
+  <title>The views and the camera model run on the main actor. The capture service runs on the session queue. The model calls the service with await, and the preview source carries the session to the preview view.</title>
+  <defs>
+    <marker id="ch01-isolation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="15" text-anchor="middle">
+    <rect x="8" y="8" width="704" height="140" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="24" y="32" fill="var(--muted)" font-size="13" text-anchor="start">Main actor (the main thread)</text>
+
+    <rect x="28" y="52" width="150" height="72" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="103" y="84" fill="currentColor" font-weight="600">AVCamApp</text>
+    <text x="103" y="105" fill="var(--muted)" font-size="13">.task</text>
+
+    <rect x="238" y="52" width="170" height="72" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="323" y="84" fill="currentColor" font-weight="600">CameraModel</text>
+    <text x="323" y="105" fill="var(--muted)" font-size="13">status</text>
+
+    <rect x="522" y="52" width="170" height="72" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="607" y="84" fill="currentColor" font-weight="600">PreviewView</text>
+    <text x="607" y="105" fill="var(--muted)" font-size="13">the preview layer</text>
+
+    <text x="208" y="78" fill="var(--muted)" font-size="13">start()</text>
+
+    <rect x="8" y="192" width="704" height="140" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="24" y="216" fill="var(--muted)" font-size="13" text-anchor="start">Session queue (a serial dispatch queue)</text>
+
+    <rect x="168" y="236" width="310" height="76" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="323" y="268" fill="currentColor" font-weight="600">CaptureService (actor)</text>
+    <text x="323" y="290" fill="var(--muted)" font-size="13">isAuthorized, setUpSession(), startRunning()</text>
+
+    <text x="350" y="176" fill="var(--muted)" font-size="13" text-anchor="start">await</text>
+    <text x="596" y="216" fill="var(--muted)" font-size="13">previewSource</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch01-isolation-arrow)">
+    <path d="M178 88 H236"/>
+    <path d="M323 124 V234"/>
+    <path d="M478 274 C560 274 607 220 607 126"/>
+  </g>
+</svg>
