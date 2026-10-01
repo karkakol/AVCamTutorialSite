@@ -27,7 +27,7 @@
   <g font-family="inherit" font-size="13" text-anchor="middle">
     <text x="335" y="158" fill="currentColor">captureDevicePointConverted</text>
     <text x="335" y="176" fill="currentColor">(fromLayerPoint:)</text>
-    <text x="335" y="218" fill="var(--muted)">rotation, crop, mirror</text>
+    <text x="335" y="218" fill="var(--muted)">frame size, video gravity</text>
   </g>
   <path d="M240 192 H430" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch06-point-arrow)"/>
 
