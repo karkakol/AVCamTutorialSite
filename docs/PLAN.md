@@ -54,9 +54,9 @@ Folders in the site repository:
 - Chapter 10 connects `CaptureService.isInterrupted` to `CameraModel.status` (`.interrupted`). The Apple sample publishes the value but never shows it.
 - Anything else: avoid it. If you must deviate, write the reason in `notes/chapter-NN.md`.
 
-## Scope (decision of 1 Oct 2026)
+## Scope
 
-Build chapters 1 to 3 first (code, pages, validation at the end of each chapter). Then stop and review with the user before chapters 4 to 13. Keep agent use low: the user watches the credit use.
+All 13 chapters are built (code, pages, validation). The user first asked for chapters 1 to 3 only, then asked for all chapters on 1 Oct 2026.
 
 ## Chapters
 

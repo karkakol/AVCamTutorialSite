@@ -33,7 +33,7 @@ You build this app in 13 chapters. Each chapter adds one feature. The app builds
 | 13 | Lock Screen and Control Center | The app starts from the Lock Screen and from Control Center. |
 
 > [!NOTE]
-> Chapters 1 to 3 are ready. The other chapters come later. The overview page shows which pages are not written yet.
+> All 13 chapters are ready. Chapters 6, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
 
 ## How a chapter works
 

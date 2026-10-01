@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420">
+  <title>The control performs the capture intent. iOS starts the app or the capture extension. The app and the extension read and write one app context that iOS stores.</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="260" y="16" width="200" height="60" rx="10"/>
+    <rect x="260" y="124" width="200" height="60" rx="10"/>
+    <rect x="20" y="232" width="200" height="64" rx="10"/>
+    <rect x="500" y="232" width="200" height="64" rx="10"/>
+    <rect x="240" y="324" width="240" height="80" rx="10" stroke="var(--accent)" stroke-width="2"/>
+  </g>
+  <g font-family="inherit" font-size="15" font-weight="600" fill="currentColor" text-anchor="middle">
+    <text x="360" y="42">Control</text>
+    <text x="360" y="150">iOS</text>
+    <text x="120" y="260">AVCam app</text>
+    <text x="600" y="260">Capture extension</text>
+    <text x="360" y="352">App context</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
+    <text x="360" y="62">the "Open AVCam" button</text>
+    <text x="360" y="170">selects what to start</text>
+    <text x="120" y="280">CameraModel, CameraView</text>
+    <text x="600" y="280">the same model and views</text>
+    <text x="360" y="372">one CameraState value</text>
+    <text x="360" y="390">stored by iOS, 4 kB maximum</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <path d="M360 76 V121"/>
+    <path d="M260 154 H120 V229"/>
+    <path d="M460 154 H600 V229"/>
+  </g>
+  <g stroke="var(--accent)" stroke-width="1.5" fill="none" marker-start="url(#arrow-accent)" marker-end="url(#arrow-accent)">
+    <path d="M120 299 V364 H237"/>
+    <path d="M600 299 V364 H483"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="372" y="104">performs AVCamCaptureIntent</text>
+    <text x="132" y="204">starts the app</text>
+    <text x="588" y="204" text-anchor="end">starts the extension</text>
+    <text x="132" y="338" fill="var(--accent)">reads, writes</text>
+    <text x="588" y="338" text-anchor="end" fill="var(--accent)">reads, writes</text>
+  </g>
+</svg>

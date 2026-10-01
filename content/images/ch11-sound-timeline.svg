@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 230">
+  <title>The order of the work in the event closure of AVCam in photo mode: the closure waits for the capture and the save, and plays the sound after that, inside a limit of 15 seconds</title>
+  <defs>
+    <marker id="ch11-timeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14">
+    <path d="M40 120 L690 120" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch11-timeline-arrow)"/>
+    <text x="690" y="142" fill="var(--muted)" font-size="13" text-anchor="end">time</text>
+
+    <circle cx="70" cy="120" r="6" fill="var(--accent)"/>
+    <text x="40" y="34" fill="currentColor" font-weight="600">Stem click ends</text>
+    <text x="40" y="54" fill="var(--muted)" font-size="13">the event has the phase .ended</text>
+    <path d="M70 62 L70 112" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+
+    <rect x="82" y="98" width="366" height="44" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="265" y="117" fill="currentColor" text-anchor="middle">await camera.capturePhoto()</text>
+    <text x="265" y="135" fill="var(--muted)" font-size="13" text-anchor="middle">capture, then save to Photos</text>
+
+    <circle cx="460" cy="120" r="6" fill="var(--accent)"/>
+    <text x="460" y="34" fill="currentColor" font-weight="600" text-anchor="middle">event.play(sound)</text>
+    <text x="460" y="54" fill="var(--muted)" font-size="13" text-anchor="middle">the person hears the sound here</text>
+    <path d="M460 62 L460 112" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+
+    <path d="M70 176 L640 176" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+    <path d="M70 168 L70 184" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+    <path d="M640 168 L640 184" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+    <text x="355" y="204" fill="var(--muted)" font-size="13" text-anchor="middle">15 seconds: after this limit, play(_:) does nothing</text>
+  </g>
+</svg>
