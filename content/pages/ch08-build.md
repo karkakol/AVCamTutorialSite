@@ -484,7 +484,7 @@ In `startMonitoringDuration()`, start a timer that reads the recorded duration a
 [`Timer.publish(every:on:in:)`](https://developer.apple.com/documentation/foundation/timer/publish(every:tolerance:on:in:options:)) makes a publisher that fires on the main run loop. The `.common` mode keeps the timer active while the person touches a control. `autoconnect()` starts the timer when `sink` subscribes. `recordedDuration` is a `CMTime` value, and its `seconds` property gives a number for the activity.
 
 > [!NOTE]
-> The timer closure runs on the main thread. All other code of this class runs on the queue of the capture service actor. This is the design of the Apple sample. The concepts page tells you more.
+> The timer closure runs on the main thread. The capture service actor calls this class from its session queue. This is the design of the Apple sample. The concepts page tells you more.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=4-11
     // Starts a timer to update the recording time.
@@ -827,7 +827,7 @@ In `observeOutputServices()`, merge the activity publishers of the photo service
 ### Step
 Below `capturePhoto(with:)`, add the `startRecording()` method and the `stopRecording()` method.
 
-The two methods only send the call to the movie service. They are methods of the actor, so the calls run on the session queue, and the model calls them with `await`. `stopRecording()` returns when the delegate has the complete file.
+The two methods only send the call to the movie service. They are methods of the actor, so they start on the session queue, and the model calls them with `await`. `stopRecording()` returns when the delegate has the complete file.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-11,13-16
     // MARK: - Photo capture
@@ -1194,7 +1194,7 @@ In the `Views` group, create a group with the name `Controls`. In it, create the
 
 The view is a segmented `Picker` with a binding to `camera.captureMode`. It is disabled during a recording, because a mode change removes the movie output and thus ends the recording.
 
-The [`onChange(of:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) modifier does the swipe. A swipe to the right selects the next mode, and a swipe to the left selects the mode before. The `guard` statement keeps the index in the list. The closure runs only when the direction changes its value. With two modes, that is sufficient: a second swipe in the same direction has no mode to go to.
+The [`onChange(of:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) modifier does the swipe. A swipe to the right selects the next mode, and a swipe to the left selects the mode before. The `guard` statement keeps the index in the list. The closure runs only when the direction changes its value. With two modes, that is sufficient for swipes only: a second swipe in the same direction has no mode to go to. But after the person changes the mode with the picker, a swipe in the same direction as the last swipe has no effect.
 
 ```swift file=AVCam/Views/Controls/CaptureModeView.swift new
 /*

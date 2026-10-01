@@ -138,7 +138,7 @@ AVCam uses a small part of the device API. This is the full map.
 
 | Device type | Kind | What it is |
 |---|---|---|
-| [`.builtInWideAngleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinwideanglecamera) | Physical | The general camera. Each iPhone and iPad has one on the back and one on the front. |
+| [`.builtInWideAngleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinwideanglecamera) | Physical | The general camera. An iPhone or iPad usually has one on the back and one on the front. |
 | [`.builtInUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinultrawidecamera) | Physical | The camera with the short focal length (the "0.5x" camera). |
 | [`.builtInTelephotoCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintelephotocamera) | Physical | The camera with the long focal length. |
 | [`.builtInDualCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualcamera) | Virtual | Wide and telephoto. It can supply depth. |
@@ -217,7 +217,7 @@ Other limits of the simple design:
 - **A write to `userPreferredCamera` for each camera change.** Write it only for a selection that the person made.
 - **No observation of `systemPreferredCamera`.** The app then ignores a camera that the person connects.
 - **No initial rotation angle.** KVO tells you about changes that occur after you start to observe. Apply the current angle one time when you create the coordinator.
-- **Angles from `UIDevice.orientation`.** This does not work when the device lies flat, with an external camera, or in a window that is not full screen on iPad. Use the coordinator.
+- **Angles from `UIDevice.orientation`.** This does not work when the device lies flat or with an external camera. Use the coordinator.
 - **One coordinator for all cameras.** After a switch, the old coordinator still calculates angles for the old camera.
 
 > [!IMPORTANT]

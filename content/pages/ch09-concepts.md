@@ -103,7 +103,7 @@ The `supportedColorSpaces` property of a format lists what the format permits. T
 
 Usually you do not set the color space. The session has a property, [`automaticallyConfiguresCaptureDeviceForWideColor`](https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyconfigurescapturedeviceforwidecolor), which is `true` by default. With this value, the session selects the color space. If you set `activeColorSpace` yourself, set this property to `false` first. If you do not, the session can undo your selection, also when the preset is `.inputPriority`.
 
-When the camera records a 10-bit HLG BT.2020 format into a movie, the movie also contains **Dolby Vision** metadata for each frame. This is automatic. No capture API turns it on or off.
+When the camera records a 10-bit HLG BT.2020 format into a movie, the movie also contains **Dolby Vision** metadata for each frame. With the movie file output, this is automatic. The movie file output has no property that turns it on or off.
 
 ### Two features with the name "HDR video"
 
@@ -114,7 +114,7 @@ AVFoundation uses the words "HDR video" for two different features. This is a fr
 | API | [`isVideoHDRSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/isvideohdrsupported) on the format, [`isVideoHDREnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvideohdrenabled) on the device | A 10-bit format with the HLG BT.2020 color space |
 | How it works | The sensor runs at two times the frame rate. The system merges a dark frame and a normal frame into one frame. | The camera stores more levels, with the HLG transfer function and the BT.2020 primaries. |
 | On and off | A switch on the device. By default the system decides ([`automaticallyAdjustsVideoHDREnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/automaticallyadjustsvideohdrenabled) is `true`). | No switch. It is a property of the format. To turn it off, you select a different format. |
-| The movie | A normal 8-bit movie with better highlights | A 10-bit HEVC movie with Dolby Vision metadata |
+| The movie | A standard movie with better highlights. It is not a 10-bit HDR movie. | A 10-bit HEVC movie with Dolby Vision metadata |
 
 The two features do not combine. For a 10-bit format that supports only HLG BT.2020, `isVideoHDRSupported` is always `false`, and the system ignores `isVideoHDREnabled` while the color space is HLG BT.2020.
 
@@ -212,7 +212,7 @@ The format list and the properties around it give access to much more than this 
 | Capability | How you get it | Since | In this tutorial |
 |---|---|---|---|
 | Constant frame rate | Set the two frame durations to the same value. | | Not in AVCam |
-| Slow motion | Select a format with a high rate (120 or 240 frames in a second on many iPhone models) through `activeFormat`, then set the two frame durations. The movie is a normal movie with many frames. "Slow" is a decision at playback. | | Not in AVCam |
+| Slow motion | Select a format with a high maximum rate (for example 120 or 240 frames in a second, if the camera has such a format) through `activeFormat`, then set the two frame durations. This tutorial did not verify the result. The movie is probably a normal movie with many frames, and "slow" is a decision at playback. | | Not in AVCam |
 | Automatic frame rate | [`isAutoVideoFrameRateEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isautovideoframerateenabled): the device makes the rate lower in low light, for example from 30 to 24. | 18 | Not in AVCam |
 | Locked frame rate and external sync | [`activeLockedVideoFrameDuration`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/activelockedvideoframeduration) on the input, for productions with more than one camera. | 26 | Not in AVCam |
 | Low light video noise reduction | [`isLowLightVideoNoiseReductionEnabled`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/islowlightvideonoisereductionenabled) on the connection. Automatic by default for a movie file output. | 27 | Not in AVCam |
@@ -224,7 +224,7 @@ The format list and the properties around it give access to much more than this 
 | HEVC | The output settings of the movie output. | | Chapter 8 |
 | ProRes | When `availableVideoCodecTypes` of the movie output contains a ProRes type for the active format, pass it in the output settings. The data rates are very high. | | Not in AVCam |
 | ProRes RAW | The codec types `.proResRAW` and `.proResRAWHQ`. Stabilization gives only metadata. | 26 | Not in AVCam |
-| External storage | [`AVExternalStorageDevice`](https://developer.apple.com/documentation/avfoundation/avexternalstoragedevice): record directly to a USB-C drive. | 17 | Not in AVCam |
+| External storage | [`AVExternalStorageDevice`](https://developer.apple.com/documentation/avfoundation/avexternalstoragedevice): record directly to an external storage device. | 17 | Not in AVCam |
 | Pro Video Storage | [`AVProVideoStorage`](https://developer.apple.com/documentation/avfoundation/avprovideostorage): space that the system prepares for constant writes at a high data rate. | 27 | Not in AVCam |
 
 **Other video features**
@@ -243,7 +243,7 @@ The format list and the properties around it give access to much more than this 
 > [!NOTE]
 > The research for this tutorial found no capture API with the name "Action mode" in the iOS 27.1 SDK. The public tools for a stable picture are the stabilization modes of the connection.
 
-Most of these features have the same structure as HDR in this chapter. First you ask the format (or the output) if it supports the feature. Then you select a format that does. Then you turn the feature on. A format with a high frame rate frequently does not support HDR, some stabilization modes, or large photos. You must examine each format.
+Most of these features have the same structure as HDR in this chapter. First you ask the format (or the output) if it supports the feature. Then you select a format that does. Then you turn the feature on. A format with a high frame rate does not always support HDR, all stabilization modes, or large photos. You must examine each format.
 
 ## Why AVCam does it this way
 

@@ -16,7 +16,7 @@ The app does not save the photo in this chapter. Chapter 4 saves it to the Photo
 
 ## Describe a capture
 
-The capture code runs on the capture service actor. The views run on the main actor. In this section, you define the small types that carry the state of a capture between these two sides.
+The capture service actor owns the capture code. The views run on the main actor. In this section, you define the small types that carry the state of a capture between these two sides.
 
 You also define the `OutputService` protocol. It is the common interface of each object that manages a capture output. The photo service adopts it in this chapter. The movie service adopts it in chapter 8.
 
@@ -555,7 +555,7 @@ The rest of the app wants one simple call: `let photo = try await capturePhoto()
 ### Step
 In the `PhotoCapture` class, add the `monitorProgress(of:isolation:)` method with an empty task.
 
-The `isolation` parameter is from the Apple sample. With the default value `#isolation`, the method gets the actor of its caller, so that the task can run on that actor. The concepts page tells you what a test found about this parameter.
+The `isolation` parameter is from the Apple sample. The default value `#isolation` has the purpose to give the method the actor of its caller, so that the task can run on that actor. The concepts page tells you what a test found about this parameter.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-11
         return photoSettings
@@ -1373,7 +1373,7 @@ struct CameraView<CameraModel: Camera>: View {
 ### Step
 Build and run the app. Open the debug console in Xcode, and tap the capture button in the center of the toolbar.
 
-The preview flashes for a moment. The flash is very short, so it is easy to miss. The console shows the size of the photo data. In the Simulator with SimCam, the photo is a 640 x 480 JPEG file of approximately 50,000 bytes. On a real iPhone, the photo is a HEIF file at the largest size that the camera supports, so the number is much larger.
+The preview flashes for a moment. The flash is very short, so it is easy to miss. The console shows the size of the photo data. In the Simulator with SimCam, the photo is a 640 x 480 JPEG file of approximately 50,000 bytes. On a real iPhone, the app asks for a HEIF file at the largest size that the camera supports, so the number is much larger. This tutorial did not verify the result on a real iPhone.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button

@@ -24,7 +24,7 @@ To change a setting of a device, you always do four operations:
 3. Set the value.
 4. Unlock the device.
 
-The setting stays after you unlock the device. The lock protects the change. It does not hold the value.
+The setting stays when you unlock the device. The lock protects the change. After the unlock, the system can change the value again, for example when a one-time focus operation is complete.
 
 ### The configuration lock
 
@@ -88,7 +88,7 @@ A tap gives you a point in the coordinates of a view: points, with the origin at
 - It **scales and crops** the video to fill or fit the layer, as the video gravity of the layer says.
 - It can **mirror** the video, as it usually does for a front camera.
 
-You could write this calculation yourself, but you would write it wrong for one of the cases. The preview layer knows all three operations, so it does the conversion for you. [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) changes a point of the layer into a device point. [`layerPointConverted(fromCaptureDevicePoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/layerpointconverted(fromcapturedevicepoint:)) goes in the other direction. You use the second method when you want to draw something on the preview at a device point.
+You could write this calculation yourself, but you would write it wrong for one of the cases. The preview layer does the conversion for you. The SDK header says that the conversion uses the frame size and the video gravity of the layer, and that a device point refers to the image that is not rotated. The header does not mention the mirror state, and this tutorial did not test the conversion with a front camera. [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) changes a point of the layer into a device point. [`layerPointConverted(fromCaptureDevicePoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/layerpointconverted(fromcapturedevicepoint:)) goes in the other direction. You use the second method when you want to draw something on the preview at a device point.
 
 In AVCam, the preview layer is the backing layer of the preview view. Thus a point of the view is also a point of the layer, and the conversion is one line:
 
@@ -245,7 +245,7 @@ The limits of the simple design:
 - **No `defer` for the unlock.** Nothing between the lock and the unlock can throw a Swift error, so the unlock always runs. If you add a throwing call there, the device stays locked. In your own code, write `defer { device.unlockForConfiguration() }` immediately after the lock.
 - **The settings do not move to the next camera.** The modes and the points belong to one device object. After a camera switch, the new camera has its own state.
 - **The layer is read on the session queue.** The capture service calls the conversion method of the preview layer from its own queue. The layer is an interface object, and interface objects belong to the main thread. The sample does it in this way, and this tutorial follows the sample. An alternative is to convert the point in the view and to send a device point to the model.
-- **Errors of the automatic path are discarded.** The notification loop calls the method with `try?`. If the lock fails there, the camera stays locked on the tapped point until the next tap.
+- **Errors of the automatic path are discarded.** The notification loop calls the method with `try?`. If the lock fails there, the camera stays locked on the tapped point until the next notification or the next tap.
 
 ## Common mistakes
 

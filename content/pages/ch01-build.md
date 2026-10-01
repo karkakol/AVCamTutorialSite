@@ -146,7 +146,7 @@ enum CameraError: Error {
 ### Step
 Create a group with the name `Views`. In it, create the file `CameraPreview.swift`, and replace its contents with the header comment and the imports.
 
-The `@preconcurrency` attribute tells the compiler to accept AVFoundation types that are not marked as `Sendable`. Without it, you get warnings when a capture object goes from one actor to a different actor.
+The `@preconcurrency` attribute tells the compiler to accept AVFoundation types that are not marked as `Sendable`. Without it, you get a warning later in this file, because a `Sendable` structure stores an `AVCaptureSession`.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=1-9
 /*
@@ -253,7 +253,7 @@ The project does not compile at this time. `CameraPreview` does not have the met
 ### Step
 In `CameraPreview`, add the nested `PreviewView` class with its two initializers.
 
-`PreviewView` is the UIKit view, and it is the preview target. UIKit makes the `init(coder:)` initializer necessary for each `UIView` subclass. The app never calls it.
+`PreviewView` is the UIKit view, and it is the preview target. The `init(coder:)` initializer is necessary for a `UIView` subclass that has its own initializer. The app never calls it.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=7-19,21
     private let source: PreviewSource
@@ -374,7 +374,7 @@ The service is an actor with a special property: it runs on its own serial dispa
 ### Step
 In the `AVCam` group, create the file `CaptureService.swift`, and replace its contents with the imports and an empty actor.
 
-Camera calls can be slow, and a session is not made for calls from many threads at the same time. An actor runs its code away from the main thread, and it runs only one call at a time. The compiler checks this.
+Camera calls can be slow, and it is safer not to call a session from many threads at the same time. An actor runs its code away from the main thread, and it runs only one call at a time. The compiler checks this.
 
 ```swift file=AVCam/CaptureService.swift highlight=1-14
 /*
@@ -711,7 +711,7 @@ final class CameraModel: Camera {
 ### Step
 In the class, add the status, the preview source, the capture service, and an empty initializer.
 
-`private(set)` lets the views read the status, but only the model can change it. `previewSource` passes the source of the capture service to the views. Later chapters put code in the initializer.
+`private(set)` lets the views read the status, but only the model can change it. `previewSource` passes the source of the capture service to the views. The initializer stays empty in all chapters, as in the sample.
 
 ```swift file=AVCam/CameraModel.swift highlight=3-14
 final class CameraModel: Camera {
@@ -985,7 +985,7 @@ A camera app uses the full screen for the picture. The clock and the battery sym
 ### Step
 Add a `task` modifier that starts the camera when the view appears.
 
-The task is the first async context of the app, so it is the correct location for `await camera.start()`. At this time, SwiftUI has already created the preview view and connected it to the session.
+The task is the first async context of the app, so it is the correct location for `await camera.start()`. At this time, SwiftUI has already created the preview view. The view gives the session to its layer in a task on the main actor, which normally runs before the session setup.
 
 ```swift file=AVCam/AVCamApp.swift highlight=5-8
     var body: some Scene {

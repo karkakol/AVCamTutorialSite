@@ -14,7 +14,8 @@ The user set two looping videos as sources and wants to keep them: `~/Desktop/ba
 
 | Feature | Result in Simulator with SimCam |
 |---|---|
-| Camera permission prompt, `AVCaptureSession` start | Works. |
+| `AVCaptureSession` start | Works. |
+| Camera permission prompt | NOT shown. SimCam skips the permission system: `simctl privacy revoke camera` has no effect and no alert appears (found by the chapter 1 code agent). The denied state can be seen only when the app starts without SimCam, or on a real device. |
 | `AVCaptureVideoPreviewLayer` live preview | Works. For about 2 seconds after launch the preview shows the text "Waiting for SimCam...". |
 | Device discovery, back and front cameras, camera switch | Works. The front and back cameras show their own source. |
 | `AVCapturePhotoOutput` photo capture | Works. The delegate callbacks arrive and the photo saves to Photos. The file is a 640 x 480 JPEG with no orientation metadata (not HEIC, not full resolution). |

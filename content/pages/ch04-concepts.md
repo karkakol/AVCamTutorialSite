@@ -77,7 +77,7 @@ After `performChanges` returns, the app uses this identifier to get the asset wi
 
 ### The thumbnail
 
-A camera app shows a small image of the last photo. AVCam asks the library for it. [`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image of an asset at the size that you want, with [`requestImage(for:targetSize:contentMode:options:resultHandler:)`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)). AVCam asks for 256 x 256 pixels. The library does not load the full photo into the memory of your app.
+A camera app shows a small image of the last photo. AVCam asks the library for it. [`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image of an asset at the size that you want, with [`requestImage(for:targetSize:contentMode:options:resultHandler:)`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)). AVCam asks for 256 x 256 pixels. Your app gets a small image, not the full photo.
 
 The result comes in a closure, and the closure can run more than one time. With the default options, the image manager can give a fast image of low quality first, and the final image later.
 
@@ -96,7 +96,7 @@ Photos shows where a photo was made. AVCam gets the position from Core Location 
 
 Then the app reads one value from `CLLocationUpdate.liveUpdates()`. This is an asynchronous sequence of location updates. AVCam takes the first update and stops.
 
-The `location` property of the request sets the location of the asset in the library. It does not write GPS data into the image file.
+The `location` property of the request sets the location of the asset in the library. It is a property of the asset. It probably does not write GPS data into the image file, but this tutorial did not verify that.
 
 This design has a cost. `save(photo:)` waits for the location before it starts the change block. Thus each save starts later, and the photo data stays in memory during the wait. The code has no time limit for this wait.
 
@@ -120,7 +120,7 @@ PhotoKit has more features than this chapter uses.
 | File name and type | `originalFilename` and `contentType` in [`PHAssetResourceCreationOptions`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions). | Not in AVCam |
 | Image request options | [`PHImageRequestOptions`](https://developer.apple.com/documentation/photos/phimagerequestoptions) selects one result or many, and permits a download from iCloud. | Not in AVCam |
 | Image cache for a grid | [`PHCachingImageManager`](https://developer.apple.com/documentation/photos/phcachingimagemanager) prepares thumbnails for many assets. | Not in AVCam |
-| Change observer | The library tells the app when its contents change. This needs read access. | Not in AVCam |
+| Change observer | The library tells the app when its contents change. This is for an app that reads the library. | Not in AVCam |
 
 ## Why AVCam does it this way
 
@@ -145,11 +145,11 @@ These points come from a careful read of the Apple sample and from the research 
 
 - **The thumbnail reads the library with add-only access.** `performChange` fetches the new asset and asks the image manager for an image. These are read operations, and add-only access does not include reading. If the fetch returns nothing, the code returns with no error, and the button keeps its icon. In the test for this tutorial, the thumbnail appeared in the Simulator, where a command-line tool granted the permissions. Nobody verified the behavior on an iPhone with the permission alert. A thumbnail from the capture preview image does not have this problem.
 - **The thumbnail can arrive two times.** With the default options, the image manager can send an image of low quality and then the final image. The stream carries the two images, and the model shows the last one.
-- **Each save waits for a location.** If no location update arrives, the save does not start. The first photo also waits while the person answers the permission requests.
+- **Each save waits for a location update.** If no location update arrives, the save does not start. The first photo also waits while the person answers the Photos permission request. For the location request, this is not sure: the SDK header says that an update can arrive with no location while the request is in progress. Then the save continues, and the photo gets no location. This tutorial did not test this.
 - **An error from the location stops the save.** `try await currentLocation` is the first line of `save(photo:)`. If it throws, the app does not save the photo.
 - **All save errors become one error.** The `catch` block of `performChange` throws `saveFailed` for each error. The caller cannot find out if the disk was full or if the data was bad.
 - **The selection of the picker is not used.** `ThumbnailButton` keeps the selected items in a state property, and no code reads them. The picker is only a way to look at the library.
-- **The change block writes to a captured variable.** The closure sets `placeholder`, a local `var`. The compiler accepts this in Swift 5 mode. The strict concurrency checks of Swift 6 do not accept it.
+- **The change block writes to a captured variable.** The closure sets `placeholder`, a local `var`, and the method reads it after the change. The project uses Swift 5 mode, and the compiler accepts this. In a test for this tutorial, the compiler of Xcode 27.1 also accepted the file in Swift 6 mode.
 
 ## Common mistakes
 

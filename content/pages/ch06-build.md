@@ -185,7 +185,7 @@ This method is not `private`, because the camera model calls it. It has no `thro
 ### Step
 In the new method, convert the view point to a device point with the preview layer.
 
-The preview layer knows the rotation, the crop, and the mirror state of the video that it shows. So [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) gives the correct device point in each situation. The preview layer is the backing layer of the preview view, so a point of the view is also a point of the layer. The service finds the layer with the `videoPreviewLayer` property from chapter 2.
+The preview layer shows the video, so it has the data for the conversion. The SDK header says that [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) uses the frame size and the video gravity of the layer, and that the result is a point of the image that is not rotated. This tutorial did not test the result with a mirrored front camera. The preview layer is the backing layer of the preview view, so a point of the view is also a point of the layer. The service finds the layer with the `videoPreviewLayer` property from chapter 2.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-8
     // MARK: - Automatic focus and exposure
@@ -462,6 +462,6 @@ let devicePoint = CGPoint(x: location.x / viewSize.width, y: location.y / viewSi
 - [ ] The result is correct, because the values are between 0 and 1.
   > The range is correct, but the axes are not. Device coordinates refer to the landscape image from the sensor, which is not rotated.
 - [x] The camera focuses on a different place, because device coordinates do not follow the rotation, the crop, and the mirror state of the preview.
-  > Correct. In portrait, the top left corner of the preview is not the device point (0, 0). `captureDevicePointConverted(fromLayerPoint:)` takes account of all three operations.
+  > Correct. In portrait, the top left corner of the preview is not the device point (0, 0). `captureDevicePointConverted(fromLayerPoint:)` does this conversion for you.
 - [ ] The app stops, because a point of interest must come from the preview layer.
   > The device accepts each point between (0, 0) and (1, 1). It cannot know where the point came from. The result is a wrong place, not a stop of the app.

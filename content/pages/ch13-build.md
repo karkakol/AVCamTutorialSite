@@ -251,7 +251,7 @@ The session always has the photo output. In video mode, it needs the movie outpu
 ### Step
 At the end of the `if` block, apply the stored HDR setting.
 
-`setHDRVideoEnabled(_:)` from chapter 9 selects a 10-bit format when the value is `true` and the camera has such a format. In all other situations, it sets the property to `false`. Thus the value that the service publishes is always the real state of the camera.
+`setHDRVideoEnabled(_:)` from chapter 9 selects a 10-bit format when the value is `true` and the camera has such a format. In all other situations, it sets the property to `false`. Thus, after this call, the value that the service publishes is the real state of the camera.
 
 ```swift file=AVCam/CaptureService.swift highlight=6
             // If the capture mode is set to `video`, add a movie capture output.
@@ -618,7 +618,7 @@ No code reads this property, and the `Camera` protocol does not have it. It is a
 ### Step
 Build and run the app in the Simulator, or on your iPhone.
 
-The app starts and works as before. The stored state has no visible effect in a first run: the default state is photo mode with Live Photo on and the quality prioritization "Quality", the same values that the model had before.
+The app starts and works as before. The stored state has no visible effect in a first run: the default state is photo mode with Live Photo on and the quality prioritization "Quality", the same values that the model had before. One value is different: the default state has HDR video on. On an iPhone with a 10-bit format, the first change to video mode then probably turns HDR on.
 
 ```settings title="Product › Run"
 Scheme: AVCam
@@ -747,7 +747,7 @@ The extension uses the model, the capture service, and the views of the app, so 
 ```settings title="File inspector › Target Membership"
 AVCamApp.swift: AVCam
 All other Swift files in the AVCam group (28 files): AVCam, AVCamCaptureExtension
-The asset catalogs: AVCam
+The asset catalog: AVCam
 ```
 
 ### Step
@@ -805,6 +805,8 @@ Add a new target from the Widget Extension template with these options.
 
 A control is a WidgetKit feature, so it uses the widget template. You need only the control. A Live Activity and a configuration intent are for widgets that AVCam does not have.
 
+The template of Xcode 27.1 adds the word `Extension` to the product name to make the name of the target. Thus the new target has the name `AVCamControlCenterExtensionExtension`. The group and the bundle identifier use the product name without this addition. The Apple sample and the `chapter-13` branch have the target name `AVCamControlCenterExtension`, so rename the target in the project editor. This tutorial did not verify the rename in the Xcode interface. If you keep the long name, read it in each later step that names the target, and expect `AVCamControlCenterExtensionExtension.appex` as the name of the built extension.
+
 ```settings title="File › New › Target › iOS › Widget Extension"
 Product Name: AVCamControlCenterExtension
 Team: None
@@ -815,14 +817,14 @@ Embed in Application: AVCam
 ```
 
 ### Step
-Look at what Xcode created. Delete the example Swift files of the template, and keep only two Swift files with these names.
+Look at what Xcode created. Delete the example control file of the template, and keep only two Swift files with these names.
 
-The template contains an example widget and an example control. You replace them with one control. If the template gave the control file a different name, rename it or create a new file. The names of the template files were not checked for this tutorial.
+With these options, the template of Xcode 27.1 creates three Swift files: an example widget in `AVCamControlCenterExtension.swift`, an example control in `AVCamControlCenterExtensionControl.swift`, and the bundle. You replace the widget and the example control with one control.
 
 ```settings title="Project navigator › AVCamControlCenterExtension"
 AVCamControlCenterExtension.swift: Keep, you replace its contents
 AVCamControlCenterExtensionBundle.swift: Keep, you replace its contents
-Other Swift files of the template: Delete › Move to Trash
+AVCamControlCenterExtensionControl.swift: Delete › Move to Trash
 Assets.xcassets: Keep
 Info.plist › NSExtension › NSExtensionPointIdentifier: com.apple.widgetkit-extension
 Target AVCam › Build Phases: A new phase, Embed Foundation Extensions
@@ -831,7 +833,7 @@ Target AVCam › Build Phases: A new phase, Embed Foundation Extensions
 ### Step
 Open `AVCamControlCenterExtension.swift`, and replace its contents with the header, the imports, and a control structure with three static properties.
 
-[`ControlWidget`](https://developer.apple.com/documentation/swiftui/controlwidget) is the protocol of a control. The `kind` string identifies this control for the system. It looks like a bundle identifier, but it is only a name. Do not change it after people have the app: a control with a new `kind` is a new control, and the old one disappears.
+[`ControlWidget`](https://developer.apple.com/documentation/swiftui/controlwidget) is the protocol of a control. The `kind` string identifies this control for the system. It looks like a bundle identifier, but it is only a name. Do not change it after people have the app: a control with a new `kind` is a new control for the system, and the old one probably disappears.
 
 ```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=1-17
 /*
@@ -950,7 +952,7 @@ PlugIns: AVCamControlCenterExtension.appex
 ### Step
 To try the feature on an iPhone, select your development team for each of the three targets, and run the app.
 
-All three targets must have the same team. Open the app one time and give it access to the camera, the microphone, Photos, and the location, because the capture extension uses the permissions of the app. Then add the control and use it. Nobody did this test for the tutorial, so the rows below tell you what the Apple documentation describes.
+All three targets must have the same team. Open the app one time, take a photo, and give the app access to the camera, the microphone, Photos, and the location. The app asks for Photos and the location only at the first save, and the capture extension uses the permissions of the app. Then add the control and use it. Nobody did this test for the tutorial, so the rows below tell you what the Apple documentation describes.
 
 ```settings title="On an iPhone (not tested for this tutorial)"
 Signing & Capabilities › Team: The same team for AVCam and the two extensions

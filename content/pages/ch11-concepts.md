@@ -171,7 +171,7 @@ Read it from top to bottom:
 
 1. The closure ignores all phases but `.ended`.
 2. It reads the capture mode. In photo mode, it selects the shutter sound and takes a photo.
-3. In video mode, it selects the sound first and toggles the recording second. This order is necessary. After the toggle, `isRecording` has the opposite value, and the closure would select the wrong sound.
+3. In video mode, it selects the sound first and toggles the recording second. This order is necessary. After the toggle, `isRecording` can have the opposite value, and the closure would then select the wrong sound.
 4. At the end, it plays the sound, but only if the event asks for one.
 
 The closure calls `capturePhoto()` and `toggleRecording()`. These are the same two methods that the button on the screen calls. So a hardware control and the screen button always do the same thing.
@@ -186,7 +186,7 @@ The person must turn the feature on. In the Settings app, the page of the connec
 
 The second AirPods feature is about audio and is independent of capture events.
 
-In the usual Bluetooth recording mode, a headset sends its microphone signal with the Hands-Free Profile (HFP). That profile was made for phone calls, and its audio quality is low. iOS 26 adds a high-quality recording mode for AirPods that support it. Apple tuned it for people who make videos: the voice sounds near, as with a small microphone on the clothes.
+In the usual Bluetooth recording mode, a headset sends its microphone signal with the Hands-Free Profile (HFP). That profile was made for phone calls, and its audio quality is low. iOS 26 adds a high-quality recording mode for AirPods that support it. Apple tuned it for people who make videos: it balances the voice and the background sounds, as a small microphone on the clothes does.
 
 An app must ask for this mode. In [chapter 8](ch08-concepts.md), you learned that the capture session configures the audio session of the app by default. So the request is one property of the session:
 
@@ -198,7 +198,7 @@ An app must ask for this mode. In [chapter 8](ch08-concepts.md), you learned tha
 [`configuresApplicationAudioSessionForBluetoothHighQualityRecording`](https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessionforbluetoothhighqualityrecording) is `false` by default. When it is `true`, the session includes the high-quality mode in the audio session configuration that it makes.
 
 > [!IMPORTANT]
-> The property does not select the AirPods as the microphone. It only makes them available. The person selects the microphone, for example in Control Center while the camera app is in use. If the person selects nothing, the microphone of the iPhone records, as before.
+> The property does not select the AirPods as the microphone. It only makes them available. The person selects the microphone, for example in Control Center while the camera app is in use. If the person selects nothing, the microphone of the iPhone probably records, as before. Apple's sources do not say this directly.
 
 ## What the camera can do
 
@@ -262,7 +262,7 @@ CameraPreview(source: camera.previewSource)
 
 **Three sounds.** The sample disables the default tone, because one tone cannot tell a photo from the start or the end of a movie.
 
-**The capture button follows the model.** `MovieCaptureButton` has its own `isRecording` state, and it changes the state when the person taps it. A hardware control does not tap the button. So `CaptureButton` now observes `camera.captureActivity.isRecording` and copies each change into the state, with the same animation that a tap uses:
+**The capture button follows the model.** `CaptureButton` has its own `isRecording` state, and `MovieCaptureButton` changes the state when the person taps it. A hardware control does not tap the button. So `CaptureButton` now observes `camera.captureActivity.isRecording` and copies each change into the state, with the same animation that a tap uses:
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift
             // Respond to recording state changes that occur from hardware button presses.
@@ -274,7 +274,7 @@ CameraPreview(source: camera.previewSource)
             }
 ```
 
-**One Boolean for the audio.** AVCam lets the capture session manage the audio session, as chapter 8 explained. So one property of the capture session is sufficient, and the sample has no `AVAudioSession` code. The sample sets the property before it adds the microphone input and before the session starts, so the session configures the audio one time, with the correct value.
+**One Boolean for the audio.** AVCam lets the capture session manage the audio session, as chapter 8 explained. So one property of the capture session is sufficient, and the sample has no `AVAudioSession` code. The sample sets the property before it adds the microphone input and before the session starts. The session then probably configures the audio one time, with the correct value.
 
 **One more reason, for chapter 13.** A capture extension for the Lock Screen must have a camera view that handles capture events. If it has none, the system stops the extension a short time after launch. The extension of AVCam uses the same `CameraView`, so it gets the handler from this chapter.
 
@@ -286,7 +286,7 @@ These points come from a careful read of the code. Nobody tested them on an iPho
 
 ![The event closure waits for the capture and the save, and plays the sound after them. After 15 seconds, the sound does not play.](../images/ch11-sound-timeline.svg)
 
-- **The handler is always enabled.** The sample never gives `isEnabled: false`. While the app changes the capture mode, or after the camera failed to start, a volume button does not change the volume and also captures nothing useful. A better value is a condition such as "the status is `running`, and no mode change is in progress".
+- **The handler is always enabled.** The sample never gives `isEnabled: false`. While the app changes the capture mode, a volume button does not change the volume, and it probably captures nothing useful. A better value is a condition such as "the status is `running`, and no mode change is in progress". After the camera failed to start, no session runs, so the system sends no events and the buttons do their usual job.
 - **`.cancelled` is ignored.** For a click, this is correct: a cancelled press must not take a photo.
 - **The stop sound depends on a value that arrives later.** `captureActivity` goes from the capture service to the model through an asynchronous stream. If a person clicks two times very quickly, the closure can read an old value of `isRecording` and select the wrong sound.
 - **The button has two sources for one fact.** A tap on the screen button changes the local `isRecording` state immediately. The model value follows later. If a recording does not start, the model value stays `false`, `onChange` does not run, and the button can stay in the "recording" form.
@@ -302,7 +302,7 @@ These points come from a careful read of the code. Nobody tested them on an iPho
 - **A test before the session runs.** No events arrive in a SwiftUI preview, in the Simulator, before `startRunning()`, or in the background. This is not a bug in your code.
 - **The default tone disabled, and no sound played.** A person with AirPods then gets no confirmation. If you set `defaultSoundDisabled` to `true`, each path through your closure must call `play(_:)` when `shouldPlaySound` is `true`.
 - **`play(_:)` after long work.** The person waits for the confirmation, and after 15 seconds the sound does not play at all.
-- **The recording state read after the toggle.** The closure then plays the start sound for a stop, and the stop sound for a start.
+- **The recording state read after the toggle.** The closure can then play the start sound for a stop, and the stop sound for a start.
 - **`shouldPlaySound` used for the usual shutter sound.** The value is `false` for the buttons of the iPhone. The photo output plays the usual shutter sound by itself.
 - **The belief that the audio property selects the AirPods.** It only makes them available. The person selects the microphone.
 - **A feature that depends on the AirPods.** The two AirPods features do not exist in all regions and not with all AirPods models. Your app must be fully usable without them.

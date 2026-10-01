@@ -302,7 +302,7 @@ Remove the current input. Then try to add an input for the new device, and add t
 ### Step
 Above `changeCaptureDevice(to:)`, add the `selectNextVideoDevice()` method. Get the list of cameras, and find the index of the current camera.
 
-This method is not `private`, because the camera model calls it. If the current camera is not in the list, the search for the next camera starts at index 0.
+This method is not `private`, because the camera model calls it. If the current camera is not in the list, the code uses index 0 as the index of the current camera.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-17
         return device

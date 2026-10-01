@@ -13,7 +13,7 @@ In this tutorial, you add four features to photo capture: Live Photos, a quality
 You work in an order that keeps the app safe at each checkpoint. First you teach the delegate and the media library to handle the new results. Then you enable the features on the [`AVCapturePhotoOutput`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput) object. Only then do you ask for the features in the settings of each capture.
 
 > [!IMPORTANT]
-> In the Simulator with SimCam, Live Photo capture, deferred photo delivery, and responsive capture do not work. The code builds and runs, and a capture gives a normal JPEG photo. To see a Live Photo or the "LIVE" badge, you need a real iPhone. This tutorial did not verify the features on a real iPhone.
+> In the Simulator with SimCam, Live Photo capture does not work. Deferred photo delivery and responsive capture probably do not work there. The code builds and runs, and a capture gives a normal JPEG photo. To see a Live Photo or the "LIVE" badge, you need a real iPhone. This tutorial did not verify the features on a real iPhone.
 
 Read [Concepts: photo features](ch07-concepts.md) first if you want the background for each step.
 
@@ -364,7 +364,7 @@ The photo output sends this callback last, when the photo and the movie are comp
 ### Step
 In `MediaLibrary.swift`, select the resource type of the photo from its `isProxy` value.
 
-A proxy must be a [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy) resource. Only then does the Photos library know that it must complete the photo later. With `.photo`, the library keeps the proxy image as the final photo.
+A proxy must be a [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy) resource. Only then does the Photos library know that it must complete the photo later. With `.photo`, the library probably keeps the proxy image as the final photo.
 
 ```swift file=AVCam/Model/MediaLibrary.swift remove
             creationRequest.addResource(with: .photo, data: photo.data, options: options)
@@ -632,7 +632,7 @@ A URL in [`livePhotoMovieFileURL`](https://developer.apple.com/documentation/avf
 ### Step
 Set the quality prioritization of the settings from the choice of the person.
 
-The initializer with a raw value changes the app type into the AVFoundation type. It returns `nil` for a number that is not 1, 2, or 3, so the code uses `if let`. The value in [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) must not be above the maximum of the output, which you set to `.quality`.
+The initializer with a raw value changes the app type into the AVFoundation type. Its result is an optional value, so the code uses `if let`. For this Objective-C enumeration, the initializer does not return `nil` for an unknown number. Thus the raw values of the app type must stay 1, 2, and 3. The value in [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) must not be above the maximum of the output, which you set to `.quality`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-7
         // Set the movie URL if the photo output supports Live Photo capture.
@@ -1132,10 +1132,10 @@ Your code is now the same as the `chapter-07` branch. The photo side of the app 
 
 - [ ] A `.photo` resource cannot have a location or a paired video.
   > The resource type of the photo has no effect on the location or on the paired video.
-- [ ] The save fails with an error when proxy data has the type `.photo`.
-  > It is the opposite case that fails: normal photo data with the type `.photoProxy`.
+- [ ] When deferred delivery is enabled, the Photos library accepts only the type `.photoProxy` for each photo.
+  > One session gives the two kinds of photo. Normal photo data keeps the type `.photo`. The save of normal photo data with the type `.photoProxy` fails.
 - [x] Only with `.photoProxy` does the Photos library know that it must complete the photo later.
-  > Correct. With `.photo`, the library keeps the image with light processing as the final photo, and the better photo is lost.
+  > Correct. This type tells Photos to do the later processing. With `.photo`, the library probably keeps the image with light processing as the final photo.
 
 ### Two Live Photo captures overlap. Why does `PhotoCapture` count the captures in progress, and not publish each `isLivePhoto` value as it arrives?
 

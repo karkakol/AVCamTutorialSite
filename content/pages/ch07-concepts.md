@@ -86,7 +86,7 @@ Three features of the photo output decrease these delays. Each one depends on th
 **Fast capture prioritization.** When the person takes photos very quickly, the system decreases the processing from `.quality` toward `.balanced` to keep the pace. This needs responsive capture. The resolved settings of a capture tell you if the system did this.
 
 > [!NOTE]
-> Zero shutter lag helps most when your code calls `capturePhoto` early. A SwiftUI `Button` starts its action when the finger goes up, not when it goes down, and AVCam then goes through two actors. The Camera app of the system starts earlier.
+> Zero shutter lag helps most when your code calls `capturePhoto` early. A SwiftUI `Button` starts its action when the finger goes up, not when it goes down, and AVCam then goes through two actors. The SDK header recommends that you call `capturePhoto` as early as possible, at the touch-down event.
 
 ### Deferred photo delivery
 
@@ -96,7 +96,7 @@ Important facts:
 
 - The system decides for each capture. There is no value in the settings. A capture that needs long processing gives a proxy in [`photoOutput(_:didFinishCapturingDeferredPhotoProxy:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishcapturingdeferredphotoproxy:error:)). Each other capture gives a normal photo in `didFinishProcessingPhoto`. One session gives the two kinds, so the delegate must implement the two callbacks.
 - [`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) is a subclass of `AVCapturePhoto`. You call `fileDataRepresentation()` on it as you do for a photo.
-- You must save the proxy data as a resource of the type [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy). If you save it as `.photo`, the library keeps only the image with light processing. If you save normal data as `.photoProxy`, the save fails.
+- You must save the proxy data as a resource of the type [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy). Only this type tells Photos to do the later processing. If you save the proxy data as `.photo`, the library probably keeps only the image with light processing. If you save normal data as `.photoProxy`, the save fails.
 - Save the proxy quickly. The system removes data that nobody saved, and your app can stop in the background before it saves.
 - Changes that you make to the proxy data do not appear in the final photo.
 - Permission to add to the library is sufficient to save a proxy. An app needs permission to read the library to show the final photo.
@@ -112,7 +112,7 @@ The movie comes from a buffer of video that the photo output keeps all the time 
 - You must enable Live Photo capture on the output before a capture, because the output must already have the video from before the tap.
 - Live Photo capture and an [`AVCaptureMovieFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput) cannot be in one session. When a movie file output is in the session, [`isLivePhotoCaptureSupported`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesupported) is `false`. In chapter 8, you see how AVCam obeys this rule: it removes the movie output in photo mode and adds it again in video mode.
 
-For one capture, you ask for a Live Photo when you set `livePhotoMovieFileURL` to the URL of a new file. The output writes the movie there. Each capture needs its own URL.
+For one capture, you ask for a Live Photo when you set `livePhotoMovieFileURL` to the URL of a new file. The output writes the movie there. AVCam gives each capture its own URL.
 
 A Live Photo capture adds two callbacks to the sequence that you know from chapter 3.
 
@@ -164,7 +164,7 @@ In this chapter, the structure has one value, `isLivePhotoCaptureSupported`, and
 | Prepared settings | [`setPreparedPhotoSettingsArray`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/setpreparedphotosettingsarray(_:completionhandler:)) prepares resources before the first capture of a kind. | Not in AVCam |
 
 > [!NOTE]
-> The features have conditions. Zero shutter lag needs the `.photo` session preset or a format that is made for photos. Deferred delivery needs the `.photo` preset. Responsive capture needs a device with an A12 chip or newer, and deferred delivery needs an iPhone 11 Pro or newer. Always read the "supported" property. Do not make a decision from the model of the device.
+> The features have conditions. Zero shutter lag needs the `.photo` session preset or a format that is made for photos. Apple shows deferred delivery with the `.photo` preset. Responsive capture needs a device with an A12 chip or newer, and deferred delivery needs an iPhone 11 Pro or newer. Always read the "supported" property. Do not make a decision from the model of the device.
 
 ## Why AVCam does it this way
 
@@ -182,7 +182,7 @@ In this chapter, the structure has one value, `isLivePhotoCaptureSupported`, and
 
 ## Things to know about the sample
 
-These points come from a careful read of the Apple sample and of the SDK headers. Nobody ran them on an iPhone for this tutorial. In the Simulator with SimCam, Live Photo capture, deferred delivery, and responsive capture do not work, so the Simulator cannot confirm them. Read each point as "probably".
+These points come from a careful read of the Apple sample and of the SDK headers. Nobody ran them on an iPhone for this tutorial. In the Simulator with SimCam, Live Photo capture does not work. Deferred delivery and responsive capture probably do not work there. Thus the Simulator cannot confirm these points. Read each point as "probably".
 
 - **The badge counter tests `> 1`.** Look at two Live Photo captures, A and B, that overlap. A begins: the counter is 1, and the badge is on. B begins: the counter is 2, and the code forces the badge on. The movie of A stops: the counter is 1. The test `livePhotoCount > 1` is `false`, so the code publishes `isLivePhoto: false`, and the badge goes off while B still records. The test `> 0` would keep the badge on. Apple's article about Live Photos also tells you to hide the indicator only when the count is zero.
 - **A Live Photo request has no support test.** `createPhotoSettings(with:)` sets `livePhotoMovieFileURL` when the Live Photo button is on. It does not look at `isLivePhotoCaptureSupported`, although the comment above the line says so. The header of the photo output says that a movie URL without enabled Live Photo capture raises an exception. On a camera that does not support Live Photos, a capture would then stop the app. The correct value is available in `CaptureCapabilities`, but the model does not read it.
@@ -199,8 +199,8 @@ These points come from a careful read of the Apple sample and of the SDK headers
 - **You enable the features one time only.** After a change of camera or of session configuration, some values are `false` again.
 - **You change `isLivePhotoCaptureEnabled` many times while the session runs.** For each change, the output builds its pipeline again, and the movies that record at that time stop early. Change the value only when the configuration changes.
 - **You keep a movie file output in the session in photo mode.** Then Live Photo capture is not supported.
-- **You save a proxy as `.photo`, or normal data as `.photoProxy`.** The first gives a photo of low quality for all time. The second fails.
-- **You implement only `didFinishProcessingPhoto`.** With deferred delivery, some captures give a proxy in the other callback, and your delegate has no data for them.
+- **You save a proxy as `.photo`, or normal data as `.photoProxy`.** The first probably gives a photo of low quality for all time. The second fails.
+- **You implement only `didFinishProcessingPhoto`.** With deferred delivery, some captures give a proxy in the other callback. If the delegate does not implement that callback, `capturePhoto` raises an exception.
 - **You use one movie URL for two captures.** Make a new, unique URL for each capture.
 - **You add the paired video in a second request.** Add the photo and the movie in one creation request, so that Photos makes one asset from them.
 - **You set the maximum to `.quality` when you do not need it.** The output uses more memory and power all the time.

@@ -50,7 +50,7 @@ Three facts about the callbacks are important:
 
 - Only the first and the last callback have a fixed position. Do not write code that depends on the order of the callbacks between them.
 - When a capture fails, the callbacks still arrive, with an error. `didFinishCaptureFor` always arrives.
-- The callbacks arrive on a queue of the photo output. This is not the main queue, and it is not the queue of your actor.
+- The callbacks arrive on a queue of the photo output. This is not necessarily the main queue, and it is not the queue of your actor.
 
 ### From callbacks to `async` code
 
@@ -70,7 +70,7 @@ AVCam gives the continuation to the delegate. The delegate resumes it in `didFin
 
 The answer is the progress task. Its closure reads `delegate.activityStream`, so the task holds a strong reference to the delegate. The task ends when the stream finishes, and the stream finishes in `didFinishCaptureFor`. Then the delegate goes away.
 
-This is neat, but you cannot see it in the code. If you remove the progress stream, the delegate can go away immediately. Then no callback arrives, the continuation never resumes, and `capturePhoto()` waits forever.
+This is neat, but you cannot see it in the code. An older Apple sample says that the photo output holds only a weak reference to its delegate. The SDK header does not say it, and this tutorial did not test it. If that is correct and you remove the progress stream, the delegate goes away immediately. Then no callback arrives, the continuation never resumes, and `capturePhoto()` waits forever.
 
 ### Format
 
@@ -117,7 +117,7 @@ The photo output has many more features than this chapter uses.
 | Save to the Photos library | PhotoKit writes the photo data into the library. | Chapter 4 |
 | 24 and 48 megapixel photos | Larger sizes from the same format, selected for each capture. | Explained here only |
 | Flash and red-eye reduction | `flashMode` in the settings, limited by `supportedFlashModes`. | Not in AVCam |
-| RAW and Apple ProRAW | Sensor data with little or no processing, as a DNG file. | Not in AVCam |
+| RAW and Apple ProRAW | Sensor data that is not fully processed, as a DNG file. Apple ProRAW is partially processed. | Not in AVCam |
 | Depth data and mattes | A depth map, a portrait matte, or mattes for hair, skin, and teeth with the photo. | Not in AVCam |
 | Bracketed capture | Several exposures from one request. | Not in AVCam |
 | Embedded thumbnail | A small compressed image in the file for other software. | Not in AVCam |
@@ -154,11 +154,11 @@ These points come from a careful read of the Apple sample. Nobody verified them 
 ## Common mistakes
 
 - **You use a settings object two times.** The photo output raises an Objective-C exception. Swift `try` does not catch it. Create a new object for each capture.
-- **You ask for something that the output did not prepare.** For example a codec that is not in `availablePhotoCodecTypes`, or a size above the limit of the output. This also raises an exception.
+- **You ask for something that the output did not prepare.** For example a codec that is not in `availablePhotoCodecTypes`. This also raises an exception. A size above the limit of the output is also not permitted.
 - **You do not set `maxPhotoDimensions` on the settings.** Then each photo has the smallest size, although the output permits more.
 - **You resume a continuation two times, or never.** Two times stops the app. Never leaves the caller waiting forever. Resume in one place only.
-- **You do not keep the delegate alive.** The photo output does not do it for you. Without a strong reference, the callbacks do not arrive.
-- **You touch the UI from a callback.** The callbacks are not on the main queue. Send the values to the main actor first.
+- **You do not keep the delegate alive.** The photo output probably does not do it for you. Without a strong reference, the callbacks probably do not arrive.
+- **You touch the UI from a callback.** The callbacks are not necessarily on the main queue. Send the values to the main actor first.
 - **You make a full-size `CGImage` for the UI.** One uncompressed 12-megapixel image uses about 48 MB. Use the preview image or a thumbnail.
 - **You expect a cancelled task to stop the capture.** When you cancel the Swift task, the photo output continues with the capture.
 

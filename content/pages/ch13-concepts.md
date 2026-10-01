@@ -193,19 +193,19 @@ These points come from a careful read of the Apple sample. Nobody verified them 
 - **`isVideoHDRSupported` is stored, but no code reads it.**
 - **Errors only go to the log.** If the read of the context fails, the app uses the default state and tells nobody.
 - **The extension does not sync again.** It reads the state one time, at its start. This is sufficient, because the system starts the extension again for each use.
-- **Permission requests in the extension.** `MediaLibrary` requests access to Photos and to the location. If the person never opened the app, these requests run in the extension on a locked device. What the system does then is not documented. Tell the person to open the app one time first.
+- **Permission requests in the extension.** `MediaLibrary` requests access to Photos and to the location. The app makes these requests at the first save, not at launch. If the person never saved a photo or a movie in the app, these requests run in the extension, possibly on a locked device. What the system does then is not documented. Tell the person to take one photo in the app first.
 - **The symbol of the control is `curlybraces`.** On the Lock Screen and on the Action button, the person sees only the symbol. A real app uses a symbol that shows a camera.
 
 ## Common mistakes
 
-- **The intent is not a part of all three targets.** The control then does not start the camera experience, and no build error tells you why.
+- **The intent is not a part of all three targets.** The control then does not start the camera experience. A build error does not always tell you why.
 - **The app entry point is a part of the extension.** A program can have only one `@main` type. `AVCamApp.swift` must stay out of the capture extension.
 - **You use an App Group for the shared state.** It works in the app and fails in the capture extension. Use the app context.
 - **You put large data into the app context.** The system does not store a context that is larger than 4 kB.
 - **You change a stored type carelessly.** The system keeps the old JSON. If a new app version cannot decode it, the read fails, and the app starts with defaults. The raw values of `CaptureMode` and `QualityPrioritization` are a part of the stored data. Do not change them.
 - **The extension has no camera usage description.** The key must be in the extension target too, not only in the app.
 - **The extension shows no viewfinder, or it does not handle capture events.** The system stops it shortly after the launch.
-- **You change the `kind` string of a control.** The string identifies the control. After a change, the controls that people added disappear.
+- **You change the `kind` string of a control.** The string identifies the control. After a change, the controls that people added probably disappear.
 - **The bundle identifier of an extension does not start with the identifier of the app.** The identifier must be the identifier of the app, a period, and a name. Xcode does this for you when it creates the target.
 - **You use a different team for one target.** All three targets must have the same team for code signing.
 - **You expect the control to appear by itself.** The person must add it. Show the steps in your app.

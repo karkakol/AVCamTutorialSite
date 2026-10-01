@@ -120,7 +120,7 @@ The app has no audio code other than this input. On iOS, the microphone hardware
 Two results of these defaults are good to know:
 
 - **The sound is mono.** The default of [`multichannelAudioMode`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/multichannelaudiomode) on the microphone input is `.none`, which records one channel.
-- **The session interrupts other audio.** Music from a different app stops when the session starts.
+- **The session interrupts other audio.** With the defaults, the session does not mix with music from a different app. It interrupts the music. The SDK header names one exception: the movie of a Live Photo always mixes with the music.
 
 The microphone needs its own permission and its own usage description, [`NSMicrophoneUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsmicrophoneusagedescription). AVCam does not ask for this permission with a separate call. The system asks when the app creates the input for the microphone.
 
@@ -200,7 +200,7 @@ These points come from a careful read of the Apple sample. Nobody verified them 
 
 - **A recording that ends by itself is lost.** The delegate gets its continuation only inside `stopRecording()`. If the output ends the recording first, for example because of a phone call, the callback arrives when the continuation is `nil`, and the result goes away. The timer continues, so the interface still shows a recording. When the person then taps the button, `stopRecording()` waits for a callback that came before. The method never returns, and the file stays in the temporary directory.
 - **Each error counts as a failure.** When a limit or an interruption ends a recording, the delegate gets an error, but the file can be good. The key [`AVErrorRecordingSuccessfullyFinishedKey`](https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey) in the error tells you. The sample does not read it, so it discards such a file.
-- **The timer writes state on the main thread.** All other code of `MovieCapture` runs on the session queue of the capture service actor. The timer runs on the main run loop, and there it reads the output and writes `captureActivity`. This compiles in the Swift 5 language mode with minimal concurrency checking. It is not correct for strict concurrency.
+- **The timer writes state on the main thread.** The capture service actor calls `MovieCapture` from its session queue. The timer runs on the main run loop, and there it reads the output and writes `captureActivity`. This compiles in the Swift 5 language mode with minimal concurrency checking. It is not correct for strict concurrency.
 - **The interface is ahead of the output.** The service publishes `.movieCapture` before it calls the output, and the capture button changes its shape at the tap. The interface shows a recording before the output writes the first frame.
 - **The mode is stored before the change can fail.** `setCaptureMode(_:)` writes the new mode first. If the session then does not accept the movie output, the stored mode is `.video`, but the session has no movie output. The model calls the method with `try?`, so nobody sees the error.
 - **A denied microphone probably stops the camera.** If the person denies the microphone, the app cannot create the microphone input. Then `setUpSession()` throws, and the camera does not start. The sample has no "video without sound" path.

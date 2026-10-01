@@ -282,9 +282,9 @@ A camera shows a small image of the last photo. The Apple sample gets this image
 ### Step
 Below `performChange(_:)`, add the `createThumbnail(for:)` method, which asks the image manager for a small image of the asset.
 
-[`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image at the size that you name. A size of 256 x 256 pixels is sufficient for a button of 64 points on a screen with three pixels for each point. The app does not load the full photo into its memory.
+[`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image at the size that you name. A size of 256 x 256 pixels is sufficient for a button of 64 points on a screen with three pixels for each point. The app gets a small image, not the full photo.
 
-[`requestImage`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)) returns immediately. The image arrives later in the closure, which is the last argument.
+[`requestImage`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)) does not wait for the final image. The image arrives in the closure, which is the last argument. The closure usually runs later. If an image is available immediately, the first call of the closure can occur before the method returns.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=6,8-13,17-18
         } catch {
@@ -416,7 +416,7 @@ The `location` of an update is an optional value. If the update has no location,
 ### Step
 In `save(photo:)`, get the location before the change, and set it on the creation request.
 
-The [`location`](https://developer.apple.com/documentation/photos/phassetchangerequest/location) property sets the location of the asset in the library. It does not write GPS data into the image file.
+The [`location`](https://developer.apple.com/documentation/photos/phassetchangerequest/location) property sets the location of the asset in the library. It is a property of the asset. It probably does not write GPS data into the image file, but this tutorial did not verify that.
 
 This line has a cost. Each save waits for a location update before the change block starts, and the code has no time limit for the wait. During this time, the photo data stays in memory. If the property throws an error, the method stops and does not save the photo.
 

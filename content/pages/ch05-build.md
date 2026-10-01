@@ -72,7 +72,7 @@ protocol PlatformView: View {
 ### Step
 Below the protocol, add an extension with the default implementations of the two properties.
 
-A window is regular only when the two size classes are regular. It is compact when one or the two of them are compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 7.
+A window is regular only when the two size classes are regular. It is compact when one or the two of them are compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 9.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=9-12
 @MainActor

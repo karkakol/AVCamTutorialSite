@@ -122,7 +122,7 @@ In video mode, one press has two possible meanings: start or stop. The closure r
 ### Step
 After the sound selection in the `.video` case, call `toggleRecording()` of the camera model.
 
-The order of these lines is necessary. The closure must read `isRecording` before the toggle. After the toggle, the property has the opposite value, and the closure would select the begin sound for a stop and the end sound for a start.
+The order of these lines is necessary. The closure must read `isRecording` before the toggle. After the toggle, the property can have the opposite value, and the closure would then select the begin sound for a stop and the end sound for a start.
 
 ```swift file=AVCam/CameraView.swift highlight=4-5
                             case .video:
@@ -210,8 +210,8 @@ The usual Bluetooth microphone mode was made for phone calls, and its sound qual
 In `CaptureService.swift`, in `setUpSession()`, set `configuresApplicationAudioSessionForBluetoothHighQualityRecording` to `true` before the lines that add the inputs.
 
 - [`configuresApplicationAudioSessionForBluetoothHighQualityRecording`](https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessionforbluetoothhighqualityrecording) is `false` by default. With `true`, the capture session includes the high-quality mode when it configures the audio session.
-- The line is before the microphone input and before the start of the session, so the session configures the audio one time, with the correct value.
-- The property does not select the AirPods. It makes them available. The person selects the microphone, for example in Control Center. If the person selects nothing, the microphone of the iPhone records, as before.
+- The line is before the microphone input and before the start of the session. The session then probably configures the audio one time, with the correct value.
+- The property does not select the AirPods. It makes them available. The person selects the microphone, for example in Control Center. If the person selects nothing, the microphone of the iPhone probably records, as before.
 - The line has no availability test, because the deployment target of the project is iOS 26.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-6

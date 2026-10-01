@@ -689,7 +689,7 @@ The app has all its capture features now. In the next chapter, you make the sess
 ### To turn HDR off, `setHDRVideoEnabled(_:)` sets `captureSession.sessionPreset = .high`. Why does this turn HDR off?
 
 - [ ] The `.high` preset sets `isVideoHDREnabled` of the device to `false`.
-  > The sample never uses `isVideoHDREnabled`. That property belongs to a different, older feature that merges two exposures into an 8-bit frame.
+  > The sample never uses `isVideoHDREnabled`. That property belongs to a different, older feature that merges two exposures into one frame.
 - [x] When the app set `activeFormat`, the preset became `.inputPriority`. A new preset gives the control back to the session, which selects its normal 8-bit format.
   > Correct. The app does not need to keep the old format. The preset replaces the 10-bit format that the app selected.
 - [ ] The `.high` preset removes the movie output, and the output comes back without HDR.

@@ -57,7 +57,7 @@ The sample handles two reasons only. It uses one line for this:
                 isInterrupted = [.audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient].contains(reason)
 ```
 
-The reason for this choice is the background case. Each time the person leaves the app, the session gets an interruption with the background reason. That is not a problem that the person must know about. So the code sets `isInterrupted` to `true` only when a different client uses the microphone or the camera.
+The probable reason for this choice is the background case. Each time the person leaves the app, the session gets an interruption with the background reason. That is not a problem that the person must know about. So the code sets `isInterrupted` to `true` only when a different client uses the microphone or the camera.
 
 The session also starts again by itself after the background. This works only if your code did not call `stopRunning()`. AVCam never calls it. An app in which the camera is only one of many screens is different: it must stop the session when the camera screen closes.
 
@@ -65,7 +65,7 @@ The session also starts again by itself after the background. This works only if
 
 The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in `userInfo` is an error that you can read as an `AVError`. Its code tells you what failed.
 
-AVCam handles one code: [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset). The camera and the audio hardware belong to a system process, not to your app. On rare occasions, this process starts again. Your session, your inputs, and your outputs are still valid objects after that, but the session is stopped. The repair is small: if the session does not run, call `startRunning()` again.
+AVCam handles one code: [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset). The camera and the audio hardware belong to a system process, not to your app. On rare occasions, this process starts again. After that, the session is stopped. The sample keeps its session, its inputs, and its outputs. The repair in the sample is small: if the session does not run, call `startRunning()` again.
 
 Other codes exist. For example, [`sessionHardwareCostOverage`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/sessionhardwarecostoverage) tells you that the configuration needs more than the hardware can supply. The sample ignores them.
 
@@ -116,7 +116,7 @@ AVCam hides the old frame with a black cover:
 - When the scene goes to the background, the cover becomes opaque immediately, with no animation. There is no time for an animation while the app leaves the screen.
 - When the scene becomes active again, the cover fades out in 0.3 seconds, while the live frames come back.
 
-The signal is the SwiftUI [`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase), not the interruption notifications. The code ignores the `inactive` phase. Thus the cover does not appear when the person opens Control Center or looks at the app switcher.
+The signal is the SwiftUI [`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase), not the interruption notifications. The code ignores the `inactive` phase. Thus the cover does not appear while the scene is only inactive, for example when the person looks at the app switcher.
 
 ### Controls wait for the session
 
@@ -153,7 +153,7 @@ AVCam uses a small part of what the system offers for a robust session.
 
 **Notifications as asynchronous sequences.** [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an `AsyncSequence`. The sample reads each sequence in a `for await` loop inside a task that the actor starts. The loop body runs on the actor, so it can change `isInterrupted` directly. This is shorter than observers with selectors or closures, and no observer token must be stored.
 
-**Only two interruption reasons.** The background reason must not show a message. The other reasons are less common on iPhone. The cost: on iPad next to a second app, or on a very hot device, the camera stops and the app says nothing.
+**Only two interruption reasons.** The background reason must not show a message. The other reasons are probably less common on iPhone. The cost: on iPad next to a second app, or on a very hot device, the camera stops and the app says nothing.
 
 **No `stopRunning()`.** AVCam is only a camera. The system stops the session in the background and starts it again in the foreground. The app does not need its own code for this.
 
@@ -196,7 +196,7 @@ The addition has a second effect. The controls are visible only while the status
 
 These points come from a careful read of the code. Nobody tested them on an iPhone for this tutorial.
 
-- **`status == .running` is not the state of the session.** The model sets the status one time, after `start()` returns. It does not observe `isRunning`. If the session stops for a reason that the app does not handle, the status stays `running`.
+- **`status == .running` is not the state of the session.** The model sets the status to `running` after `start()` returns. After that, only the interruption task changes it. The model does not observe `isRunning`. If the session stops for a reason that the app does not handle, the status stays `running`.
 - **Only one runtime error is handled.** All other errors are dropped, and the code does not write them to the log.
 - **The observers do not name the session.** The code does not give an `object:` argument, so it accepts notifications from each session in the process. With one session, that is correct. In an app with more sessions, give the session as the object.
 - **An unknown reason is dropped.** `InterruptionReason(rawValue:)` gives `nil` for a number that it does not know. `compactMap` then removes the event. A reason that a later iOS version adds is ignored.
@@ -206,7 +206,7 @@ These points come from a careful read of the code. Nobody tested them on an iPho
 
 - **You show an error each time an interruption starts.** The move to the background is also an interruption. Read the reason first.
 - **You start the session yourself after an interruption.** The system does it. You only update the interface.
-- **You do nothing after a runtime error.** Then the preview stays frozen. After a media services reset, start the session again.
+- **You do nothing after a runtime error.** Then the session stays stopped. After a media services reset, start the session again.
 - **You call `stopRunning()` in the background "to be safe".** Then the system does not start the session again for you, and your app must do it.
 - **You call `startRunning()` or `stopRunning()` on the main thread.** The two methods block until the work is done. Call them on the session queue. In AVCam, the actor does this.
 - **You set `isDeferredStartEnabled` to `true` with no test for support.** The output raises an exception when it does not support deferred start.

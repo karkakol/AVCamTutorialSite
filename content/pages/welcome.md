@@ -6,7 +6,7 @@ abstract: What you build in this tutorial, what you need, and how the chapters, 
 estimatedMinutes: 5
 ---
 
-In this tutorial, you build a full camera app for iPhone and iPad. You start from an empty Xcode project. At the end, your code is the same as AVCam, the camera sample from Apple.
+In this tutorial, you build a full camera app for iPhone and iPad. You start from an empty Xcode project. At the end, your code is almost the same as AVCam, the camera sample from Apple.
 
 You do not only copy code. Each chapter explains why the code has this form, and what the camera can do that the sample does not use. The goal is that you can design your own camera app after the last chapter.
 
@@ -33,7 +33,7 @@ You build this app in 13 chapters. Each chapter adds one feature. The app builds
 | 13 | Lock Screen and Control Center | The app starts from the Lock Screen and from Control Center. |
 
 > [!NOTE]
-> All 13 chapters are ready. Chapters 6, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
+> All 13 chapters are ready. Chapters 1, 3, 6, 7, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
 
 ## How a chapter works
 
@@ -58,6 +58,7 @@ With SimCam, most of the tutorial works in the Simulator: the preview, the camer
 |---|---|
 | The system permission alert (SimCam gives the app access without it) | 1 |
 | The correct orientation of photos | 3 |
+| The visible effect of focus and exposure | 6 |
 | Live Photos | 7 |
 | HDR video | 9 |
 | Capture with the hardware buttons and AirPods | 11 |

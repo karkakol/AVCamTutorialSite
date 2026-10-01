@@ -81,7 +81,7 @@ Until the person allows access, a camera gives only black frames. Thus the order
 
 `startRunning()` does not return until the session runs or fails. This can take a long time, because the system must start the camera hardware. If you call it on the main thread, the interface does not react during that time.
 
-A session is also not made for calls from many threads at the same time. The traditional solution for the two problems is a **session queue**: one serial dispatch queue for all calls that change the session. AVCam keeps this idea, but it uses a modern form. You see it in [Why AVCam does it this way](#why-avcam-does-it-this-way).
+It is also safer not to call a session from many threads at the same time. The documentation does not say that such calls are safe. The traditional solution for the two problems is a **session queue**: one serial dispatch queue for all calls that change the session. AVCam keeps this idea, but it uses a modern form. You see it in [Why AVCam does it this way](#why-avcam-does-it-this-way).
 
 ### The preview layer in SwiftUI
 
@@ -235,7 +235,7 @@ AVCam checks the authorization two times: in `CameraModel.start()` and again in 
 - **The session starts before the person answers.** The preview is black until access is allowed.
 - **`.denied` and `.restricted` get the same message.** With `.restricted`, the person cannot change the setting. Do not send the person to the Settings app in that situation. AVCam shows the same message for the two statuses, so a real app must do better here.
 - **Trust in `start()`.** A session that fails to start does not throw an error. The failure arrives as a notification. In chapter 1, the model sets the `running` status when `startRunning()` returns. Chapter 10 adds the notifications.
-- **State after an `await` in an actor.** An actor can start a second call while the first call waits at an `await`. Two fast calls of `start()` can both pass the `isRunning` test. Check the state again after each suspension point when the result is important.
+- **State after an `await` in an actor.** An actor can start a second call while the first call waits at an `await`. In `start()`, the `isRunning` test comes after the `await`, and no suspension point follows it, so this order is safe. Check the state after each suspension point when the result is important.
 - **A preview sublayer without layout code.** The layer keeps its first size, often zero. Use `layerClass`, or set the frame in each layout pass.
 - **Layer properties from a background thread.** A layer belongs to the main thread. The sample sets `previewLayer.session` in a task on the main actor.
 - **`.resizeAspectFill` without a warning to the person.** The preview then hides the edges of the picture, and the photo contains more than the person saw.

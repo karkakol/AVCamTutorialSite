@@ -10,7 +10,7 @@ branch: chapter-10
 
 In this tutorial, you make the app robust. At the end, the app reports an interruption with a yellow status message, starts its session again after a media services reset, shows its controls only when the camera runs, and covers the old preview frame when it returns from the background.
 
-You add no new files. You add approximately 110 lines to ten files that you know from the earlier chapters.
+You add no new files. You add approximately 110 lines to nine files that you know from the earlier chapters.
 
 Most of this chapter is about events that the Simulator cannot produce: a phone call, a restart of a system service, a real launch of the camera hardware. Each section tells you what you can see in the Simulator, and how to test the rest on a real iPhone. Read [Concepts: a robust session](ch10-concepts.md) first if you want the background for each step.
 
@@ -108,7 +108,7 @@ The code does not start the session here. After an interruption, the system star
 ### Step
 In `setUpSession()`, call `observeNotifications()` below the call of `observeOutputServices()`.
 
-The service starts to listen before it configures the session. Thus it cannot miss a notification from the first moments of the session.
+The service creates the tasks before it configures the session. But the tasks run on the actor, so they start only when the actor is free, after `start()` returns. Thus it is possible that the service does not get a notification from the first moments of the session.
 
 ```swift file=AVCam/CaptureService.swift highlight=6
     // MARK: - Capture setup
@@ -162,7 +162,7 @@ The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documenta
 ### Step
 In the loop, start the session again when the error code is `mediaServicesWereReset`.
 
-The camera hardware belongs to a system process. When this process starts again, your session and its inputs and outputs are still valid, but the session is stopped. [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset) is the code for this event, and [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) is the repair. The task runs on the actor, and thus on the session queue, which is the correct place for this blocking call.
+The camera hardware belongs to a system process. When this process starts again, the session stops. The sample keeps the session with its inputs and outputs. [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset) is the code for this event, and [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) is the repair. The task runs on the actor, and thus on the session queue, which is the correct place for this blocking call.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-9
         Task {
@@ -198,7 +198,7 @@ This flag records that the session has its inputs and outputs. You use it in the
 ### Step
 At the start of `setUpSession()`, return immediately when the setup is complete.
 
-`start()` calls `setUpSession()` each time that the session does not run. Without this line, a second call adds the same inputs again, the session refuses them, and the method throws `setupFailed`. The guard is above the two `observe` calls, so the service also starts its observers one time only.
+`start()` calls `setUpSession()` each time that the session does not run. Without this line, a second call tries to add the same inputs again. The session is expected to refuse them, and the method then throws `setupFailed`. The guard is above the two `observe` calls, so the service also starts its observers one time only.
 
 ```swift file=AVCam/CaptureService.swift highlight=13-14
     // MARK: - Capture session life cycle
@@ -649,7 +649,7 @@ The two parameters are the old phase and the new phase. This is the form that [`
 ### Step
 In the method, make the cover opaque when the scene goes to the background.
 
-There is no animation here. The app leaves the screen at this moment, and it has no time to show a transition. The `default` case ignores the `inactive` phase, so the cover does not appear when the person opens Control Center or the app switcher.
+There is no animation here. The app leaves the screen at this moment, and it has no time to show a transition. The `default` case ignores the `inactive` phase, so the cover does not appear while the scene is only inactive, for example in the app switcher.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=2-7
     func updateCoverOpacity(_: ScenePhase, _ phase: ScenePhase) {
@@ -721,7 +721,7 @@ The app now handles the events that a session does not control. In the next chap
 ### The interruption task sets `isInterrupted` to `true` for two reasons only. Why does it not use `true` for each interruption?
 
 - [ ] The other reasons do not stop the session, so there is nothing to report.
-  > Each interruption stops the session for some time. The other reasons are real interruptions.
+  > The other reasons are real interruptions too. The camera is not available during them.
 - [x] Each move of the app to the background is also an interruption, and the person must not see a message for that.
   > Correct. The background reason is a normal event. The code reports only the cases in which a different client uses the microphone or the camera.
 - [ ] The notification has no reason on iPhone, so the code cannot read it.
