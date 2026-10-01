@@ -587,6 +587,8 @@ pre.code-removed { padding-bottom: 4px; }
   .js .steps > .step, .js .steps > .between { grid-column: 1; }
   .js .steps > .step { margin-bottom: clamp(56px, 15vh, 150px); cursor: pointer; scroll-margin-top: 32vh; }
   .js .steps > .between { margin: calc(-1 * clamp(56px, 15vh, 150px) + 28px) 0 clamp(56px, 15vh, 150px); }
+  /* Text before the first step, or after other text, has no step above it to move up to. */
+  .js .steps > .between:first-child, .js .steps > .between + .between { margin-top: 0; }
   .js .steps > .step-block {
     grid-column: 2; grid-row: 1 / -1; align-self: start;
     position: sticky; top: var(--panel-top);
