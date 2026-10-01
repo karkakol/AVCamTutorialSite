@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 452">
+  <title>Two quick captures on a time line. By default, the second capture waits for the first one. With zero shutter lag, responsive capture, and deferred delivery, the captures overlap and the heavy processing moves to a later time.</title>
+
+  <!-- Panel A: the default behavior -->
+  <text x="16" y="24" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">Default: one capture at a time</text>
+
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="16" y="87">Photo 1</text>
+    <text x="16" y="135">Photo 2</text>
+    <text x="150" y="52" text-anchor="middle">Tap 1</text>
+    <text x="290" y="52" text-anchor="middle">Tap 2</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none">
+    <path d="M150 58 V150"/>
+    <path d="M290 58 V150"/>
+  </g>
+  <!-- Photo 1 -->
+  <rect x="150" y="68" width="80" height="30" rx="5" fill="var(--accent)"/>
+  <rect x="230" y="68" width="190" height="30" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <rect x="420" y="68" width="64" height="30" rx="5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <!-- Photo 2 -->
+  <rect x="290" y="116" width="194" height="30" rx="5" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <rect x="484" y="116" width="80" height="30" rx="5" fill="var(--accent)"/>
+  <rect x="564" y="116" width="140" height="30" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <g font-family="inherit" font-size="13" text-anchor="middle">
+    <text x="190" y="88" fill="var(--surface)">frames</text>
+    <text x="325" y="88" fill="currentColor">process</text>
+    <text x="452" y="88" fill="currentColor">encode</text>
+    <text x="387" y="136" fill="var(--muted)">waits for photo 1</text>
+    <text x="524" y="136" fill="var(--surface)">frames</text>
+    <text x="634" y="136" fill="currentColor">process</text>
+  </g>
+  <text x="16" y="176" font-family="inherit" font-size="13" fill="var(--muted)">The frames come from after the tap. The second request waits until the first photo is complete.</text>
+
+  <path d="M16 200 H704" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+
+  <!-- Panel B: with the features -->
+  <text x="16" y="232" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">With zero shutter lag, responsive capture, and deferred delivery</text>
+
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="16" y="295">Buffer</text>
+    <text x="16" y="341">Photo 1</text>
+    <text x="16" y="389">Photo 2</text>
+    <text x="150" y="260" text-anchor="middle">Tap 1</text>
+    <text x="290" y="260" text-anchor="middle">Tap 2</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none">
+    <path d="M150 266 V404"/>
+    <path d="M290 266 V404"/>
+  </g>
+  <!-- The ring buffer of recent frames -->
+  <rect x="84" y="280" width="390" height="22" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <text x="300" y="296" font-family="inherit" font-size="13" text-anchor="middle" fill="var(--muted)">the camera keeps the most recent frames</text>
+  <!-- Photo 1 -->
+  <rect x="84" y="322" width="66" height="30" rx="5" fill="var(--accent)"/>
+  <rect x="150" y="322" width="110" height="30" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <rect x="260" y="322" width="64" height="30" rx="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <!-- Photo 2 -->
+  <rect x="224" y="370" width="66" height="30" rx="5" fill="var(--accent)"/>
+  <rect x="290" y="370" width="110" height="30" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <rect x="400" y="370" width="64" height="30" rx="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <!-- Later: Photos completes the photos -->
+  <rect x="500" y="322" width="204" height="78" rx="8" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <g font-family="inherit" font-size="13" text-anchor="middle">
+    <text x="117" y="342" fill="var(--surface)">frames</text>
+    <text x="205" y="342" fill="currentColor">light process</text>
+    <text x="292" y="342" fill="currentColor">proxy</text>
+    <text x="257" y="390" fill="var(--surface)">frames</text>
+    <text x="345" y="390" fill="currentColor">light process</text>
+    <text x="432" y="390" fill="currentColor">proxy</text>
+    <text x="602" y="348" fill="currentColor">Later, in the Photos library:</text>
+    <text x="602" y="368" fill="var(--muted)">the system completes</text>
+    <text x="602" y="386" fill="var(--muted)">the two photos</text>
+  </g>
+  <text x="16" y="430" font-family="inherit" font-size="13" fill="var(--muted)">The frames come from the moment of the tap. The second capture starts while the first one is in work.</text>
+</svg>

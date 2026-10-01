@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250">
+  <title>Who selects the camera format: with the high preset the session selects it, and after the app sets activeFormat the preset is inputPriority and the app has control</title>
+  <defs>
+    <marker id="ch09-control-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="ch09-control-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g fill="var(--surface)" stroke-width="1.5">
+    <rect x="20" y="80" width="240" height="90" rx="10" stroke="var(--line)"/>
+    <rect x="460" y="80" width="240" height="90" rx="10" stroke="var(--accent)" stroke-width="2"/>
+  </g>
+  <g font-family="inherit" text-anchor="middle">
+    <text x="140" y="110" font-size="15" font-weight="600" fill="currentColor">Preset: .high</text>
+    <text x="140" y="132" font-size="13" fill="var(--muted)">The session selects the format</text>
+    <text x="140" y="152" font-size="13" fill="var(--muted)">HDR off: an 8-bit format</text>
+
+    <text x="580" y="110" font-size="15" font-weight="600" fill="currentColor">Preset: .inputPriority</text>
+    <text x="580" y="132" font-size="13" fill="var(--muted)">The app selected the format</text>
+    <text x="580" y="152" font-size="13" fill="var(--muted)">HDR on: the 10-bit variant</text>
+
+    <text x="360" y="34" font-size="13" fill="var(--accent)">HDR on: the app sets activeFormat</text>
+    <text x="360" y="232" font-size="13" fill="var(--muted)">HDR off: the app sets sessionPreset = .high</text>
+  </g>
+  <path d="M140 78 V46 H580 V76" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch09-control-arrow-accent)"/>
+  <path d="M580 172 V204 H140 V174" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch09-control-arrow)"/>
+</svg>

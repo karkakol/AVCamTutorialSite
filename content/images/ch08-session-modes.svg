@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
+  <title>The capture session in photo mode and in video mode: the same inputs, a different preset, and the movie file output only in video mode</title>
+  <defs>
+    <marker id="ch08-modes-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <!-- Photo mode -->
+    <text x="180" y="24" fill="currentColor" font-weight="600" font-size="15">Photo mode</text>
+
+    <rect x="10" y="62" width="104" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="62" y="89" fill="currentColor">Camera</text>
+    <rect x="10" y="162" width="104" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="62" y="189" fill="currentColor">Microphone</text>
+
+    <rect x="140" y="62" width="80" height="144" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="180" y="126" fill="currentColor" font-weight="600">Session</text>
+    <text x="180" y="148" fill="var(--muted)" font-size="13">.photo</text>
+
+    <rect x="246" y="48" width="104" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="298" y="73" fill="currentColor">Preview</text>
+    <rect x="246" y="114" width="104" height="40" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="298" y="139" fill="currentColor">Photo output</text>
+    <rect x="246" y="180" width="104" height="40" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="298" y="205" fill="var(--muted)">Movie output</text>
+
+    <text x="180" y="252" fill="var(--muted)" font-size="13">The movie output is not in the session.</text>
+    <text x="180" y="272" fill="var(--muted)" font-size="13">Live Photo capture is possible.</text>
+
+    <!-- Video mode -->
+    <text x="540" y="24" fill="currentColor" font-weight="600" font-size="15">Video mode</text>
+
+    <rect x="370" y="62" width="104" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="422" y="89" fill="currentColor">Camera</text>
+    <rect x="370" y="162" width="104" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="422" y="189" fill="currentColor">Microphone</text>
+
+    <rect x="500" y="62" width="80" height="144" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="540" y="126" fill="currentColor" font-weight="600">Session</text>
+    <text x="540" y="148" fill="var(--muted)" font-size="13">.high</text>
+
+    <rect x="606" y="48" width="104" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="658" y="73" fill="currentColor">Preview</text>
+    <rect x="606" y="114" width="104" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="658" y="139" fill="currentColor">Photo output</text>
+    <rect x="606" y="180" width="104" height="40" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="658" y="205" fill="currentColor">Movie output</text>
+
+    <text x="540" y="252" fill="var(--muted)" font-size="13">The movie output gets new connections.</text>
+    <text x="540" y="272" fill="var(--muted)" font-size="13">Live Photo capture is not possible.</text>
+  </g>
+  <line x1="360" y1="40" x2="360" y2="280" stroke="var(--line)" stroke-width="1"/>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch08-modes-arrow)">
+    <path d="M114 84 H138"/>
+    <path d="M114 184 H138"/>
+    <path d="M220 76 H244"/>
+    <path d="M220 134 H244"/>
+
+    <path d="M474 84 H498"/>
+    <path d="M474 184 H498"/>
+    <path d="M580 76 H604"/>
+    <path d="M580 134 H604"/>
+    <path d="M580 200 H604"/>
+  </g>
+</svg>

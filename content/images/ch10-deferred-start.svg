@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 270">
+  <title>Two launch timelines: without deferred start the preview appears after the outputs are ready, and with deferred start the preview appears before the session prepares the outputs</title>
+  <g font-family="inherit" font-size="14">
+    <text x="20" y="28" fill="currentColor" font-weight="600">Without deferred start</text>
+    <g text-anchor="middle" font-size="13">
+      <rect x="20" y="42" width="130" height="46" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="85" y="70" fill="currentColor">App launch</text>
+      <rect x="156" y="42" width="170" height="46" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="241" y="70" fill="currentColor">Session start</text>
+      <rect x="332" y="42" width="200" height="46" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="432" y="70" fill="currentColor">Prepare the capture outputs</text>
+    </g>
+    <line x1="540" y1="34" x2="540" y2="96" stroke="var(--accent)" stroke-width="2.5"/>
+    <text x="550" y="70" fill="var(--accent)" font-size="13" font-weight="600">First preview frame</text>
+
+    <text x="20" y="158" fill="currentColor" font-weight="600">With deferred start</text>
+    <g text-anchor="middle" font-size="13">
+      <rect x="20" y="172" width="130" height="46" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="85" y="200" fill="currentColor">App launch</text>
+      <rect x="156" y="172" width="170" height="46" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="241" y="200" fill="currentColor">Session start</text>
+      <rect x="342" y="172" width="200" height="46" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="442" y="200" fill="var(--muted)">Prepare the capture outputs</text>
+    </g>
+    <line x1="334" y1="164" x2="334" y2="226" stroke="var(--accent)" stroke-width="2.5"/>
+    <text x="334" y="246" fill="var(--accent)" font-size="13" font-weight="600" text-anchor="middle">First preview frame</text>
+    <text x="442" y="246" fill="var(--muted)" font-size="13">deferred, or at the first capture request</text>
+  </g>
+</svg>

@@ -268,11 +268,11 @@ This call does not report bad data. The system examines the request later, and a
 ### Step
 Build the project to make sure that the two methods compile.
 
-The actor can save a photo now, but no code calls it. The code writes the placeholder to a variable and does not read it yet, so Xcode can show a warning about this variable. You use the placeholder in the next section.
+The actor can save a photo now, but no code calls it. Xcode shows one warning: the variable `placeholder` was written to, but never read. You use the placeholder in the next section, and the warning goes away.
 
 ```settings title="Checkpoint"
 Action: Product > Build (Command-B)
-Result: The build succeeds with no errors.
+Result: The build succeeds with no errors and one warning.
 ```
 
 ## Make a thumbnail
@@ -534,7 +534,7 @@ The method now has two steps: capture, then save. Each step can throw an error, 
 ### Step
 At the start of `observeState()`, add a task that reads the thumbnail stream.
 
-`thumbnails` is a constant of the actor, and a stream is `Sendable`. Thus the model reads the property with no `await`. The `compactMap` call removes the `nil` values. The task runs on the main actor, so it can write to the `thumbnail` property that the views read.
+`thumbnails` is a constant (`let`) of the actor. Its value cannot change, so the model reads it with no `await`. The `compactMap` call removes the `nil` values. The task runs on the main actor, so it can write to the `thumbnail` property that the views read.
 
 ```swift file=AVCam/CameraModel.swift highlight=3-8
     // Set up camera's state observations.
@@ -686,7 +686,7 @@ Result: A thumbnail of the photo appears on the left side of the toolbar.
 ```
 
 ### Experiment
-Tap the thumbnail. The system photo picker opens, and the app did not ask for permission to read the library. Then examine the location: in the Simulator, select a location in the menu Features > Location, take a photo, and look at the details of the photo in the Photos app. The test for this tutorial did not examine the picker and the location tag, so you are the first person to see these results.
+Tap the thumbnail. The code opens the system photo picker and does not ask for permission to read the library. Then examine the location: in the Simulator, select a location in the menu Features > Location, take a photo, and look at the details of the photo in the Photos app. The test for this tutorial did not examine the picker and the location tag, so compare what you see with what the code tells you to expect.
 
 ### Text
 The photo path of the app is now complete: capture, save, and show. The interface still has a fixed layout for an iPhone in portrait. In the next chapter, you make the layout adapt to iPhone and iPad sizes.

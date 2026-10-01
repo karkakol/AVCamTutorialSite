@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 500">
+  <title>The delegate callbacks of one Live Photo capture, and what AVCam does in each callback</title>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="56" y="24">Callback</text>
+    <text x="452" y="24">What AVCam does</text>
+  </g>
+  <!-- The time axis -->
+  <path d="M32 66 V426" stroke="var(--line)" stroke-width="2" fill="none"/>
+  <g stroke-width="2">
+    <circle cx="32" cy="66" r="7" fill="var(--accent)" stroke="var(--accent)"/>
+    <circle cx="32" cy="138" r="7" fill="var(--surface)" stroke="var(--muted)"/>
+    <circle cx="32" cy="210" r="7" fill="var(--surface)" stroke="var(--muted)"/>
+    <circle cx="32" cy="282" r="7" fill="var(--accent)" stroke="var(--accent)"/>
+    <circle cx="32" cy="354" r="7" fill="var(--surface)" stroke="var(--muted)"/>
+    <circle cx="32" cy="426" r="7" fill="var(--surface)" stroke="var(--muted)"/>
+  </g>
+  <!-- The callbacks -->
+  <g font-family="inherit" font-size="14" font-weight="600" fill="currentColor">
+    <text x="56" y="62">willBeginCaptureFor</text>
+    <text x="56" y="134">willCapturePhotoFor</text>
+    <text x="56" y="198">didFinishProcessingPhoto, or</text>
+    <text x="56" y="216">didFinishCapturingDeferredPhotoProxy</text>
+    <text x="56" y="270">didFinishRecordingLivePhotoMovie</text>
+    <text x="56" y="288">ForEventualFileAt</text>
+    <text x="56" y="342">didFinishProcessingLivePhoto</text>
+    <text x="56" y="360">ToMovieFileAt</text>
+    <text x="56" y="422">didFinishCaptureFor</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <text x="56" y="82">Always first. The settings are resolved.</text>
+    <text x="56" y="154">The exposure starts.</text>
+    <text x="56" y="234">The photo, or its proxy, is ready.</text>
+    <text x="56" y="306">The movie stops. The file is not ready yet.</text>
+    <text x="56" y="378">The movie file is complete.</text>
+    <text x="56" y="442">Always last. Also arrives after an error.</text>
+  </g>
+  <!-- What AVCam does -->
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="440" y="42" width="264" height="48" rx="8" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="440" y="114" width="264" height="48" rx="8"/>
+    <rect x="440" y="186" width="264" height="48" rx="8"/>
+    <rect x="440" y="258" width="264" height="48" rx="8" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="440" y="330" width="264" height="48" rx="8"/>
+    <rect x="440" y="402" width="264" height="48" rx="8"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="currentColor">
+    <text x="452" y="62">Reads if the capture is a Live Photo.</text>
+    <text x="452" y="80">The "LIVE" badge comes on.</text>
+    <text x="452" y="143">The screen flashes.</text>
+    <text x="452" y="206">Keeps the file data. Notes if the</text>
+    <text x="452" y="224">data is a proxy.</text>
+    <text x="452" y="278">Yields isLivePhoto: false.</text>
+    <text x="452" y="296">The "LIVE" badge goes off.</text>
+    <text x="452" y="359">Keeps the URL of the movie file.</text>
+    <text x="452" y="422">Resumes the continuation with the</text>
+    <text x="452" y="440">data, the proxy flag, and the URL.</text>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)">
+    <circle cx="32" cy="478" r="6" fill="var(--accent)"/>
+    <text x="56" y="482">These two callbacks control the badge. The order of the middle callbacks is not guaranteed.</text>
+  </g>
+</svg>

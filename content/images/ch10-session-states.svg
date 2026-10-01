@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320">
+  <title>The states of a capture session: not running, running, interrupted, and stopped by an error, with the events that move the session between them</title>
+  <defs>
+    <marker id="ch10-states-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <rect x="20" y="125" width="150" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="95" y="155" fill="currentColor" font-weight="600">Not running</text>
+    <text x="95" y="176" fill="var(--muted)" font-size="13">before the start</text>
+
+    <rect x="290" y="125" width="150" height="70" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="365" y="155" fill="currentColor" font-weight="600">Running</text>
+    <text x="365" y="176" fill="var(--muted)" font-size="13">frames flow</text>
+
+    <rect x="540" y="30" width="160" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="620" y="60" fill="currentColor" font-weight="600">Interrupted</text>
+    <text x="620" y="81" fill="var(--muted)" font-size="13">the system restarts it</text>
+
+    <rect x="540" y="220" width="160" height="70" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="620" y="250" fill="currentColor" font-weight="600">Stopped by an error</text>
+    <text x="620" y="271" fill="var(--muted)" font-size="13">your app restarts it</text>
+
+    <g fill="currentColor" font-size="13">
+      <text x="230" y="150">startRunning()</text>
+      <text x="452" y="40">interruption</text>
+      <text x="512" y="128">interruption ends</text>
+      <text x="498" y="204">runtime error</text>
+      <text x="432" y="290">startRunning()</text>
+    </g>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch10-states-arrow)">
+    <path d="M170 160 L288 160"/>
+    <path d="M410 123 C430 70 480 50 538 50"/>
+    <path d="M538 85 C500 90 462 105 442 135"/>
+    <path d="M442 185 C460 215 500 232 538 238"/>
+    <path d="M538 272 C470 280 400 250 380 197"/>
+  </g>
+</svg>
