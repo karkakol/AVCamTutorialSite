@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
+  <title>The path of a direction report: the coordinator in the preview view makes a map on the main actor, the app keeps only the identifiers, and the capture service creates the device on the capture actor</title>
+  <defs>
+    <marker id="ch16-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- The two actors -->
+  <rect x="10" y="36" width="456" height="254" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <rect x="486" y="36" width="224" height="254" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="238" y="24" fill="var(--muted)" font-size="13">Main actor</text>
+    <text x="598" y="24" fill="var(--muted)" font-size="13">Capture actor</text>
+
+    <rect x="26" y="56" width="200" height="84" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="126" y="84" fill="currentColor" font-weight="600">PreviewView</text>
+    <text x="126" y="104" fill="var(--muted)" font-size="13">direction coordinator</text>
+    <text x="126" y="124" fill="var(--muted)" font-size="13">change handler: map</text>
+
+    <rect x="250" y="56" width="200" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="350" y="84" fill="currentColor" font-weight="600">CameraDirections</text>
+    <text x="350" y="104" fill="var(--muted)" font-size="13">two arrays of</text>
+    <text x="350" y="124" fill="var(--muted)" font-size="13">unique identifiers</text>
+
+    <rect x="26" y="186" width="200" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="126" y="214" fill="currentColor" font-weight="600">CameraView</text>
+    <text x="126" y="234" fill="var(--muted)" font-size="13">closure of the preview</text>
+    <text x="126" y="254" fill="var(--muted)" font-size="13">starts a task</text>
+
+    <rect x="250" y="186" width="200" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="350" y="214" fill="currentColor" font-weight="600">CameraModel</text>
+    <text x="350" y="234" fill="var(--muted)" font-size="13">setCameraDirections(_:)</text>
+    <text x="350" y="254" fill="var(--muted)" font-size="13">awaits the service</text>
+
+    <rect x="502" y="56" width="192" height="214" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="598" y="84" fill="currentColor" font-weight="600">CaptureService</text>
+    <text x="598" y="116" fill="var(--muted)" font-size="13">keeps the directions</text>
+    <text x="598" y="146" fill="var(--muted)" font-size="13">creates the device</text>
+    <text x="598" y="164" fill="var(--muted)" font-size="13">from an identifier</text>
+    <text x="598" y="194" fill="var(--muted)" font-size="13">changes the camera</text>
+    <text x="598" y="224" fill="var(--muted)" font-size="13">sets the mirroring</text>
+    <text x="598" y="242" fill="var(--muted)" font-size="13">of the preview</text>
+  </g>
+
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch16-flow-arrow)">
+    <path d="M226 98 H248"/>
+    <path d="M350 140 V163 H126 V184"/>
+    <path d="M226 228 H248"/>
+    <path d="M450 228 H500"/>
+  </g>
+</svg>

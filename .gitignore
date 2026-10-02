@@ -2,3 +2,4 @@ node_modules/
 dist/
 .DS_Store
 preview/
+docs/review/replay-partial.md

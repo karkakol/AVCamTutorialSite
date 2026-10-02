@@ -125,9 +125,10 @@ def replay(page, build=True):
     project = "AVCam.xcodeproj/project.pbxproj"
     start_project = git("show", f"{start}:{project}").stdout
     final_project = git("show", f"{branch}:{project}").stdout
-    # When the chapter adds no target, the project file only gets new settings: use the final version at once.
-    same_targets = start_project.count("isa = PBXNativeTarget") == final_project.count("isa = PBXNativeTarget")
-    seen_settings = [same_targets]
+    # If no step of the page changes a target in Xcode, use the final project file at once.
+    has_target_step = any(i["type"] == "step" and i.get("block") == "settings" and re.search(r"[Tt]arget", i["instruction"])
+                          for sec in page["sections"] for i in sec["items"])
+    seen_settings = [not has_target_step]
 
     def write_project():
         with open(os.path.join(work, "src", project), "w") as fh:

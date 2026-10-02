@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 452">
+  <title>The two paths of the finish callback: the app stops the recording and a continuation waits for the result, or the recording ends by itself and the result goes into a stream</title>
+  <defs>
+    <marker id="ch15-paths-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <rect x="20" y="16" width="300" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="170" y="42" fill="currentColor" font-weight="600">The app stops the recording</text>
+    <text x="170" y="64" fill="var(--muted)" font-size="13">stopRecording() stores a continuation</text>
+    <text x="170" y="84" fill="var(--muted)" font-size="13">on the delegate, then stops the output</text>
+
+    <rect x="400" y="16" width="300" height="84" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="550" y="42" fill="currentColor" font-weight="600">The recording ends by itself</text>
+    <text x="550" y="64" fill="var(--muted)" font-size="13">a time or size limit, a full disk,</text>
+    <text x="550" y="84" fill="var(--muted)" font-size="13">an interruption</text>
+
+    <rect x="170" y="146" width="380" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="360" y="172" fill="currentColor" font-weight="600">didFinishRecordingTo</text>
+    <text x="360" y="194" fill="var(--muted)" font-size="13">always one call for each recording</text>
+    <text x="360" y="214" fill="var(--muted)" font-size="13">the delegate makes a Result: a movie or an error</text>
+
+    <rect x="20" y="276" width="300" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="170" y="302" fill="currentColor" font-weight="600">A continuation is set</text>
+    <text x="170" y="324" fill="var(--muted)" font-size="13">continuation.resume(with: result)</text>
+    <text x="170" y="344" fill="var(--muted)" font-size="13">toggleRecording() gets the result</text>
+
+    <rect x="400" y="276" width="300" height="84" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="550" y="302" fill="currentColor" font-weight="600">No continuation is set</text>
+    <text x="550" y="324" fill="var(--muted)" font-size="13">unexpectedFinishHandler(result)</text>
+    <text x="550" y="344" fill="var(--muted)" font-size="13">stops the timer, yields to the stream</text>
+
+    <rect x="170" y="392" width="380" height="48" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="360" y="421" fill="currentColor" font-weight="600">The model saves the movie or stores the error</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch15-paths-arrow)">
+    <path d="M170 100 V123 H300 V144"/>
+    <path d="M550 100 V123 H420 V144"/>
+    <path d="M300 230 V253 H170 V274"/>
+    <path d="M420 230 V253 H550 V274"/>
+    <path d="M100 360 V416 H168"/>
+    <path d="M620 360 V416 H552"/>
+  </g>
+</svg>

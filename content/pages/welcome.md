@@ -16,6 +16,8 @@ You do not only copy code. Each chapter explains why the code has this form, and
 
 You build this app in 13 chapters. Each chapter adds one feature. The app builds and runs at the end of each chapter.
 
+A second part, "Beyond the sample", has three more chapters. Their code is not from Apple: it adds features that the sample does not have, and it corrects defects of the sample.
+
 | Chapter | Title | The result |
 |---|---|---|
 | 1 | First preview | The app asks for permission and shows a live camera preview. |
@@ -31,9 +33,12 @@ You build this app in 13 chapters. Each chapter adds one feature. The app builds
 | 11 | Hardware buttons and AirPods | The volume buttons and AirPods capture media. |
 | 12 | Camera Control | The Camera Control shows zoom, exposure, and a focus slider. |
 | 13 | Lock Screen and Control Center | The app starts from the Lock Screen and from Control Center. |
+| 14 | Zoom and lenses | Part 2. The app uses the back camera with the most lenses and has a zoom control. |
+| 15 | Fix the sample | Part 2. You correct four defects of the Apple sample. |
+| 16 | iPhone Duo | Part 2. The app follows the direction of each camera and fits the Duo display. |
 
 > [!NOTE]
-> All 13 chapters are ready. Chapters 1, 3, 6, 7, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
+> All 16 chapters are ready. Chapters 1, 3, 6, 7, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
 
 ## How a chapter works
 
@@ -75,7 +80,8 @@ The code of the tutorial is in the app repository, `AVCamTutorialApp`. It is a G
 | Branch | Contents |
 |---|---|
 | `start` | The empty project that Xcode creates from the App template. |
-| `chapter-01` to `chapter-13` | The finished code of each chapter. |
+| `chapter-01` to `chapter-13` | The finished code of each chapter. `chapter-13` is the Apple sample. |
+| `chapter-14` to `chapter-16` | The finished code of each chapter of part 2. |
 | `main` | The same as the last finished chapter. |
 
 Each build tutorial shows two branch names at the top: the branch that it starts from, and the branch with the result.

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
+  <title>A zoom command goes from the views through the model and the capture service to the capture device. The new zoom factor comes back from the device through an observation. The Camera Control slider changes the device directly.</title>
+  <defs>
+    <marker id="ch14-state-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="ch14-state-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <rect x="15" y="40" width="150" height="100" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="90" y="72" fill="currentColor" font-weight="600">Views</text>
+    <text x="90" y="94" fill="var(--muted)" font-size="13">zoom control,</text>
+    <text x="90" y="112" fill="var(--muted)" font-size="13">pinch gesture</text>
+
+    <rect x="195" y="40" width="150" height="100" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="270" y="72" fill="currentColor" font-weight="600">CameraModel</text>
+    <text x="270" y="94" fill="var(--muted)" font-size="13">zoomLevels,</text>
+    <text x="270" y="112" fill="var(--muted)" font-size="13">displayZoomFactor</text>
+
+    <rect x="375" y="40" width="150" height="100" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="450" y="72" fill="currentColor" font-weight="600">CaptureService</text>
+    <text x="450" y="94" fill="var(--muted)" font-size="13">limits the value,</text>
+    <text x="450" y="112" fill="var(--muted)" font-size="13">locks the device</text>
+
+    <rect x="555" y="40" width="150" height="100" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="630" y="72" fill="currentColor" font-weight="600">AVCaptureDevice</text>
+    <text x="630" y="94" fill="var(--muted)" font-size="13">videoZoomFactor</text>
+
+    <rect x="555" y="190" width="150" height="60" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="630" y="216" fill="currentColor" font-weight="600">Camera Control</text>
+    <text x="630" y="236" fill="var(--muted)" font-size="13">system zoom slider</text>
+
+    <g font-size="13" text-anchor="start">
+      <path d="M20 196 L56 196" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch14-state-arrow)"/>
+      <text x="66" y="201" fill="currentColor">A command: change the zoom</text>
+      <path d="M56 226 L20 226" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch14-state-arrow-accent)"/>
+      <text x="66" y="231" fill="currentColor">The value that the device has now</text>
+      <text x="20" y="270" fill="var(--muted)">The views show only values that come back from the device.</text>
+    </g>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch14-state-arrow)">
+    <path d="M165 66 L193 66"/>
+    <path d="M345 66 L373 66"/>
+    <path d="M525 66 L553 66"/>
+    <path d="M630 190 L630 142"/>
+  </g>
+  <g stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch14-state-arrow-accent)">
+    <path d="M555 124 L527 124"/>
+    <path d="M375 124 L347 124"/>
+    <path d="M195 124 L167 124"/>
+  </g>
+</svg>

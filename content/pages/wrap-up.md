@@ -28,6 +28,8 @@ This page is a summary. It also tells you honestly what this tutorial did not ve
 | 12 | Controls for the Camera Control: zoom, exposure bias, and a lens position slider. |
 | 13 | A shared state, a capture extension for the Lock Screen, and a control for Control Center and the Action button. |
 
+Part 2 goes beyond the sample: chapter 14 adds zoom and the virtual back cameras, chapter 15 corrects four defects of the sample, and chapter 16 adds support for iPhone Duo. The sections below about the Apple sample describe the state at the end of chapter 13.
+
 The design stayed the same from chapter 1 to chapter 13: the views read a model on the main actor, the model sends each request to the capture service, and the capture service owns the session on its own queue. Each chapter added lines to this design. No chapter replaced it.
 
 ## Your project and the Apple sample
@@ -105,14 +107,14 @@ A sample shows an API. It is not a finished product. The research for this tutor
 
 You know the pipeline now. Each idea below uses it in a new way.
 
-- **Fix a weak point.** Select one item from the list above, find out on an iPhone whether it is real, and repair it. This is the best first exercise, because you know the code.
+- **Fix one more weak point.** Chapter 15 corrects four items from the list above. Select one of the others, find out on an iPhone whether it is real, and repair it.
 - **Use the session object of the capture extension.** Write the movie into the session directory, collect it in the app with `LockedCameraCaptureManager`, and open the app from the thumbnail button with `openApplication(for:)`.
 - **Multi-camera capture.** [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) runs the front camera and the back camera at the same time. You connect the inputs and the outputs yourself, and you must watch the hardware cost. Start with the [AVMultiCamPiP sample](https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras).
 - **Depth.** The photo output can deliver a depth map and portrait mattes with a photo. Read [Capturing photos with depth](https://developer.apple.com/documentation/avfoundation/capturing-photos-with-depth).
 - **RAW and Apple ProRAW.** Add a second format to the photo settings and save a DNG file. Read [Capturing photos in RAW and Apple ProRAW formats](https://developer.apple.com/documentation/avfoundation/capturing-photos-in-raw-and-apple-proraw-formats).
 - **A video data output with your own processing.** [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) gives you each frame. You can apply a filter, draw your own preview, and write the movie with [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter). This is more work than the movie file output, and it gives you full control.
 - **Cinematic video.** From iOS 26, an app can record video with a depth of field that the person can change later. Read [Capturing Cinematic video](https://developer.apple.com/documentation/avfoundation/capturing-cinematic-video).
-- **A layout for a foldable iPhone.** The iOS 27.1 SDK has device types for an inner and an outer ultra-wide camera, and a coordinator that tells you in which direction a camera points in relation to a view. The Apple article [Registering a camera capture accessory on iPhone Duo](https://developer.apple.com/documentation/avfoundation/registering-a-camera-capture-accessory-on-iphone-duo) is a start. AVCam has one layout for iPhone and one for iPad, and its iPhone layout is portrait only.
+- **A second display during capture.** Chapter 16 makes the app follow the direction of each camera on iPhone Duo. The next step is content for the other display, for example a preview for the person in front of the camera. Read [Registering a camera capture accessory on iPhone Duo](https://developer.apple.com/documentation/avfoundation/registering-a-camera-capture-accessory-on-iphone-duo).
 - **Swift 6 and strict concurrency.** Change the language mode to Swift 6 and repair each error. You then find the places where the sample leaves an actor without a check, for example the delegate callbacks and the Combine publishers. This is hard, and it teaches you the most about the design.
 
 ## Documentation

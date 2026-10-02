@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 470">
+  <title>The Duo display in the simulator, 466 by 678 points: before the change, the interface is in the safe area at the leading side; after the change, it is in the center with 42 points at each side</title>
+
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="176" y="24" fill="currentColor" font-weight="600">Before</text>
+    <text x="536" y="24" fill="currentColor" font-weight="600">After</text>
+  </g>
+
+  <!-- BEFORE: the display, 466 x 678 points at half scale (233 x 339) -->
+  <path d="M60 70 H273 a20 20 0 0 1 20 20 V389 a20 20 0 0 1 -20 20 H60 Z" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+  <!-- The status area at the trailing side, 84 points -->
+  <path d="M251 70 H273 a20 20 0 0 1 20 20 V389 a20 20 0 0 1 -20 20 H251 Z" fill="var(--muted)" fill-opacity="0.18"/>
+  <!-- The bottom inset, 34 points -->
+  <rect x="60" y="392" width="191" height="17" fill="var(--muted)" fill-opacity="0.18"/>
+  <!-- The safe area, 382 x 644 points -->
+  <rect x="60" y="70" width="191" height="322" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <!-- The viewfinder frame, 3:4 -->
+  <rect x="60" y="82" width="191" height="255" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)" stroke-width="2"/>
+  <g stroke="var(--accent)" stroke-opacity="0.45" stroke-width="1" fill="none">
+    <path d="M60 337 L120 256 L160 300 L196 268 L251 322"/>
+    <circle cx="206" cy="126" r="12"/>
+  </g>
+  <!-- The capture button -->
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <circle cx="155.5" cy="364" r="13"/>
+    <circle cx="155.5" cy="364" r="9" fill="currentColor" stroke="none"/>
+  </g>
+
+  <!-- AFTER: the display -->
+  <path d="M420 70 H633 a20 20 0 0 1 20 20 V389 a20 20 0 0 1 -20 20 H420 Z" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+  <path d="M420 392 H652.8 a20 20 0 0 1 -19.8 17 H420 Z" fill="var(--muted)" fill-opacity="0.18"/>
+  <!-- The interface, 382 points wide, in the center -->
+  <rect x="441" y="70" width="191" height="322" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <rect x="441" y="82" width="191" height="255" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)" stroke-width="2"/>
+  <g stroke="var(--accent)" stroke-opacity="0.45" stroke-width="1" fill="none">
+    <path d="M441 337 L501 256 L541 300 L577 268 L632 322"/>
+    <circle cx="587" cy="126" r="12"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <circle cx="536.5" cy="364" r="13"/>
+    <circle cx="536.5" cy="364" r="9" fill="currentColor" stroke="none"/>
+  </g>
+
+  <!-- Dimension lines -->
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+    <!-- Before: 382 and 84 -->
+    <path d="M60 58 V50 H251 V58"/>
+    <path d="M251 50 H293 V58"/>
+    <!-- Before: full width -->
+    <path d="M60 421 V429 H293 V421"/>
+    <!-- Before: bottom inset leader -->
+    <path d="M56 400 H40"/>
+    <!-- After: 42, 382, 42 -->
+    <path d="M420 58 V50 H441 V58"/>
+    <path d="M441 50 H632 V58"/>
+    <path d="M632 50 H653 V58"/>
+    <path d="M420 421 V429 H653 V421"/>
+    <path d="M416 400 H400"/>
+  </g>
+
+  <g font-family="inherit" font-size="13" text-anchor="middle">
+    <text x="155" y="44" fill="currentColor">382</text>
+    <text x="272" y="44" fill="currentColor">84</text>
+    <text x="176" y="447" fill="currentColor">466 points</text>
+    <text x="26" y="405" fill="currentColor">34</text>
+    <text x="272" y="236" fill="var(--muted)" transform="rotate(90 272 236)">Status area, empty</text>
+
+    <text x="424" y="44" fill="currentColor">42</text>
+    <text x="536" y="44" fill="currentColor">382</text>
+    <text x="649" y="44" fill="currentColor">42</text>
+    <text x="536" y="447" fill="currentColor">466 points</text>
+    <text x="386" y="405" fill="currentColor">34</text>
+
+    <text x="356" y="230" fill="var(--muted)">Insets:</text>
+    <text x="356" y="250" fill="var(--muted)">top 0</text>
+    <text x="356" y="270" fill="var(--muted)">leading 0</text>
+    <text x="356" y="290" fill="var(--muted)">bottom 34</text>
+    <text x="356" y="310" fill="var(--muted)">trailing 84</text>
+  </g>
+</svg>

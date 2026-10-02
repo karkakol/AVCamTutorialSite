@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350">
+  <title>The same two cameras in two configurations of the device: the position of each camera stays the same, and the direction of each camera changes</title>
+  <defs>
+    <marker id="ch16-dir-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <!-- The two panels -->
+  <rect x="10" y="10" width="340" height="296" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+  <rect x="370" y="10" width="340" height="296" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+
+  <g font-family="inherit" font-size="14">
+    <text x="180" y="36" text-anchor="middle" fill="currentColor" font-weight="600">The app is on the first display</text>
+    <text x="540" y="36" text-anchor="middle" fill="currentColor" font-weight="600">The app is on the second display</text>
+  </g>
+
+  <!-- Panel 1 -->
+  <g>
+    <!-- The person -->
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="52" cy="112" r="11"/>
+      <path d="M34 160 C34 134 70 134 70 160"/>
+    </g>
+    <!-- The scene -->
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M284 160 L304 126 L316 144 L324 134 L338 160 Z"/>
+      <circle cx="326" cy="112" r="6"/>
+    </g>
+    <!-- The device, seen from the side -->
+    <rect x="170" y="64" width="20" height="122" rx="6" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+    <!-- The display that shows the app -->
+    <path d="M166 100 V178" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <!-- Camera with the front position -->
+    <circle cx="170" cy="80" r="7" fill="var(--accent)"/>
+    <path d="M160 80 H96" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <!-- Camera with the back position -->
+    <circle cx="190" cy="80" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <path d="M200 80 H264" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+  </g>
+
+  <!-- Panel 2 -->
+  <g>
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="412" cy="112" r="11"/>
+      <path d="M394 160 C394 134 430 134 430 160"/>
+    </g>
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M644 160 L664 126 L676 144 L684 134 L698 160 Z"/>
+      <circle cx="686" cy="112" r="6"/>
+    </g>
+    <rect x="530" y="64" width="20" height="122" rx="6" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+    <path d="M526 100 V178" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <!-- Camera with the back position now faces the person -->
+    <circle cx="530" cy="80" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <path d="M520 80 H456" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <!-- Camera with the front position now faces the scene -->
+    <circle cx="550" cy="80" r="7" fill="var(--accent)"/>
+    <path d="M560 80 H624" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+  </g>
+
+  <g font-family="inherit" font-size="13">
+    <text x="52" y="182" text-anchor="middle" fill="var(--muted)">Person</text>
+    <text x="312" y="182" text-anchor="middle" fill="var(--muted)">Scene</text>
+    <text x="180" y="206" text-anchor="middle" fill="var(--muted)">Device and preview</text>
+    <text x="412" y="182" text-anchor="middle" fill="var(--muted)">Person</text>
+    <text x="672" y="182" text-anchor="middle" fill="var(--muted)">Scene</text>
+    <text x="540" y="206" text-anchor="middle" fill="var(--muted)">Device and preview</text>
+  </g>
+
+  <!-- The legends -->
+  <g font-family="inherit" font-size="14">
+    <circle cx="36" cy="241" r="7" fill="var(--accent)"/>
+    <text x="52" y="246" fill="currentColor">Position front: forward facing</text>
+    <circle cx="36" cy="275" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="52" y="280" fill="currentColor">Position back: backward facing</text>
+
+    <circle cx="396" cy="241" r="7" fill="var(--accent)"/>
+    <text x="412" y="246" fill="currentColor">Position front: backward facing</text>
+    <circle cx="396" cy="275" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="412" y="280" fill="currentColor">Position back: forward facing</text>
+
+    <text x="360" y="334" text-anchor="middle" fill="var(--muted)" font-size="13">A schematic view from the side. It does not show the real form of the device.</text>
+  </g>
+</svg>
