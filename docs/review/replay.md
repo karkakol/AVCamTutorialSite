@@ -82,7 +82,7 @@ End state: equal to the branch (empty lines ignored).
 
 | Section | Page says it builds | Build |
 |---|---|---|
-| 1. Describe the photo features | yes | FAILS |
+| 1. Describe the photo features | yes | unclear (brace position) |
 | 2. Collect the movie and the proxy | yes | ok |
 | 3. Enable the features on the photo output | yes | ok |
 | 4. Select the features for each capture | yes | ok |
@@ -164,32 +164,57 @@ End state: equal to the branch (empty lines ignored).
 
 | Section | Page says it builds | Build |
 |---|---|---|
-| 1. Persist the camera state | yes | FAILS |
+| 1. Persist the camera state | yes | ok |
 | 2. Start the session from the state | no | FAILS |
-| 3. Read and write the state in the model | yes | FAILS |
-| 4. Sync when the app becomes active | yes | FAILS |
+| 3. Read and write the state in the model | yes | unclear (brace position) |
+| 4. Sync when the app becomes active | yes | ok |
 | 5. Add the capture extension | yes | ok |
 | 6. Add the control extension | yes | ok |
 
-Errors after section 1:
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/CameraModel.swift:76:13: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:58:9: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:62:9: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:66:9: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:70:9: error: cannot find 'logger' in scope`
-
 Errors after section 2:
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:183:13: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:190:13: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:200:13: error: cannot find 'logger' in scope`
+- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/CameraModel.swift:72:44: error: missing argument for parameter 'with' in call`
 
 Errors after section 3:
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:77:1: error: Expected '}' in class (in target 'AVCamCaptureExtension' from project 'AVCam')`
+- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Preview Content/PreviewCameraModel.swift:77:1: error: Expected '}' in class (in target 'AVCam' from project 'AVCam')`
 
-Errors after section 4:
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:183:13: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:190:13: error: cannot find 'logger' in scope`
-- `/tmp/claude-501/-Users-karolkakol-tutorials-AVCamBuildingACameraApp/20e0aae5-9a96-4535-a48a-86b0b0803d27/scratchpad/replay/ch13-build/src/AVCam/Capture/PhotoCapture.swift:200:13: error: cannot find 'logger' in scope`
+End state: equal to the branch (empty lines ignored).
+
+## ch14-build (chapter-13 to chapter-14)
+
+| Section | Page says it builds | Build |
+|---|---|---|
+| 1. Select the cameras and describe a zoom level | yes | ok |
+| 2. Create the zoom levels | yes | ok |
+| 3. Change the zoom | yes | ok |
+| 4. Publish the zoom to the model | yes | ok |
+| 5. Build the zoom control | yes | ok |
+| 6. Add the pinch gesture | yes | ok |
+
+End state: equal to the branch (empty lines ignored).
+
+## ch15-build (chapter-14 to chapter-15)
+
+| Section | Page says it builds | Build |
+|---|---|---|
+| 1. Make a stream for unexpected results | yes | ok |
+| 2. Send each result to the correct place | yes | ok |
+| 3. Save the unexpected movie | yes | ok |
+| 4. Keep the Live Photo badge on | yes | ok |
+| 5. Give a new movie connection its rotation angle | yes | ok |
+| 6. Play the capture sound first | yes | ok |
+
+End state: equal to the branch (empty lines ignored).
+
+## ch16-build (chapter-15 to chapter-16)
+
+| Section | Page says it builds | Build |
+|---|---|---|
+| 1. Center the interface on the Duo display | yes | ok |
+| 2. Describe the camera directions | yes | ok |
+| 3. Observe the directions in the preview view | yes | ok |
+| 4. Follow the direction in the capture service | yes | ok |
+| 5. Mirror the preview by direction | yes | ok |
+| 6. Connect the preview to the capture service | yes | ok |
 
 End state: equal to the branch (empty lines ignored).
 
