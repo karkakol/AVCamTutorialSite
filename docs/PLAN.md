@@ -160,6 +160,16 @@ Result: the app starts from the Lock Screen, Control Center, and the Action butt
 - `CameraModel`: `cameraState`, `syncState()`, persistence in `didSet`. `CaptureService.start(with:)`. `AVCamApp`: scene phase sync.
 - Targets `AVCamCaptureExtension` and `AVCamControlCenterExtension`, with shared source membership as in the sample.
 
+## Part 2: beyond the sample (chapters 14 to 16, added 2 Oct 2026)
+
+These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the code rules ("the final state equals the Apple sample") ends at `chapter-13`. All other rules stay. Each page of part 2 says clearly that the code is not Apple's.
+
+- **Chapter 14 — Zoom and lenses (`chapter-14`)**: virtual back cameras, zoom levels from the switch-over factors, a zoom control, a pinch gesture, zoom state in sync with the device.
+- **Chapter 15 — Fix the sample (`chapter-15`)**: a recording that ends by itself, the Live Photo badge counter, the rotation angle of a new movie connection, the capture sound before the capture work.
+- **Chapter 16 — iPhone Duo (`chapter-16`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
+
+`main` equals `chapter-16`.
+
 ## Hand-off notes (`notes/chapter-NN.md`)
 
 The code agent of a chapter writes this file for the writer. Contents:

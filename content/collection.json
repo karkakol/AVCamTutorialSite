@@ -239,6 +239,57 @@
       ]
     },
     {
+      "number": 14,
+      "title": "Zoom and lenses",
+      "abstract": "The app uses the back camera with the most lenses, shows zoom levels such as 0.5x, 1x, and 3x, and zooms with a pinch. This chapter goes beyond the Apple sample.",
+      "pages": [
+        {
+          "slug": "ch14-concepts",
+          "kind": "article",
+          "title": "Concepts: zoom and lenses"
+        },
+        {
+          "slug": "ch14-build",
+          "kind": "tutorial",
+          "title": "Build: zoom and lenses"
+        }
+      ]
+    },
+    {
+      "number": 15,
+      "title": "Fix the sample",
+      "abstract": "You correct four defects of the Apple sample: a recording that ends by itself, the Live Photo badge, the rotation of a new movie connection, and a late capture sound.",
+      "pages": [
+        {
+          "slug": "ch15-concepts",
+          "kind": "article",
+          "title": "Concepts: fix the sample"
+        },
+        {
+          "slug": "ch15-build",
+          "kind": "tutorial",
+          "title": "Build: fix the sample"
+        }
+      ]
+    },
+    {
+      "number": 16,
+      "title": "iPhone Duo",
+      "abstract": "On iPhone Duo, a camera can change the direction that it faces. The app follows the direction with a direction coordinator, mirrors the preview correctly, and centers its interface on the Duo display.",
+      "pages": [
+        {
+          "slug": "ch16-concepts",
+          "kind": "article",
+          "title": "Concepts: iPhone Duo"
+        },
+        {
+          "slug": "ch16-build",
+          "kind": "tutorial",
+          "title": "Build: iPhone Duo"
+        }
+      ]
+    },
+    {
       "number": 0,
       "title": "Finish",
       "abstract": "",
