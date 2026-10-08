@@ -88,6 +88,9 @@ Privacy - Camera Usage Description: To capture photos and videos.
 User Interface Style: Dark
 ```
 
+### Tip
+You can also set these two keys in the Info tab of the target, in the table "Custom iOS Target Properties". The Info tab can show a key under another name than the Build Settings tab; for example, "User Interface Style" can appear as "Appearance" there. Both places change the same value in the project.
+
 ### Step
 Build and run the app, to make sure that the project is in a good state.
 
