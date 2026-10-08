@@ -578,13 +578,14 @@ pre.code-removed { padding-bottom: 4px; }
   .js .steps {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
-    grid-template-rows: repeat(var(--n), auto) minmax(0, 1fr);
+    /* The sticky panel stops at the end of the rows that it spans. The last step becomes
+       active when its top is at 42% of the viewport, so the last row must go on for the rest of
+       the panel's height. Padding does not help here, because the panel's area ends at the rows. */
+    grid-template-rows: repeat(var(--n), auto) minmax(max(16vh, calc(60vh - 120px)), 1fr);
     column-gap: clamp(20px, 3vw, 44px);
     --panel-top: calc(var(--bar-h) + 20px);
     --panel-h: calc(100vh - var(--bar-h) - 40px);
-    /* The sticky panel stops at the end of the grid. The last step becomes active when its top
-       is at 42% of the viewport, so the grid must go on for the rest of the panel's height. */
-    padding-bottom: max(16vh, calc(60vh - 120px));
+    padding-bottom: 0;
   }
   .js .steps > .step, .js .steps > .between { grid-column: 1; }
   .js .steps > .step { margin-bottom: clamp(56px, 15vh, 150px); cursor: pointer; scroll-margin-top: 32vh; }
