@@ -581,7 +581,7 @@ pre.code-removed { padding-bottom: 4px; }
     /* The sticky panel stops at the end of the rows that it spans. The last step becomes
        active when its top is at 42% of the viewport, so the last row must go on for the rest of
        the panel's height. Padding does not help here, because the panel's area ends at the rows. */
-    grid-template-rows: repeat(var(--n), auto) minmax(max(16vh, calc(60vh - 120px)), 1fr);
+    grid-template-rows: repeat(var(--n), auto) minmax(max(12vh, calc(45vh - 150px)), 1fr);
     column-gap: clamp(20px, 3vw, 44px);
     --panel-top: calc(var(--bar-h) + 20px);
     --panel-h: calc(100vh - var(--bar-h) - 40px);
