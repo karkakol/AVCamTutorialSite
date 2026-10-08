@@ -89,7 +89,7 @@ User Interface Style: Dark
 ```
 
 ### Tip
-You can also set these two keys in the Info tab of the target, in the table "Custom iOS Target Properties". The Info tab can show a key under another name than the Build Settings tab; for example, "User Interface Style" can appear as "Appearance" there. Both places change the same value in the project.
+You can also set these two keys in the Info tab of the target, in the table "Custom iOS Target Properties". The Info tab shows the keys under other names: "Privacy - Camera Usage Description" for the camera key, and "Appearance" for `UIUserInterfaceStyle`. In the Info tab, "Appearance" is a text field: type `Dark` exactly, with a capital letter. Both places change the same build setting, `INFOPLIST_KEY_UIUserInterfaceStyle`, because the project generates its Info.plist from the build settings. See [Managing your app's information property list](https://developer.apple.com/documentation/bundleresources/managing-your-app-s-information-property-list).
 
 ### Step
 Build and run the app, to make sure that the project is in a good state.
