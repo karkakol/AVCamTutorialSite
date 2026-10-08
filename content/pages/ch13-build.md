@@ -643,7 +643,7 @@ The steps in the Xcode interface in this section and in the next section come fr
 ### Step
 In Xcode, add a new target from the Capture Extension template with these options.
 
-The template is in the Application Extension group of the iOS templates. "Embed in Application" makes the app target copy the built extension into the app, and it makes the app target depend on the extension. If Xcode asks whether it must activate a scheme for the new target, keep the `AVCam` scheme.
+The template is in the Application Extension group of the iOS templates. "Embed in Application" makes the app target copy the built extension into the app, and it makes the app target depend on the extension. If Xcode asks whether it must activate a scheme for the new target, keep the `AVCam` scheme. The Team field and the scheme dialog were not checked in the Xcode window.
 
 ```settings title="File › New › Target › iOS › Capture Extension"
 Product Name: AVCamCaptureExtension
@@ -666,7 +666,7 @@ Target AVCam › Build Phases: A new phase, Embed ExtensionKit Extensions
 ### Step
 In the project navigator, delete the viewfinder file of the template. Select Move to Trash.
 
-The viewfinder of the template uses `UIImagePickerController`, the simple camera interface of UIKit. Your extension shows `CameraView`, the same interface as the app.
+The viewfinder of the template uses `UIImagePickerController`, the simple camera interface of UIKit. Your extension shows `CameraView`, the same interface as the app. The text of the delete dialog was not checked in the Xcode window.
 
 ```settings title="Project navigator › AVCamCaptureExtension"
 AVCamCaptureExtensionViewFinder.swift: Delete › Move to Trash
@@ -737,7 +737,7 @@ let logger = Logger()
 ```
 
 ### Step
-In the project navigator, select all Swift files in the `AVCam` group except `AVCamApp.swift`. In the File inspector, add them to the extension target.
+In the project navigator, select all Swift files in the `AVCam` group except `AVCamApp.swift`. In the File inspector, under Target Membership, click the Add button (+). In the Choose Targets dialog, select `AVCamCaptureExtension`, and click Save.
 
 The extension uses the model, the capture service, and the views of the app, so the compiler must build these 28 files for the extension too. Each target compiles its own copy. `AVCamApp.swift` stays out: it has the `@main` type of the app, and a program can have only one entry point.
 
@@ -753,7 +753,7 @@ The asset catalog: AVCam
 ### Step
 Select the `AVCamCaptureExtension` target, and set its minimum iOS version to 26.0.
 
-An extension cannot run on a system version that its code does not support. Use the same deployment target as the app, so that the shared code compiles for the same version in the two targets.
+An extension cannot run on a system version that its code does not support. Use the same deployment target as the app, so that the shared code compiles for the same version in the two targets. The name of the section in the General tab was not checked in the Xcode window.
 
 ```settings title="Target AVCamCaptureExtension › General › Minimum Deployments"
 iOS: 26.0
@@ -904,7 +904,7 @@ struct AVCamControlCenterExtensionBundle: WidgetBundle {
 ```
 
 ### Step
-In the project navigator, select three files of the `Model` group. In the File inspector, add them to the control extension target.
+In the project navigator, select three files of the `Model` group. In the File inspector, under Target Membership, click the Add button (+). In the Choose Targets dialog, select `AVCamControlCenterExtension`, and click Save.
 
 The control creates an `AVCamCaptureIntent`, so the extension must compile the intent. The intent names `CameraState`, and `CameraState` uses two enumerations from `DataTypes.swift`. No other file of the app is necessary. After this step, the intent is a part of all three targets, which the system needs.
 
