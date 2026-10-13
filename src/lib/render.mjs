@@ -107,6 +107,7 @@ function shell(site, { title, description, bodyAttrs = '', topbar, main, assetVe
   try {
     var theme = localStorage.getItem('avcam-tutorial:theme');
     if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+    if (localStorage.getItem('avcam-tutorial:try-first') === 'on') root.classList.add('try-first');
   } catch (error) {}
 })();
 </script>
@@ -204,6 +205,7 @@ ${sectionLinks}
 </div>
 </div>
 <span class="topbar-spacer"></span>
+<button type="button" class="tryfirst-toggle" data-tryfirst-toggle aria-pressed="false" title="Hide the code of each step until you ask for it">${icon('pen')}<span class="tryfirst-label">Try first</span></button>
 ${themeSwitch()}
 </div>
 <div class="page-progress" aria-hidden="true"><span></span></div>
@@ -310,6 +312,22 @@ function cmd(command) {
 
 // ---------------------------------------------------------------- tutorial page
 
+/** The cover of a code panel in the "Try first" mode. */
+function solutionCover(page, step) {
+  if (!step.block || step.block.type !== 'code') return '';
+  const file = step.block.code.file;
+  const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';
+  return `<div class="solution-cover" data-cover>
+<p class="solution-title">${icon('pen')}<span>Write this step yourself first.</span></p>
+<p class="solution-text">Read the goal of the step, write the code in Xcode, and build. Then show the solution and compare.</p>
+<div class="solution-actions">
+<button type="button" class="btn btn-primary" data-reveal>Show solution</button>
+<button type="button" class="btn btn-quiet" data-reveal-section>Show all solutions of this section</button>
+</div>
+${compare ? `<p class="solution-compare">To compare your file with the finished chapter, run this in the folder of the app:</p><div class="cmd"><code>${e(compare)}</code><button type="button" class="tool tool-icon" data-copy-text="${e(compare)}" title="Copy">${icon('copy')}</button></div>` : ''}
+</div>`;
+}
+
 function renderStepBlock(site, step, env) {
   const block = step.block;
   if (!block) return '<div class="missing-image">This step has no block yet.</div>';
@@ -336,7 +354,7 @@ function renderTutorial(site, page, env) {
 <div class="step-instruction">${render(item.instruction)}</div>
 ${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}
 </article>
-<div class="step-block" data-block-for="${item.id}">${renderStepBlock(site, item, env)}</div>`;
+<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item)}${renderStepBlock(site, item, env)}</div>`;
           }
           if (item.type === 'aside') {
             return `<div class="between">${asideOpen(item.kind)}${render(item.tokens)}</aside></div>`;

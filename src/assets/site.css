@@ -807,3 +807,33 @@ a.pagerow:hover .pagerow-title { color: var(--accent); }
   .js .steps { display: block; }
   .js .steps > .step-block { position: static; opacity: 1; visibility: visible; height: auto; }
 }
+
+/* ------------------------------------------------------------ try first mode */
+
+.tryfirst-toggle {
+  display: inline-flex; align-items: center; gap: 0.4em; flex: none;
+  min-height: 34px; padding: 0 0.7em; margin-right: 4px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: transparent; color: var(--muted);
+  font-family: var(--font-text); font-size: 0.875rem; font-weight: 600; line-height: 1; white-space: nowrap; cursor: pointer;
+}
+.tryfirst-toggle:hover { color: var(--text); }
+.tryfirst-toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast, #fff); }
+.tryfirst-toggle .icon { width: 17px; height: 17px; }
+@media (max-width: 759.98px) {
+  .tryfirst-toggle { padding: 0; width: 38px; justify-content: center; border: 0; }
+  .tryfirst-label { display: none; }
+}
+
+.solution-cover { display: none; }
+html.try-first .step-block:not(.is-revealed) > .solution-cover {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 20px 22px; border: 1px dashed var(--accent); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+html.try-first .step-block:not(.is-revealed) > .codecard { display: none; }
+.solution-title { display: flex; align-items: center; gap: 0.5em; margin: 0; font-weight: 700; color: var(--text); }
+.solution-title .icon { color: var(--accent); }
+.solution-text, .solution-compare { margin: 0; color: var(--muted); font-size: 0.9375rem; line-height: 1.5; }
+.solution-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.solution-cover .cmd { margin: 0; }

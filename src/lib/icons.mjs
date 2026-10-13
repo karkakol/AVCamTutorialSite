@@ -9,6 +9,7 @@ const PATHS = {
   chevron: '<path d="M6.5 9.5l5.5 5.5 5.5-5.5"/>',
   copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 5.5v-1a1 1 0 0 0-1-1h-9a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h1"/>',
   sun: '<circle cx="12" cy="12" r="3.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+  pen: '<path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 8.5l3 3"/>',
   moon: '<path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z"/>',
   auto: '<circle cx="12" cy="12" r="8.25"/><path d="M12 3.75v16.5A8.25 8.25 0 0 0 12 3.75z" fill="currentColor" stroke="none"/>',
   external: '<path d="M10 5.5H6.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V14"/><path d="M13.5 4.5h6v6M19 5l-8 8"/>',

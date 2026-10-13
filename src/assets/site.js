@@ -49,6 +49,34 @@
     return stepTotal > 0 && doneStepCount(pageSlug) >= stepTotal;
   }
 
+  // ------------------------------------------------------------ try first
+  // In this mode the code of a step stays hidden until the learner asks for it.
+  var TRYFIRST_KEY = 'avcam-tutorial:try-first';
+  function refreshTryFirst() {
+    var on = root.classList.contains('try-first');
+    $$('[data-tryfirst-toggle]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });
+  }
+  function setTryFirst(on) {
+    root.classList.toggle('try-first', on);
+    try {
+      if (on) window.localStorage.setItem(TRYFIRST_KEY, 'on'); else window.localStorage.removeItem(TRYFIRST_KEY);
+    } catch (error) { /* no storage */ }
+    refreshTryFirst();
+    if (typeof layout === 'function') window.requestAnimationFrame(layout);
+  }
+  $$('[data-tryfirst-toggle]').forEach(function (button) {
+    button.addEventListener('click', function () { setTryFirst(!root.classList.contains('try-first')); });
+  });
+  refreshTryFirst();
+  doc.addEventListener('click', function (event) {
+    var reveal = event.target.closest('[data-reveal], [data-reveal-section]');
+    if (!reveal) return;
+    var block = reveal.closest('.step-block');
+    var blocks = reveal.hasAttribute('data-reveal-section') ? $$('.step-block', block.parentElement) : [block];
+    blocks.forEach(function (b) { b.classList.add('is-revealed'); });
+    if (typeof layout === 'function') window.requestAnimationFrame(layout);
+  });
+
   // ---------------------------------------------------------------- theme
 
   var THEMES = ['auto', 'light', 'dark'];
