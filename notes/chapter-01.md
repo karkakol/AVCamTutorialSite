@@ -24,7 +24,7 @@ File > New > Project > iOS > App, then:
 |---|---|
 | Product Name | `AVCam` |
 | Team | None (the project file has no `DEVELOPMENT_TEAM`) |
-| Organization Identifier | `com.example` (bundle identifier becomes `com.karolkakol.AVCam`) |
+| Organization Identifier | `com.karolkakol` (bundle identifier becomes `com.karolkakol.AVCam`) |
 | Interface | SwiftUI |
 | Language | Swift |
 | Testing System | None |
