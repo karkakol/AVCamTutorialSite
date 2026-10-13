@@ -24,7 +24,7 @@ File > New > Project > iOS > App, then:
 |---|---|
 | Product Name | `AVCam` |
 | Team | None (the project file has no `DEVELOPMENT_TEAM`) |
-| Organization Identifier | `com.example` (bundle identifier becomes `com.example.AVCam`) |
+| Organization Identifier | `com.example` (bundle identifier becomes `com.karolkakol.AVCam`) |
 | Interface | SwiftUI |
 | Language | Swift |
 | Testing System | None |
@@ -102,7 +102,7 @@ Note: steps 6 and 10 both edit `AVCamApp.swift`. The writer can also move the lo
 
 Approved deviations in use:
 
-- Queue label `com.example.AVCam.sessionQueue` (from the bundle identifier).
+- Queue label `com.karolkakol.AVCam.sessionQueue` (from the bundle identifier).
 - `PreviewView.init()` has no `#if targetEnvironment(simulator)` placeholder image.
 
 Reductions for chapter 1 (each one is a subset of the sample; later chapters add lines):
@@ -127,7 +127,7 @@ Comments copied from the sample that can confuse a learner:
 - **The feed is sideways in the Simulator.** In portrait, the SimCam picture appears rotated by 90 degrees. Chapter 1 has no rotation code (chapter 5 adds the rotation coordinator). I did not test a real iPhone. Someone must check on a real iPhone whether the chapter 1 preview is upright in portrait, before the page makes a claim about it.
 - **The feed fills the whole preview view in the Simulator.** The default `videoGravity` of `AVCaptureVideoPreviewLayer` is `resizeAspect`, so a real iPhone shows the complete picture with black bars. SimCam fills the layer.
 - The preview stays inside the safe area (same as the sample, which never ignores the safe area). The black bars at the top and bottom come from the dark interface style.
-- **SimCam skips the permission system.** With SimCam loaded, the app is always authorized. `simctl privacy revoke` and `reset` have no effect, and the system permission alert never appears. So the learner cannot see the alert or the denied state in the Simulator with SimCam. To test the denied state I started the app without SimCam for one launch: `xcrun simctl privacy <udid> revoke camera com.example.AVCam`, then `SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="" xcrun simctl launch <udid> com.example.AVCam`. This does not change the SimCam configuration. On a real iPhone, use the Settings app.
+- **SimCam skips the permission system.** With SimCam loaded, the app is always authorized. `simctl privacy revoke` and `reset` have no effect, and the system permission alert never appears. So the learner cannot see the alert or the denied state in the Simulator with SimCam. To test the denied state I started the app without SimCam for one launch: `xcrun simctl privacy <udid> revoke camera com.karolkakol.AVCam`, then `SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="" xcrun simctl launch <udid> com.karolkakol.AVCam`. This does not change the SimCam configuration. On a real iPhone, use the Settings app.
 - Without SimCam, the Simulator has no camera. The app then shows the orange "failed" message. This is a useful note for learners without SimCam.
 - The permission alert with the usage description text needs a real iPhone (or a Simulator without SimCam, where the alert appears but the camera then fails).
 - iPhone landscape is still allowed in chapter 1 (template default). The preview does not rotate with the device until chapter 5.

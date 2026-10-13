@@ -192,7 +192,7 @@ This flag records that the session has its inputs and outputs. You use it in the
     private var isSetUp = false
 
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 ```
 
 ### Step

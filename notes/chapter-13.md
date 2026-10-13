@@ -13,7 +13,7 @@ Branch `chapter-13`, start `chapter-12`. Full change: `git -C ../AVCamTutorialAp
 - `Camera`, `PreviewCameraModel`: `syncState()` (and `PreviewCameraModel` gets the rest of the sample's file: `isVideoDeviceSwitchable`, `capabilities(for:)`).
 - `AVCamApp`: `scenePhase` and the `onChange` that calls `syncState()`.
 - `DataTypes`: `CameraError.deviceChangeFailed`.
-- New folders: `AVCamCaptureExtension/` (`AVCamCaptureExtension.swift`, `Info.plist` with `EXExtensionPointIdentifier = com.apple.securecapture`) and `AVCamControlCenterExtension/` (`AVCamControlCenterExtension.swift`, `AVCamControlCenterExtensionBundle.swift`, `Assets.xcassets`, `Info.plist` with `NSExtensionPointIdentifier = com.apple.widgetkit-extension`). The control `kind` string uses the bundle identifier `com.example.AVCam...`.
+- New folders: `AVCamCaptureExtension/` (`AVCamCaptureExtension.swift`, `Info.plist` with `EXExtensionPointIdentifier = com.apple.securecapture`) and `AVCamControlCenterExtension/` (`AVCamControlCenterExtension.swift`, `AVCamControlCenterExtensionBundle.swift`, `Assets.xcassets`, `Info.plist` with `NSExtensionPointIdentifier = com.apple.widgetkit-extension`). The control `kind` string uses the bundle identifier `com.karolkakol.AVCam...`.
 
 ## What the chapter adds (Xcode project) — the learner does this in the Xcode UI; use `settings` steps
 1. File > New > Target > "Capture Extension", name `AVCamCaptureExtension`, embedded in AVCam. Xcode creates the folder, the target, and the "Embed ExtensionKit Extensions" phase. Replace the template Swift file content with the sample's file.
@@ -21,7 +21,7 @@ Branch `chapter-13`, start `chapter-12`. Full change: `git -C ../AVCamTutorialAp
 3. Target membership: all Swift files under `AVCam/` except `AVCamApp.swift` (28 files) also belong to `AVCamCaptureExtension`. Three files also belong to `AVCamControlCenterExtension`: `Model/CameraState.swift`, `Model/DataTypes.swift`, `Model/Intent/AVCamCaptureIntent.swift`. In Xcode: select the files, File inspector, Target Membership.
 4. Capture extension build settings: deployment target iOS 26.0; usage descriptions for camera, microphone, and location; the same Swift settings as the app (Swift 5, default actor isolation nonisolated, approachable concurrency No, member import visibility No).
 5. Control extension: deployment target iOS 26.0; same Swift settings.
-6. Bundle identifiers: `com.example.AVCam.AVCamCaptureExtension` and `com.example.AVCam.AVCamControlCenterExtension`.
+6. Bundle identifiers: `com.karolkakol.AVCam.AVCamCaptureExtension` and `com.karolkakol.AVCam.AVCamControlCenterExtension`.
 The exact template names and options in Xcode 27.1 were NOT checked in the Xcode UI; the project file was written by hand. Say on the page that names can differ a little, and that the learner can compare with the `chapter-13` branch. List `AVCam.xcodeproj/project.pbxproj`, the two `Info.plist` files, and the asset catalog in `uncovered:`.
 
 ## Things to explain (research/04-system-integration.md, sections 4 to 7)

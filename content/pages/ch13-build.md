@@ -788,7 +788,7 @@ Make sure that the bundle identifier of the extension starts with the bundle ide
 iOS accepts an extension only when its identifier is the identifier of the app, a period, and a name. Xcode writes this value when it creates the target.
 
 ```settings title="Target AVCamCaptureExtension › Signing & Capabilities"
-Bundle Identifier: com.example.AVCam.AVCamCaptureExtension
+Bundle Identifier: com.karolkakol.AVCam.AVCamCaptureExtension
 ```
 
 ### Tip
@@ -849,7 +849,7 @@ import AppIntents
 
 struct AVCamControlCenterExtension: ControlWidget {
     
-    static var kind = "com.example.AVCam.AVCamControlCenterExtension.ControlButton"
+    static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"
     static var displayName: LocalizedStringResource = "Open AVCam"
     static var description: LocalizedStringResource = "Launch AVCam app."
 }
@@ -863,7 +863,7 @@ Add the `body` property with a static configuration that contains one button.
 ```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=7-15
 struct AVCamControlCenterExtension: ControlWidget {
     
-    static var kind = "com.example.AVCam.AVCamControlCenterExtension.ControlButton"
+    static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"
     static var displayName: LocalizedStringResource = "Open AVCam"
     static var description: LocalizedStringResource = "Launch AVCam app."
     
@@ -925,7 +925,7 @@ Swift Language Version: Swift 5
 Default Actor Isolation: nonisolated
 Approachable Concurrency: No
 Member Import Visibility: No
-Bundle Identifier: com.example.AVCam.AVCamControlCenterExtension
+Bundle Identifier: com.karolkakol.AVCam.AVCamControlCenterExtension
 ```
 
 ### Step

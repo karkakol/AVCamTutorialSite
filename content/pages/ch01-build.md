@@ -27,12 +27,12 @@ You can skip the first step. The branch `start` of the app repository contains t
 ### Step
 In Xcode, create a new project from the iOS App template with these options.
 
-The organization identifier and the product name make the bundle identifier `com.example.AVCam`. Xcode creates `AVCamApp.swift`, `ContentView.swift`, and an asset catalog.
+The organization identifier and the product name make the bundle identifier `com.karolkakol.AVCam`. Xcode creates `AVCamApp.swift`, `ContentView.swift`, and an asset catalog.
 
 ```settings title="File › New › Project › iOS › App"
 Product Name: AVCam
 Team: None
-Organization Identifier: com.example
+Organization Identifier: com.karolkakol
 Interface: SwiftUI
 Language: Swift
 Testing System: None
@@ -418,7 +418,7 @@ A serial queue runs one block of work at a time, in order. A [`DispatchSerialQue
     private let captureSession = AVCaptureSession()
 
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 ```
 
 ### Step
@@ -428,7 +428,7 @@ An actor usually runs on the shared thread pool of Swift, and code on that pool 
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 
     // Sets the session queue as the actor's executor.
     nonisolated var unownedExecutor: UnownedSerialExecutor {
@@ -451,7 +451,7 @@ actor CaptureService {
     private let captureSession = AVCaptureSession()
 
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 
     // Sets the session queue as the actor's executor.
     nonisolated var unownedExecutor: UnownedSerialExecutor {

@@ -35,7 +35,7 @@ The key is the [`uniqueID`](https://developer.apple.com/documentation/avfoundati
     private var controlsMap: [String: [AVCaptureControl]] = [:]
     
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 ```
 
 ### Step
@@ -288,7 +288,7 @@ The actor creates one delegate object and keeps it for its full life. You give t
     private var controlsMap: [String: [AVCaptureControl]] = [:]
     
     // A serial dispatch queue to use for capture control actions.
-    private let sessionQueue = DispatchSerialQueue(label: "com.example.AVCam.sessionQueue")
+    private let sessionQueue = DispatchSerialQueue(label: "com.karolkakol.AVCam.sessionQueue")
 ```
 
 ### Step

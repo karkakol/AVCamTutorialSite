@@ -33,7 +33,7 @@ Folders in the site repository:
 - Build: `xcodebuild -project AVCam.xcodeproj -scheme AVCam -destination 'platform=iOS Simulator,id=<udid>' -derivedDataPath <a folder outside the repositories> CODE_SIGNING_ALLOWED=NO build`.
 - Grant permissions before launch: `xcrun simctl privacy <udid> grant camera|microphone|photos|photos-add|location <bundle id>`.
 - Screenshot: `xcrun simctl io <udid> screenshot <file>`. Terminate the app when you finish (`xcrun simctl terminate`), so the camera does not stay on.
-- Bundle identifier of the tutorial app: `com.example.AVCam`. Product name: `AVCam`.
+- Bundle identifier of the tutorial app: `com.karolkakol.AVCam`. Product name: `AVCam`.
 - Commit messages end with the line `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Never push.
 
 ## Code rules (tutorial app)
@@ -49,7 +49,7 @@ Folders in the site repository:
 
 ### Approved deviations from the Apple sample
 
-- Bundle identifier `com.example.AVCam` (and the strings derived from it).
+- Bundle identifier `com.karolkakol.AVCam` (and the strings derived from it).
 - `CameraPreview.PreviewView` does not add the static placeholder image in the Simulator (`#if targetEnvironment(simulator)` block), because SimCam supplies a real feed. Verify that the live feed is visible.
 - Chapter 10 connects `CaptureService.isInterrupted` to `CameraModel.status` (`.interrupted`). The Apple sample publishes the value but never shows it.
 - Anything else: avoid it. If you must deviate, write the reason in `notes/chapter-NN.md`.

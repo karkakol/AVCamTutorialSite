@@ -38,12 +38,12 @@ The Swift files of the `chapter-13` branch are the same as the files of [AVCam](
 
 | File | Difference | Reason |
 |---|---|---|
-| `CaptureService.swift` | The label of the session queue starts with `com.example.AVCam`. | The tutorial uses a different bundle identifier. |
-| `AVCamControlCenterExtension.swift` | The `kind` string of the control starts with `com.example.AVCam`. | The same reason. |
+| `CaptureService.swift` | The label of the session queue starts with `com.karolkakol.AVCam`. | The tutorial uses a different bundle identifier. |
+| `AVCamControlCenterExtension.swift` | The `kind` string of the control starts with `com.karolkakol.AVCam`. | The same reason. |
 | `CameraPreview.swift` | The preview view does not add a placeholder image in the Simulator. | SimCam gives the Simulator a live picture. |
 | `CameraModel.swift` | `observeState()` has one more task, which sets the `interrupted` status. | The sample publishes the interruption state, but it never shows the message. |
 
-The project is also different in places that are not Swift code. The tutorial project has the bundle identifier `com.example.AVCam`, and all its groups are synchronized folders. It does not have the app icon image and the preview assets of the sample.
+The project is also different in places that are not Swift code. The tutorial project has the bundle identifier `com.karolkakol.AVCam`, and all its groups are synchronized folders. It does not have the app icon image and the preview assets of the sample.
 
 ## What needs a real iPhone
 
