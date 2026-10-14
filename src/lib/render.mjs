@@ -424,12 +424,14 @@ function solutionCover(page, step, env) {
   if (!step.block || step.block.type !== 'code') return '';
   const file = step.block.code.file;
   const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';
+  const results = step.block.code.results && step.block.code.results.length > 0;
   return `<div class="solution-cover" data-cover>
 <p class="solution-title">${icon('pen')}<span>Write this step yourself first.</span></p>
-<p class="solution-text">Read the goal of the step, write the code in Xcode, and build. Then show the solution and compare.</p>
+<p class="solution-text">Read the goal of the step${results ? ', look at the pictures of the result' : ''}, write the code in Xcode, and build. Then show the solution and compare.</p>
 ${solutionPlace(step, env)}
 <div class="solution-actions">
-<button type="button" class="btn btn-primary" data-reveal>Show solution</button>
+${results ? `<button type="button" class="btn btn-primary" data-show-results>${icon('phone')}<span>What you see</span></button>` : ''}
+<button type="button" class="btn ${results ? 'btn-quiet' : 'btn-primary'}" data-reveal>Show solution</button>
 <button type="button" class="btn btn-quiet" data-reveal-section>Show all solutions of this section</button>
 </div>
 ${compare ? `<p class="solution-compare">To compare your file with the finished chapter, run this in the folder of the app:</p><div class="cmd"><code>${e(compare)}</code><button type="button" class="tool tool-icon" data-copy-text="${e(compare)}" title="Copy">${icon('copy')}</button></div>` : ''}
