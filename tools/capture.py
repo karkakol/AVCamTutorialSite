@@ -53,9 +53,8 @@ struct AVCamApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                // A gray gradient stands in for the camera preview, so that the interface is visible.
-                LinearGradient(colors: [Color(white: 0.45), Color(white: 0.2)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                // Black, like the Xcode preview canvas.
+                Color.black.ignoresSafeArea()
                 %s
             }
             .statusBarHidden(true)

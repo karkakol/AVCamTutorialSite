@@ -529,7 +529,8 @@ pre.code-removed { padding-bottom: 4px; }
 .settings-card figcaption .codecard-tools { margin-left: auto; }
 .shotsdialog-body { flex: 1 1 auto; overflow: auto; padding: 18px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; justify-content: center; }
 .shotsdialog-body .result { margin: 0; flex: 0 1 auto; max-width: 100%; }
-.shotsdialog-body .result img { display: block; width: auto; max-height: 70vh; max-width: 100%; border: 1px solid var(--line); border-radius: 18px; }
+/* A device-like frame, as the Xcode preview canvas draws it. */
+.shotsdialog-body .result img { display: block; width: auto; max-height: 70vh; max-width: 100%; padding: 10px; background: #2a2a2d; border: 1px solid #4a4a4e; border-radius: 42px; box-sizing: content-box; }
 .shotsdialog-body .result figcaption { margin-top: 8px; max-width: 420px; color: var(--muted); font-size: 0.875rem; line-height: 1.4; }
 .swift-note { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font-size: 0.9375rem; line-height: 1.5; }
 .swift-note p { margin: 0; }

@@ -527,7 +527,7 @@ In the `Views` folder, create the folders `Toolbars/MainToolbar`. In `MainToolba
 
 A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/SwitchCameraButton.swift new result="../images/ch02-s3-6.jpg|The button alone, rendered by the capture tool of this site with the preview camera model. The gray area stands in for the camera. The app does not show the button yet."
+```swift file=AVCam/Views/Toolbars/MainToolbar/SwitchCameraButton.swift new result="../images/ch02-s3-6.jpg|The button alone, as the Xcode preview canvas shows it with the preview camera model. The app does not show the button yet."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
