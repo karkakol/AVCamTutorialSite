@@ -307,6 +307,23 @@
       ]
     },
     {
+      "number": 18,
+      "title": "Record picture in picture",
+      "abstract": "The dual mode records a movie. Data outputs deliver the frames of both cameras, a Metal kernel draws the small picture into the full picture, and an asset writer saves the result to a movie file.",
+      "pages": [
+        {
+          "slug": "ch18-concepts",
+          "kind": "article",
+          "title": "Concepts: record picture in picture"
+        },
+        {
+          "slug": "ch18-build",
+          "kind": "tutorial",
+          "title": "Build: record picture in picture"
+        }
+      ]
+    },
+    {
       "number": 0,
       "title": "Finish",
       "abstract": "",

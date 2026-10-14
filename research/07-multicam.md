@@ -68,3 +68,50 @@ Sources: Apple documentation fetched from the JSON endpoint [D], Apple's sample 
 | WWDC19 session 225, Introducing Multi-Camera Capture for iOS | https://developer.apple.com/videos/play/wwdc2019/225/ |
 
 Not verified (404): `avcaptureinput/ports(for:sourcedevicetype:sourcedeviceposition:)`. Do not link it.
+
+## Chapter 18: data outputs, mixing, and the asset writer (14 Oct 2026)
+
+- [D] `AVCaptureVideoDataOutput` delivers each frame as a `CMSampleBuffer` to a delegate on a serial queue (`setSampleBufferDelegate(_:queue:)`). `videoSettings` selects the pixel format; `kCVPixelFormatType_32BGRA` is the format that Metal textures read directly. `AVCaptureAudioDataOutput` does the same for audio samples.
+- [D] `recommendedVideoSettingsForAssetWriter(writingTo:)` and `recommendedAudioSettingsForAssetWriter(writingTo:)` return compression settings that fit the output's current configuration and the file type. [T] In the Simulator the audio settings contain `AVSampleRateKey` 0 before the microphone delivered samples, and `AVAssetWriterInput` raises an exception for that value. The app checks the sample rate and records without sound when it is 0.
+- [D] `AVAssetWriter` writes media to a container file. `AVAssetWriterInput` per track; `expectsMediaDataInRealTime = true` for live capture; `startWriting()` then `startSession(atSourceTime:)` with the time of the first sample; append only when `isReadyForMoreMediaData`; `markAsFinished()` and `finishWriting()` close the file.
+- [D] `AVCaptureMovieFileOutput` cannot record frames that the app creates. An app that mixes or filters frames must use data outputs and an asset writer. That is the reason for the chapter.
+- [D] Metal: `makeDefaultLibrary()` loads every `.metal` file of the target; `MTLComputePipelineState` from a kernel function; `MTLComputeCommandEncoder` sets textures and bytes and dispatches thread groups. `CVMetalTextureCache` wraps a `CVPixelBuffer` in an `MTLTexture` without a copy. `CVPixelBufferPool` reuses output buffers.
+- [D] `CMSampleBufferCreateReadyWithImageBuffer` wraps a new pixel buffer in a sample buffer with the timing of the source frame, so that the writer gets the correct time.
+- [D] `RotationCoordinator.videoRotationAngleForHorizonLevelCapture` is the angle for recorded frames (the preview uses `...ForHorizonLevelPreview`).
+- Audio port: on a real iPhone the microphone input has ports per position (`sourceDevicePosition: .back` and `.front`); the app takes the back port, or the first audio port when the position filter finds none [S][T].
+
+### Measurements in the simulator with SimCam [T]
+- A recording of 10.8 seconds produced a 2.8 MB `.MOV` in the Photos library with one video track, 640 x 480, about 30 frames per second, and no audio track (the sample rate guard above). A thumbnail shows the full picture with the small picture at the top left corner.
+- The movie is landscape 640 x 480 although the device is in portrait: the rotation angle for capture is 0 in the Simulator, the same as for photos (see `research/05-simcam.md`).
+- The Simulator posts `AVCaptureSessionRuntimeErrorNotification` with error -11800 (-12782) at session start, before any recording; it has no visible effect.
+- A first version with `waitUntilCompleted()` on the GPU command buffer records at full frame rate in the Simulator.
+
+### Verified links (chapter 18)
+
+| Title | URL |
+|---|---|
+| AVAssetWriter | https://developer.apple.com/documentation/avfoundation/avassetwriter |
+| AVAssetWriterInput | https://developer.apple.com/documentation/avfoundation/avassetwriterinput |
+| expectsMediaDataInRealTime | https://developer.apple.com/documentation/avfoundation/avassetwriterinput/expectsmediadatainrealtime |
+| isReadyForMoreMediaData | https://developer.apple.com/documentation/avfoundation/avassetwriterinput/isreadyformoremediadata |
+| startSession(atSourceTime:) | https://developer.apple.com/documentation/avfoundation/avassetwriter/startsession(atsourcetime:) |
+| finishWriting() | https://developer.apple.com/documentation/avfoundation/avassetwriter/finishwriting() |
+| recommendedVideoSettingsForAssetWriter(writingTo:) | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettingsforassetwriter(writingto:) |
+| recommendedAudioSettingsForAssetWriter(writingTo:) | https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput/recommendedaudiosettingsforassetwriter(writingto:) |
+| setSampleBufferDelegate(_:queue:) | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/setsamplebufferdelegate(_:queue:) |
+| videoSettings (video data output) | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/videosettings |
+| AVCaptureVideoDataOutputSampleBufferDelegate | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate |
+| AVCaptureAudioDataOutputSampleBufferDelegate | https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutputsamplebufferdelegate |
+| captureOutput(_:didOutput:from:) | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate/captureoutput(_:didoutput:from:) |
+| videoRotationAngleForHorizonLevelCapture | https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture |
+| AVCaptureInput.ports | https://developer.apple.com/documentation/avfoundation/avcaptureinput/ports |
+| AVCaptureInput.Port | https://developer.apple.com/documentation/avfoundation/avcaptureinput/port |
+| CVMetalTextureCache | https://developer.apple.com/documentation/corevideo/cvmetaltexturecache |
+| CVMetalTextureCacheCreateTextureFromImage | https://developer.apple.com/documentation/corevideo/cvmetaltexturecachecreatetexturefromimage(_:_:_:_:_:_:_:_:_:) |
+| CVPixelBufferPool | https://developer.apple.com/documentation/corevideo/cvpixelbufferpool |
+| MTLComputeCommandEncoder | https://developer.apple.com/documentation/metal/mtlcomputecommandencoder |
+| MTLComputePipelineState | https://developer.apple.com/documentation/metal/mtlcomputepipelinestate |
+| makeDefaultLibrary() | https://developer.apple.com/documentation/metal/mtldevice/makedefaultlibrary() |
+| CMSampleBuffer.presentationTimeStamp | https://developer.apple.com/documentation/coremedia/cmsamplebuffer/presentationtimestamp |
+| CMSampleBufferCreateReadyWithImageBuffer | https://developer.apple.com/documentation/coremedia/cmsamplebuffercreatereadywithimagebuffer(allocator:imagebuffer:formatdescription:sampletiming:samplebufferout:) |
+| Metal Shading Language Specification (PDF) | https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf |

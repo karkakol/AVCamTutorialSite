@@ -169,9 +169,9 @@ These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the
 - **Chapter 16 — iPhone Duo (`chapter-16`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
 
 - **Chapter 17 — Two cameras at once (`chapter-17`)**: `AVCaptureMultiCamSession` as a second session, a dual capture mode, connections made by hand, two preview views with a tap to swap, multi-camera formats, hardware and system pressure costs. Research: `research/07-multicam.md`. Based on Apple's AVMultiCamPiP sample (`~/tutorials/AVMultiCamPiPCapturingFromMultipleCameras`).
-- **Chapter 18 — Record picture in picture (`chapter-18`, planned)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
+- **Chapter 18 — Record picture in picture (`chapter-18`)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
 
-`main` equals `chapter-17`.
+`main` equals `chapter-18`.
 
 ## Hand-off notes (`notes/chapter-NN.md`)
 
