@@ -4,6 +4,8 @@
 Usage:  node src/dump-steps.mjs > steps.json
         python3 tools/capture.py steps.json <slug> <section>.<step> <name> [action ...]
 Actions: wait:<seconds>  shot:<suffix>
+Option:  --view '<SwiftUI expression>'  shows only that view (like an Xcode preview) on a black screen,
+         for example --view 'MainToolbar(camera: PreviewCameraModel())'. The app entry point is replaced in the capture build.
         python3 tools/capture.py steps.json shot <name>      (a screenshot of the app that runs now)
 Example: python3 tools/capture.py steps.json ch02-build 4.5 ch02-s4-5 wait:8 shot:a
 Result:  content/images/<name>-<suffix>.jpg (reduced size). Needs SimCam with image sources.
@@ -40,8 +42,33 @@ def state_after(page, section_no, step_no):
     raise SystemExit(f"No step {section_no}.{step_no} on {page['slug']}")
 
 
-def write_state(page, states, seen_target):
-    work = os.path.join(R.WORK, "capture-" + page["slug"])
+HARNESS = """/*
+A capture harness: shows one view of the app, like an Xcode preview. Not part of the tutorial.
+*/
+import os
+import SwiftUI
+
+@main
+struct AVCamApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ZStack {
+                // A gray gradient stands in for the camera preview, so that the interface is visible.
+                LinearGradient(colors: [Color(white: 0.45), Color(white: 0.2)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                %s
+            }
+            .statusBarHidden(true)
+        }
+    }
+}
+
+let logger = Logger()
+"""
+
+
+def write_state(page, states, seen_target, view=None, tag=""):
+    work = os.path.join(R.WORK, "capture-" + page["slug"] + tag)
     src = os.path.join(work, "src")
     subprocess.run(["rm", "-rf", src]); os.makedirs(src)
     tar = subprocess.Popen(["git", "-C", R.APP, "archive", page["branch"]], stdout=subprocess.PIPE)
@@ -60,6 +87,9 @@ def write_state(page, states, seen_target):
                 fh.write("\n".join(st.lines()))
         elif os.path.exists(full):
             os.remove(full)
+    if view:
+        with open(os.path.join(src, "AVCam/AVCamApp.swift"), "w") as fh:
+            fh.write(HARNESS % view)
     return work
 
 
@@ -97,8 +127,13 @@ def main():
     sec, step = (int(x) for x in sys.argv[3].split("."))
     name = sys.argv[4]
     actions = sys.argv[5:]
+    view = None
+    if "--view" in actions:
+        i = actions.index("--view")
+        view = actions[i + 1]
+        del actions[i:i + 2]
     states, seen_target = state_after(page, sec, step)
-    work = write_state(page, states, seen_target)
+    work = write_state(page, states, seen_target, view, f"-{sec}.{step}")
     build_and_launch(work)
     for a in actions:
         kind, _, arg = a.partition(":")
