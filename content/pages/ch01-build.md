@@ -1062,7 +1062,7 @@ Build and run the app. If the system asks for access to the camera, select Allow
 
 On an iPhone, the alert shows your usage description at the first launch. After your answer, a live camera picture appears on a black screen without a status bar. In the Simulator with SimCam, no alert appears and the picture starts after a short time.
 
-```settings title="Product › Run"
+```settings title="Product › Run" result="../images/ch01-s6-8.jpg|The first run: the preview of the back camera fills the screen. There are no controls yet."
 First launch on an iPhone: An alert with the text "To capture photos and videos."
 After that: A live camera picture on a black screen
 Status bar: Hidden
