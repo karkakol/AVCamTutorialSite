@@ -17,7 +17,7 @@ Out of scope (other agents): photo capture, video capture, Camera Control, Lock 
 
 1. **"WWDC26 session 303" is "Build a responsive camera app that launches quickly".** The page is `https://developer.apple.com/videos/play/wwdc2026/303/`. The short form `/wwdc26/303/` redirects to the video index. A companion article exists: "Building a responsive camera app that launches quickly".
 2. **Deferred start is an iOS 26 API and is on by default.** For an app linked with the iOS 26 SDK or later, `AVCaptureSession.automaticallyRunsDeferredStart` is `true`, and `isDeferredStartEnabled` is `true` for `AVCapturePhotoOutput` and `AVCaptureFileOutput` subclasses. The lines that the last commit added to AVCam only show the defaults. Session 303 reports a launch that is two times faster (about 1 s down to about 0.5 s).
-3. **The iOS 27 SDK adds real camera hardware control.** New items: physical lens aperture control (`setExposureModeCustom(lensAperture:duration:iso:completionHandler:)`, `AVCaptureDevice.autoLensAperture`), priority modes (`autoISO`, `autoExposureDuration`), exposure signals, continuous autofocus tracking, a lock to one constituent camera, and low-light video noise reduction on connections. iOS 27.1 adds `.builtInOuterUltraWideCamera` and `.builtInInnerUltraWideCamera` (documentation marks them beta). Apple documentation names the device "iPhone Duo".
+3. **The iOS 27 SDK adds real camera hardware control.** New items: physical lens aperture control (`setExposureModeCustom(lensAperture:duration:iso:completionHandler:)`, `AVCaptureDevice.autoLensAperture`), priority modes (`autoISO`, `autoExposureDuration`), exposure signals, continuous autofocus tracking, a lock to one constituent camera, and low-light video noise reduction on connections. iOS 27.1 adds `.builtInOuterUltraWideCamera` and `.builtInInnerUltraWideCamera` (the documentation marked them beta until October 2026; now released). Apple documentation names the device "iPhone Duo".
 4. **The published Apple rotation article is ahead of the local repository.** The article "Supporting device rotation in your camera app" describes a `@MainActor RotationObserver` class. The local commit `72b0fdb` still creates the rotation coordinator inside the `CaptureService` actor (`AVCam/CaptureService.swift:374-401`). The tutorial must decide which design to teach.
 5. **AVCam has a dead interruption path.** `CaptureService.isInterrupted` is published (`AVCam/CaptureService.swift:21`) but `CameraModel.observeState()` never reads it (`AVCam/CameraModel.swift:197-235`). `CameraStatus.interrupted` (`AVCam/Model/DataTypes.swift:23`) is only used by a SwiftUI preview (`AVCam/Views/Overlays/StatusOverlayView.swift:60`). The yellow "interrupted" overlay can never appear in the real app.
 6. **AVCam never asks for microphone access explicitly.** `isAuthorized` only checks `.video` (`AVCam/CaptureService.swift:84-96`). The microphone prompt appears as a side effect of `AVCaptureDeviceInput(device:)` (`AVCam/CaptureService.swift:132`).
@@ -225,8 +225,8 @@ Device types on iOS (header `AVCaptureDevice.h:536-690`):
 | `.builtInWideAngleCamera` | 10.0 | physical | The general camera. Front and back |
 | `.builtInTelephotoCamera` | 10.0 | physical | Discovery session only |
 | `.builtInUltraWideCamera` | 13.0 | physical | Discovery session only |
-| `.builtInOuterUltraWideCamera` | 27.1 (docs: beta) | physical | New. Discovery session only |
-| `.builtInInnerUltraWideCamera` | 27.1 (docs: beta) | physical | New. Discovery session only |
+| `.builtInOuterUltraWideCamera` | 27.1 | physical | New. Discovery session only |
+| `.builtInInnerUltraWideCamera` | 27.1 | physical | New. Discovery session only |
 | `.builtInDualCamera` | 10.2 | virtual | Wide + telephoto. Depth by disparity |
 | `.builtInDualWideCamera` | 13.0 | virtual | Ultra-wide + wide. Depth by disparity |
 | `.builtInTripleCamera` | 13.0 | virtual | Ultra-wide + wide + telephoto. No depth in the header feature list |
@@ -1202,8 +1202,8 @@ All rows returned HTTP 200 on 2026-10-01. Documentation rows were tested with th
 | builtInTripleCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera | Virtual three cameras |
 | builtInTrueDepthCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintruedepthcamera | Front depth camera |
 | builtInLiDARDepthCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinlidardepthcamera | Back LiDAR depth camera |
-| builtInOuterUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera | iOS 27.1 (beta in docs) |
-| builtInInnerUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera | iOS 27.1 (beta in docs) |
+| builtInOuterUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera | iOS 27.1 |
+| builtInInnerUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera | iOS 27.1 |
 | external | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/external | UVC camera |
 | continuityCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/continuitycamera | Continuity Camera |
 | microphone | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/microphone | Microphone |

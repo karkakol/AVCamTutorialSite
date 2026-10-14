@@ -152,7 +152,7 @@ AVCam uses a small part of the device API. This is the full map.
 Which types exist depends on the model. That is the reason for discovery sessions: you ask, and you do not assume.
 
 > [!NOTE]
-> The iOS 27.1 SDK adds two more physical types, [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) and [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera). The documentation shows them as beta. Like all other types, they are in a discovery result only if you ask for them.
+> The iOS 27.1 SDK adds two more physical types, [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) and [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera). Like all other types, they are in a discovery result only if you ask for them.
 
 ### Control of a virtual device
 
