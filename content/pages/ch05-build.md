@@ -38,9 +38,9 @@ Value in the project file: UIInterfaceOrientationPortrait
 ```
 
 ### Step
-In `ViewExtensions.swift`, add the `PlatformView` protocol with two size class requirements below the `largeButtonSize` constant.
+In `ViewExtensions.swift`, add the `PlatformView` protocol with the two size class requirements `verticalSizeClass` and `horizontalSizeClass` below the `largeButtonSize` constant.
 
-A view that adopts this protocol must have the two properties. The view gets their values from the SwiftUI environment. The protocol is on the main actor, because `View` is on the main actor too.
+The protocol refines `View`. The two requirements are read-only properties (`{ get }`) of the type `UserInterfaceSizeClass?`. A view that adopts this protocol must have the two properties. The view gets their values from the SwiftUI environment. Mark the protocol `@MainActor`, because `View` is on the main actor too.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=3-7
 let largeButtonSize = CGSize(width: 64, height: 64)
@@ -55,7 +55,7 @@ struct DefaultButtonStyle: ButtonStyle {
 ```
 
 ### Step
-Add two Boolean requirements to the protocol: `isRegularSize` and `isCompactSize`.
+Add two read-only `Bool` requirements to the protocol: `isRegularSize` and `isCompactSize`.
 
 These are the two questions that the views ask. A requirement in the protocol, together with a default implementation in an extension, lets a view supply its own answer if it must.
 
@@ -70,9 +70,9 @@ protocol PlatformView: View {
 ```
 
 ### Step
-Below the protocol, add an extension with the default implementations of the two properties.
+Below the protocol, add an extension of `PlatformView` with the default implementations of the two properties.
 
-A window is regular only when the two size classes are regular. It is compact when one or the two of them are compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 9.
+A window is regular only when the two size classes are `.regular`. It is compact when one or the two of them are `.compact`. Each property is one comparison, with `&&` for regular and `||` for compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 9.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=9-12
 @MainActor
@@ -111,9 +111,9 @@ The container does this only in a narrow window. In a wide window, the preview f
 ![The compact layout: a 3:4 viewfinder frame that is moved up by 44 points, with the toolbar in the black bar below it](../images/ch05-compact-layout.svg)
 
 ### Step
-In `PreviewContainer.swift`, add a type name for an aspect ratio and two constants above the `PreviewContainer` structure.
+In `PreviewContainer.swift`, add the type alias `AspectRatio` and the two global constants `photoAspectRatio` and `movieAspectRatio` above the `PreviewContainer` structure.
 
-The camera sensor has the ratio 4:3, and a video usually has the ratio 16:9. The interface is in portrait, so the constants hold the turned values, 3:4 and 9:16. They are global constants, because `CameraUI` uses the video ratio later in this chapter.
+`AspectRatio` is another name for `CGSize`. The camera sensor has the ratio 4:3, and a video usually has the ratio 16:9. The interface is in portrait, so the constants hold the turned values: `AspectRatio(width: 3.0, height: 4.0)` for the photo and `AspectRatio(width: 9.0, height: 16.0)` for the movie. They are global constants, because `CameraUI` uses the video ratio later in this chapter.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=3-6
 import SwiftUI
@@ -127,9 +127,9 @@ let movieAspectRatio = AspectRatio(width: 9.0, height: 16.0)
 ```
 
 ### Step
-Add two lines to the documentation comment of the structure, and add a property for the horizontal size class.
+Add two lines to the documentation comment of the structure, and add the `horizontalSizeClass` property between the structure line and the `camera` property.
 
-The container needs only the horizontal size class. The viewfinder frame makes sense when the window is narrow, and the height of the window does not change that.
+The two comment lines are from the sample: "On a compact device size, the app also uses this view to offset the vertical position" and "of the camera preview to better fit the UI when in photo capture mode." The property is `@Environment(\.horizontalSizeClass) var horizontalSizeClass`. The container needs only the horizontal size class. The viewfinder frame makes sense when the window is narrow, and the height of the window does not change that.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=4-5,9
 /// A view that provides a container view around the camera preview.
@@ -146,7 +146,7 @@ struct PreviewContainer<Content: View, CameraModel: Camera>: View {
 ```
 
 ### Step
-Add the `photoModeOffset` constant, with a value of -44 points, above the `content` property.
+Add the private constant `photoModeOffset`, a `CGFloat` with the value -44, above the `content` property.
 
 A frame in the center of the screen has two equal bars. The sample moves the frame up by 44 points, so that the frame sits better between the controls at the top and the larger toolbar at the bottom. The value is a design decision.
 
@@ -161,7 +161,7 @@ A frame in the center of the screen has two equal bars. The sample moves the fra
 ```
 
 ### Step
-At the end of the structure, add the `aspectRatio` property, which returns the photo ratio.
+At the end of the structure, below `updateBlurRadius`, add the computed property `aspectRatio` of the type `AspectRatio`. It returns `photoAspectRatio`.
 
 The frame must have the shape of the capture format. The app has only a photo format now, so the property returns one value. In chapter 8, the property returns the video ratio when the app is in video mode.
 
@@ -243,7 +243,7 @@ Build and run the app on an iPhone simulator. Look at the shape and the position
 
 The preview is now a frame with the ratio 3:4, as wide as the screen. It sits above the center of the screen, with a black bar above it and a larger black bar below it. With SimCam, the frame shows the source video of the back camera. The toolbar is still at the bottom of the screen. You change that in the last section.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch05-s2-8.jpg|The preview in its viewfinder frame, moved up by 44 points. The toolbar stays at the bottom."
 Action: Product > Run (Command-R)
 Result: a 3:4 viewfinder frame, moved up, with black bars above and below
 Not changed yet: the position of the toolbar
@@ -256,9 +256,9 @@ Not changed yet: the position of the toolbar
 In this section, you move that stack into a property with the name `compactUI`, and you add a second property, `regularUI`, for a large window. The `body` property selects one of them. This is the rewrite of `CameraUI`, in four steps.
 
 ### Step
-In `CameraUI.swift`, change the protocol of the structure from `View` to `PlatformView`, and add the two size class properties.
+In `CameraUI.swift`, change the protocol of the structure from `View` to `PlatformView`, and add the two size class properties below the `camera` property.
 
-The `@Environment` properties satisfy the two requirements of the protocol. In return, the view gets `isRegularSize` and `isCompactSize` from the protocol extension.
+The two properties are `@Environment(\.verticalSizeClass) var verticalSizeClass` and `@Environment(\.horizontalSizeClass) var horizontalSizeClass`. In this file they go below `camera`; in the two other views of this chapter they go above it, as in the sample. The `@Environment` properties satisfy the two requirements of the protocol. In return, the view gets `isRegularSize` and `isCompactSize` from the protocol extension.
 
 ```swift file=AVCam/Views/CameraUI.swift remove
 struct CameraUI<CameraModel: Camera>: View {
@@ -277,7 +277,7 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
 ```
 
 ### Step
-Below `body`, add the `compactUI` property. Copy the `VStack` from `body` into it. Do not change `body` yet.
+Below `body`, add the `@ViewBuilder` property `compactUI` of the type `some View`. Copy the `VStack` from `body` into it. Do not change `body` yet.
 
 This is the layout for a narrow window: the controls are in a vertical stack. The `@ViewBuilder` attribute lets you add more views and conditions to the property in later chapters.
 
@@ -298,9 +298,9 @@ This is the layout for a narrow window: the controls are in a vertical stack. Th
 ```
 
 ### Step
-Below `compactUI`, add the `regularUI` property with a `ZStack` that holds the toolbar.
+Below `compactUI`, add the `@ViewBuilder` property `regularUI` of the type `some View`: a `VStack` with a `Spacer` and a `ZStack` that holds the toolbar.
 
-This is the layout for a large window, for example a full-screen window on iPad. The `Spacer` moves the controls to the bottom. The `ZStack` has one view now. In later chapters, you add more groups of controls to it, beside the toolbar.
+This is the layout for a large window, for example a full-screen window on iPad. The `VStack` has no spacing argument. The `Spacer` moves the controls to the bottom. The `ZStack` has one view now. In later chapters, you add more groups of controls to it, beside the toolbar.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=4-13
         }
@@ -321,7 +321,7 @@ This is the layout for a large window, for example a full-screen window on iPad.
 ### Step
 Make the `ZStack` a panel: give it a fixed width, a material background, round corners, and a distance from the bottom edge.
 
-In the regular layout, the preview fills the window, so the controls lie on top of the image. The `.ultraThinMaterial` background blurs the image behind the panel. The controls stay easy to see, and the person still sees that the image continues below them.
+Add four modifiers to the `ZStack`, in this order: `.frame(width: 740)`, `.background(.ultraThinMaterial.opacity(0.8))`, `.cornerRadius(12)`, and `.padding(.bottom, 32)`. In the regular layout, the preview fills the window, so the controls lie on top of the image. The `.ultraThinMaterial` background blurs the image behind the panel. The controls stay easy to see, and the person still sees that the image continues below them.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=7-10
     var regularUI: some View {
@@ -339,15 +339,19 @@ In the regular layout, the preview fills the window, so the controls lie on top 
 ```
 
 ### Step
-In `body`, replace the `VStack` with a `Group` that shows `regularUI` or `compactUI`. Keep the `overlay` modifier, which now belongs to the group.
+In `body`, replace the whole content between the braces: a `Group` with an `if` statement that shows `regularUI` when `isRegularSize` is `true` and `compactUI` otherwise, with the same `overlay` modifier attached to the group.
 
-A `Group` has no layout of its own. It gives you one place to attach modifiers that apply to the two layouts. The status overlay from chapter 1 is such a modifier: it must appear above each layout.
+A `Group` has no layout of its own. It gives you one place to attach modifiers that apply to the two layouts. The status overlay from chapter 1 is such a modifier: it must appear above each layout. The `overlay` lines do not change, but they are in the new lines of this step, so delete the old lines of `body` and paste the new lines in one go.
 
 ```swift file=AVCam/Views/CameraUI.swift remove
         VStack(spacing: 0) {
             Spacer()
             MainToolbar(camera: camera)
         }
+        .overlay {
+            StatusOverlayView(status: camera.status)
+        }
+    }
 ```
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=2-12
@@ -386,9 +390,9 @@ The toolbar is at the bottom edge of the layout area. In the sample, it sits hig
 In this section, you measure the window, calculate the space, and apply it. Then you make the toolbar and the camera view adopt `PlatformView`.
 
 ### Step
-In `CameraUI.swift`, add a state property for the size of the window.
+In `CameraUI.swift`, add the private `@State` property `windowSize`, a `CGSize`, below the two size class properties.
 
-The value is zero until SwiftUI measures the view for the first time. It is a `@State` property, so the view updates when the value changes.
+Start with `CGSize.zero`. The value is zero until SwiftUI measures the view for the first time. It is a `@State` property, so the view updates when the value changes.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=4-5
     @Environment(\.verticalSizeClass) var verticalSizeClass
@@ -403,8 +407,8 @@ The value is zero until SwiftUI measures the view for the first time. It is a `@
 ### Step
 Add the `onGeometryChange(for:of:action:)` modifier to the `Group`, between the group and the overlay. Calculate the size of the window, and store it.
 
-- The first closure gets a geometry proxy and returns a value. SwiftUI calls the second closure when that value changes, for example when the person resizes the window on iPad.
-- The size in the proxy is the size of the layout area. That area does not include the safe areas, such as the area of the home indicator. The closure adds the insets to get the full window.
+- The `for:` argument is the type of the value, `CGSize.self`. The first closure gets a geometry proxy and returns a value. SwiftUI calls the second closure, `action:`, when that value changes, for example when the person resizes the window on iPad. The action stores the value in `windowSize`.
+- `proxy.size` is the size of the layout area. That area does not include the safe areas, such as the area of the home indicator. The closure adds `proxy.safeAreaInsets` (`leading` and `trailing` to the width, `top` and `bottom` to the height) to get the full window.
 
 The sample measures the window, and not the screen, because an iPad window can be smaller than the screen.
 
@@ -445,11 +449,12 @@ import AVFoundation
 ```
 
 ### Step
-At the end of the structure, add the `bottomPadding` property, which calculates the space below the toolbar.
+At the end of the structure, add the computed property `bottomPadding` of the type `CGFloat`, which calculates the space below the toolbar.
 
-- `AVMakeRect(aspectRatio:insideRect:)` returns the largest rectangle with the given ratio that fits in the center of the bounds. Here, it is the area of a 9:16 video in the window.
+- `CGRect(origin: .zero, size: windowSize)` is the bounds of the window.
+- `AVMakeRect(aspectRatio:insideRect:)` with `movieAspectRatio` returns the largest rectangle with the given ratio that fits in the center of the bounds. Here, it is the area of a 9:16 video in the window.
 - `rect.minY` is the top edge of that area. It is also the height of the bar above the video.
-- The space below the toolbar is half of that height plus 12 points. Thus the space is larger in a tall window.
+- The space below the toolbar is half of that height, rounded with `rounded()` before the division, plus 12 points. Thus the space is larger in a tall window.
 
 The property always uses the video ratio, also in photo mode. So the toolbar does not move when the capture mode changes in chapter 8.
 
@@ -483,7 +488,7 @@ The padding adds empty space below the toolbar, so the toolbar moves away from t
 ```
 
 ### Step
-In `MainToolbar.swift`, change the protocol of the structure to `PlatformView`, and add the two size class properties.
+In `MainToolbar.swift`, change the protocol of the structure to `PlatformView`, and add the two size class properties above the `camera` property.
 
 The toolbar needs `isRegularSize` in the next step, to select its width.
 
@@ -502,7 +507,7 @@ struct MainToolbar<CameraModel: Camera>: PlatformView {
 ```
 
 ### Step
-Add the `width` property, and use it in the `frame` modifier.
+Add the computed property `width` of the type `CGFloat?` above `height`, and use it in the `frame` modifier as `frame(width:height:)`.
 
 In the regular layout, the toolbar is 250 points wide, which is one part of the panel of 740 points. In the compact layout, the width is `nil`. A `nil` value tells the `frame` modifier not to change the width, so the toolbar uses the width of the window.
 
@@ -523,7 +528,7 @@ In the regular layout, the toolbar is 250 points wide, which is one part of the 
 ```
 
 ### Step
-In `CameraView.swift`, change the protocol of the structure to `PlatformView`, and add the two size class properties.
+In `CameraView.swift`, change the protocol of the structure to `PlatformView`, and add the two size class properties above the `camera` property.
 
 No code in `CameraView` reads these values. You add them because the sample has them, and your files must stay equal to the files of the sample.
 
@@ -546,7 +551,7 @@ Build and run the app on an iPhone simulator. Look at the frame and the toolbar,
 
 The preview is a 3:4 viewfinder frame, moved up by 44 points, with black bars above and below it. The toolbar is in the black bar below the frame, with empty space between it and the bottom edge of the screen. This is the layout of the Apple sample on an iPhone. The chapter did not change the code of the buttons, so the switch button, the capture button, and the thumbnail must work as in chapter 4.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch05-s4-9.jpg|The toolbar now sits directly under the viewfinder frame."
 Action: Product > Run (Command-R)
 Result: the 3:4 frame, moved up, and the toolbar in the black bar below it
 Also check: the switch button, the capture button, and the thumbnail

@@ -42,6 +42,8 @@ export const SWIFT_NOTES = [
     text: 'Reads the values of an asynchronous sequence one after the other, and waits for each one. The loop ends when the sequence ends.' },
   { id: 'task-generic', common: true, test: /\bTask<\s*\w+\s*,\s*\w+\s*>/, title: 'Task<Success, Failure>', link: 'https://developer.apple.com/documentation/swift/task',
     text: 'The type of a task has two parameters: the type of its result, and the type of its error (Never for a task that cannot fail). A stored task can be cancelled later.' },
+  { id: 'trailing-closures', common: true, test: /\}\s+\w+:\s*\{/, title: 'Multiple trailing closures', link: `${S}closures#Trailing-Closures`,
+    text: 'A call with more than one closure argument: the first closure follows the call without a label, each later closure has its label. The call reads like a block of code with named parts.' },
   { id: 'task', common: true, test: /\bTask(\.detached)?\s*(\(|\{)/, title: 'Task', link: `${S}concurrency#Tasks-and-Task-Groups`,
     text: 'A task is a unit of asynchronous work. Task { } starts async code from a place that is not async, for example a button action. The task inherits the actor of the place where it starts.' },
   { id: 'async-let', test: /\basync\s+let\b/, title: 'async let', link: `${S}concurrency#Calling-Asynchronous-Functions-in-Parallel`,
