@@ -300,9 +300,7 @@ The method is `async` as in the sample, although nothing inside it waits. Thus t
 
 [`requestImage`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)) does not wait for the final image. The image arrives in the closure, which is the last argument. The closure gets two parameters: the optional `UIImage` and an info dictionary, which the code ignores. The closure captures `[weak self]`, because the library can hold it after the actor is gone. The closure usually runs later. If an image is available immediately, the first call of the closure can occur before the method returns.
 
-In Try first mode, the place card shows the three lines of the closure body. They are not in your file yet. They are the code of the next step.
-
-```swift file=AVCam/Model/MediaLibrary.swift highlight=6,8-13,17-18
+```swift file=AVCam/Model/MediaLibrary.swift highlight=6,8-13,14-15
         } catch {
             throw Error.saveFailed
         }
@@ -316,9 +314,6 @@ In Try first mode, the place card shows the three lines of the closure body. The
                                               targetSize: .init(width: 256, height: 256),
                                               contentMode: .default,
                                               options: nil) { [weak self] image, _ in
-            // Set the latest thumbnail image.
-            guard let self, let image = image else { return }
-            continuation?.yield(image.cgImage)
         }
     }
     
@@ -468,7 +463,7 @@ The capture service makes the photo, and the media library saves it. The two obj
 ### Step
 In `Camera.swift`, change the comment of `capturePhoto()`, and add the `thumbnail` property to the protocol.
 
-The views use the protocol, so the thumbnail button can read the image only if the property is in the protocol.
+The new comment is `/// Captures a photo and writes it to the user's photo library.`. The property is `var thumbnail: CGImage? { get }`, below `shouldFlashScreen`. The views use the protocol, so the thumbnail button can read the image only if the property is in the protocol.
 
 ```swift file=AVCam/Model/Camera.swift remove
     /// Captures a photo.
@@ -523,7 +518,7 @@ The model owns the media library and the capture service side by side. Each one 
 ### Step
 In `capturePhoto()`, change the comment, and replace the log line from chapter 3 with a call that saves the photo.
 
-The method now has two steps: capture, then save. Each step can throw an error, and the one `catch` block keeps the error in the `error` property. The `Photo` value goes from the capture actor through the main actor to the library actor. This is possible because `Photo` is `Sendable`.
+The new comment is `/// Captures a photo and writes it to the user's Photos library.`. The sample writes "Photos library" here and "photo library" in the protocol. The new line is `try await mediaLibrary.save(photo: photo)`. The method now has two steps: capture, then save. Each step can throw an error, and the one `catch` block keeps the error in the `error` property. The `Photo` value goes from the capture actor through the main actor to the library actor. This is possible because `Photo` is `Sendable`.
 
 ```swift file=AVCam/CameraModel.swift remove
     /// Captures a photo.
@@ -568,7 +563,7 @@ At the start of `observeState()`, add a task that reads the thumbnail stream.
 ```
 
 ### Step
-In `PreviewCameraModel.swift`, add the `thumbnail` property.
+In `PreviewCameraModel.swift`, add the `thumbnail` property as `private(set) var thumbnail: CGImage?`, below `isSwitchingVideoDevices`.
 
 The preview model has no library, so the value stays `nil`. In SwiftUI previews, the thumbnail button shows its icon.
 
@@ -626,7 +621,7 @@ The `@ViewBuilder` property `thumbnail` shows the image of the model, or a syste
 
 The button itself is a [`PhotosPicker`](https://developer.apple.com/documentation/photosui/photospicker) view with the arguments `selection`, `matching: .images`, and `photoLibrary: .shared()`. The `thumbnail` property is its label. The picker gets a frame of 64 x 64 points and a corner radius of 8. A tap opens the system photo picker. The picker runs in a different process, so the app needs no permission to read the library. The picker needs a binding for the selection, which is the purpose of the private `@State` array `selectedItems` of type `[PhotosPickerItem]`. No code reads this property: the app uses the picker only to let the person look at the photos.
 
-The preview wraps the view in `PreviewBackground` with a `PreviewCameraModel()`. If you work in Try first mode, it is fine to press Show solution and copy the file. The sample file has tab characters on four lines; a white space difference in `git diff` means nothing.
+The preview wraps the view in `PreviewBackground` with a `PreviewCameraModel()`. In the canvas, the symbol is blue, the default tint of a button. In the toolbar, it is white, because `MainToolbar` sets the color. In Try first mode, the code of this step stays visible. Copy it as it is. The sample file has tab characters on four lines; a white space difference in `git diff` means nothing.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/ThumbnailButton.swift new copy result="../images/ch04-s7-2.jpg|The thumbnail button in the Xcode preview canvas. Without a thumbnail, it shows the symbol photo.on.rectangle."
 /*
@@ -704,7 +699,7 @@ Build and run the app, and tap the capture button.
 Before the first photo, the left side of the toolbar shows a photo icon. After the save, the icon changes to a small image of the photo. With the code of this chapter, the thumbnail appears only after the save is complete, so it comes a moment after the flash.
 
 > [!NOTE]
-> In the Simulator with SimCam, the saved photo is 640 x 480 pixels in landscape and has no orientation data. Thus the thumbnail can look turned by 90 degrees while the phone is in portrait. Examine the orientation on a real iPhone.
+> In the Simulator with SimCam, the saved photo is 640 x 480 pixels in landscape and has no orientation data. In the test, the thumbnail was upright, as the picture shows. The thumbnail fills a square, so it shows only the center of the photo. On a real iPhone, the orientation data of the photo decides how the thumbnail looks. Examine it there.
 
 ```settings title="Checkpoint" result="../images/ch04-s7-4.jpg|After a capture: the thumbnail of the new photo at the leading side of the toolbar."
 Action: Product > Run (Command-R), then tap the capture button

@@ -147,7 +147,7 @@ Photo capture has two levels of configuration. You set limits on the output one 
 ### Step
 Create a new Swift file with the name `CaptureExtensions.swift` in the `Support` group, and replace its contents.
 
-`CMVideoDimensions` is a C structure with a width and a height. It cannot be compared, and it has no zero value. This extension adds these two things: `static let zero = CMVideoDimensions()`, a `==` that compares `width` and `height`, and a `<` that is `true` when both the width and the height are smaller. Both operators are `public static func`. If you work in Try first mode, press Show solution and copy the file. The `@retroactive` attribute tells the compiler that you add the conformance to a type from a different module on purpose.
+`CMVideoDimensions` is a C structure with a width and a height. It cannot be compared, and it has no zero value. This extension adds these two things: `static let zero = CMVideoDimensions()`, a `==` that compares `width` and `height`, and a `<` that is `true` when both the width and the height are smaller. Both operators are `public static func`. In Try first mode, the code of this step stays visible. Copy it as it is. The `@retroactive` attribute tells the compiler that you add the conformance to a type from a different module on purpose.
 
 ```swift file=AVCam/Support/CaptureExtensions.swift new copy
 /*
@@ -178,7 +178,7 @@ Create a new Swift file with the name `PhotoCapture.swift` in the `Capture` grou
 
 The file has two types. `PhotoCaptureError` is an enumeration of `Error` with one case, `noPhotoData`. `PhotoCapture` is a `final class` that adopts `OutputService`. It is a normal class, not an actor. The capture service owns it and calls it.
 
-The class has three properties: `@Published private(set) var captureActivity: CaptureActivity = .idle`, `let output = AVCapturePhotoOutput()`, and a private computed alias `photoOutput` of type `AVCapturePhotoOutput` that returns `output`. The `output` property and the `captureActivity` property satisfy the `OutputService` protocol. `@Published` gives the class a Combine publisher, `$captureActivity`, which the capture service reads later. The file imports `AVFoundation` and `CoreImage`. If you work in Try first mode, press Show solution and copy the file.
+The class has three properties: `@Published private(set) var captureActivity: CaptureActivity = .idle`, `let output = AVCapturePhotoOutput()`, and a private computed alias `photoOutput` of type `AVCapturePhotoOutput` that returns `output`. The `output` property and the `captureActivity` property satisfy the `OutputService` protocol. `@Published` gives the class a Combine publisher, `$captureActivity`, which the capture service reads later. The file imports `AVFoundation` and `CoreImage`. It compiles without `import Combine`. In Try first mode, the code of this step stays visible. Copy it as it is.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift new copy
 /*
@@ -341,7 +341,7 @@ The delegate has two jobs. It reports the progress of the capture, and it delive
 ### Step
 In `PhotoCapture.swift`, add the `PhotoContinuation` type alias and the private `PhotoCaptureDelegate` class below the `PhotoCapture` class.
 
-`PhotoContinuation` is `CheckedContinuation<Photo, Error>`. A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) stands for a caller that waits in an `async` method. The delegate keeps it in the private constant `continuation` and uses it at the end to give the photo to that caller. The class inherits from `NSObject` because [`AVCapturePhotoCaptureDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate) is an Objective-C protocol.
+`PhotoContinuation` is `CheckedContinuation<Photo, Error>`. A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) stands for a caller that waits in an `async` method. The delegate keeps it in the private constant `continuation` and uses it at the end to give the photo to that caller. The class inherits from `NSObject` because [`AVCapturePhotoCaptureDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate) is an Objective-C protocol. Put a `// MARK: - A photo capture delegate to process the captured photo.` comment between the type alias and the class.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=7,9,11-14,16,18
     func updateConfiguration(for device: AVCaptureDevice) {
@@ -429,7 +429,7 @@ The methods are `photoOutput(_:willBeginCaptureFor:)` and `photoOutput(_:willCap
 ### Step
 Add the `photoOutput(_:didFinishProcessingPhoto:error:)` method, which keeps the photo as file data in `photoData`.
 
-If the method gets an error, write it to the log with `logger.debug` and return. The [`fileDataRepresentation()`](https://developer.apple.com/documentation/avfoundation/avcapturephoto/filedatarepresentation()) method of the photo makes the complete file in memory. The delegate does not resume the continuation here. This callback is not the last one, and with other settings the output can call it more than one time.
+If the method gets an error, write it to the log with `logger.debug` and return. The sample writes the long form `if let error = error` here, and the short form `if let error` in the next method. The [`fileDataRepresentation()`](https://developer.apple.com/documentation/avfoundation/avcapturephoto/filedatarepresentation()) method of the photo makes the complete file in memory. The delegate does not resume the continuation here. This callback is not the last one, and with other settings the output can call it more than one time.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=6-12
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
@@ -557,7 +557,7 @@ The rest of the app wants one simple call: `let photo = try await capturePhoto()
 ![A continuation carries the result, a stream carries the progress, and the progress task keeps the delegate alive](../images/ch03-async-bridge.svg)
 
 ### Step
-In the `PhotoCapture` class, add the `monitorProgress(of:isolation:)` method with an empty task.
+In the `PhotoCapture` class, add the `monitorProgress(of:isolation:)` method with an empty task, below `createPhotoSettings()`.
 
 The method is private and has no return value. Its signature is `monitorProgress(of delegate: PhotoCaptureDelegate, isolation: isolated (any Actor)? = #isolation)`. The body starts a `Task` with an empty closure. The `isolation` parameter is from the Apple sample. The default value `#isolation` has the purpose to give the method the actor of its caller, so that the task can run on that actor. The concepts page tells you what a test found about this parameter.
 
@@ -1028,9 +1028,9 @@ final class CameraModel: Camera {
 ```
 
 ### Step
-Below `switchVideoDevices()`, add a `capturePhoto()` method with an empty body, a mark, and a comment.
+Below `switchVideoDevices()`, add a `capturePhoto()` method with an empty body, below a `// MARK: - Photo capture` comment.
 
-The method is `async`, because the model must wait for the capture service, which is a different actor.
+The method is `async`, because the model must wait for the capture service, which is a different actor. Write the documentation comment `/// Captures a photo.` above the method, exactly in this form. Chapter 4 replaces this comment, and its delete box shows this text.
 
 ```swift file=AVCam/CameraModel.swift highlight=8,10-12
     /// Selects the next available video device for capture.
@@ -1203,6 +1203,8 @@ In `PreviewCameraModel.swift`, add the same members with simple values.
 
 SwiftUI previews use this class in place of the real model. It has no camera, so `capturePhoto()` only writes a message to the log.
 
+The members go to four places, in the form of the sample: `var shouldFlashScreen = false` at the top of the class, above `PreviewSourceStub`; `private(set) var captureActivity = CaptureActivity.idle` below `status`; `var error: Error?` below `isSwitchingVideoDevices`; and `func capturePhoto()` at the end. The method is not `async`, like `switchVideoDevices()` in this class. It calls `logger.debug("Photo capture isn't implemented in PreviewCamera.")`.
+
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=4,14,17,33-35
 @Observable
 class PreviewCameraModel: Camera {
@@ -1245,7 +1247,7 @@ class PreviewCameraModel: Camera {
 ### Step
 Create a new Swift file with the name `CaptureButton.swift` in the `MainToolbar` group, and replace its contents.
 
-`CaptureButton` is generic over `Camera` and holds the model in `@State var camera`, like `MainToolbar`. It is 68 points wide, with an aspect ratio of 1. It starts a task that calls `capturePhoto()` on the model. The private view `PhotoCaptureButton` takes an `action` closure. It draws a white ring with a line width of 4 and, in a `Button`, a white disc inset by 1.2 times the line width. Its `PhotoButtonStyle` scales the label to 0.85 while the person presses it, with an `easeInOut` animation of 0.15 seconds. The `#Preview` uses `PreviewBackground` and `PreviewCameraModel`. This file has only the photo button. Chapter 8 adds a button for movies. If you work in Try first mode, press Show solution and copy the file.
+`CaptureButton` is generic over `Camera` and holds the model in `@State var camera`, like `MainToolbar`. The structure has the `@MainActor` attribute, as in the sample. It is 68 points wide, with an aspect ratio of 1. It starts a task that calls `capturePhoto()` on the model. The private view `PhotoCaptureButton` takes an `action` closure. It draws a white ring with a line width of 4 and, in a `Button`, a white disc inset by 1.2 times the line width. Its `PhotoButtonStyle` scales the label to 0.85 while the person presses it, with an `easeInOut` animation of 0.15 seconds. The `#Preview("Photo")` uses `PreviewBackground` and `PreviewCameraModel`. This file has only the photo button. Chapter 8 adds a button for movies. In Try first mode, the code of this step stays visible. Copy it as it is.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift new copy result="../images/ch03-s7-10.jpg|The capture button in the Xcode preview canvas: a white circle with a ring, on the preview background."
 /*
@@ -1326,7 +1328,7 @@ In `MainToolbar.swift`, add a placeholder, a spacer, and the capture button befo
 
 The `Color.clear` placeholder is temporary. Its frame is `largeButtonSize.width` by `largeButtonSize.height`, the size of a large button, so the capture button stays in the center of the toolbar. The order in the `HStack` is: placeholder, `Spacer`, `CaptureButton(camera: camera)`, `Spacer`, switch button. In chapter 4, you replace the placeholder with the thumbnail of the last photo.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=7-11 result="../images/ch03-s7-11.jpg|The main toolbar in the Xcode preview canvas: the placeholder at the leading side, the capture button in the center, the switch button at the trailing side."
+```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=7-11 result="../images/ch03-s7-11.jpg|The main toolbar in the Xcode preview canvas: the capture button in the center, the switch button at the trailing side. The placeholder at the leading side is invisible and only takes space."
 struct MainToolbar<CameraModel: Camera>: View {
 
     @State var camera: CameraModel

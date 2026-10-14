@@ -92,7 +92,7 @@ export const SWIFT_NOTES = [
     text: 'A computed property whose getter can wait. The reader writes await before the property, and try too when the getter throws.' },
   { id: 'escaping', test: /@escaping\b/, title: '@escaping', link: `${S}closures#Escaping-Closures`,
     text: 'The function stores the closure or calls it after it returns. The compiler then checks that the closure captures self explicitly.' },
-  { id: 'if-let-shorthand', common: true, test: /\b(if|guard)\s+let\s+\w+\s*(,|\{|else)/, title: 'if let x (shorthand)', link: `${S}thebasics#Optional-Binding`,
+  { id: 'if-let-shorthand', common: true, test: /\b(if|guard)\s+let\s+(?!self\b)\w+\s*(,|\{|else)/, title: 'if let x (shorthand)', link: `${S}thebasics#Optional-Binding`,
     text: 'Unwraps an optional into a constant of the same name. It is short for if let x = x.' },
   { id: 'get-throws', test: /\bget\s+throws\b/, title: 'get throws', link: `${S}errorhandling#Specifying-the-Error-Type`,
     text: 'A computed property that can throw. The reader writes try before the property.' },
