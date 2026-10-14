@@ -11,7 +11,7 @@ uncovered: AVCam.xcodeproj/project.pbxproj, AVCam/ContentView.swift
 
 In this tutorial, you create the AVCam project and write the first camera code. At the end, the app asks for permission to use the camera and shows a live preview on a black screen. If the person denies access, the app shows a status message.
 
-You write eight new files and change one file of the template. Together, they contain the full design of the app in a small form: a capture service that owns the camera, a model that holds the state, and views that show the result. Each later chapter adds lines to these files.
+You write nine new files, change one file of the template, and delete one. Together, they contain the full design of the app in a small form: a capture service that owns the camera, a model that holds the state, and views that show the result. Each later chapter adds lines to these files.
 
 Read the [concept article](ch01-concepts.md) first. It explains the capture pipeline that you build here.
 
@@ -110,7 +110,7 @@ You also write two small protocols, `PreviewSource` and `PreviewTarget`. They gi
 ### Step
 Create a group with the name `Model` in the `AVCam` group. In it, create a Swift file with the name `DataTypes.swift`, and replace its contents.
 
-`CameraStatus` is the state that the views show. `CameraError` lists the problems that can occur during setup. The file imports AVFoundation because the types of later chapters need it.
+`CameraStatus` is the state that the views show. It has the cases `unknown`, `unauthorized`, `failed`, and `running`. `CameraError` conforms to `Error` and lists the problems that can occur during setup: `videoDeviceUnavailable`, `addInputFailed`, and `setupFailed`. Later steps use these names. The file imports AVFoundation because the types of later chapters need it.
 
 > [!TIP]
 > A group is a folder in the project navigator. To create a file, use File › New › File from Template, or press Command-N. The project uses synchronized folders, so each new file is a part of the target automatically.
@@ -166,7 +166,7 @@ import SwiftUI
 ### Step
 Below the imports, add the `PreviewTarget` protocol with its one method, `setSession(_:)`.
 
-A preview target is an object that can show the output of a capture session. The capture code only knows this protocol. It does not know which view shows the preview.
+A preview target is an object that can show the output of a capture session. The method takes one parameter of the type `AVCaptureSession` and returns nothing. The capture code only knows this protocol. It does not know which view shows the preview.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=4-8
 import SwiftUI
@@ -180,9 +180,9 @@ protocol PreviewTarget {
 ```
 
 ### Step
-Above `PreviewTarget`, add the `PreviewSource` protocol with its documentation comment.
+Above `PreviewTarget`, add the `PreviewSource` protocol with its one method, `connect(to:)`, and its documentation comment.
 
-A preview source is the other side: an object that can give a session to a target. The protocol is `Sendable`, because the capture service creates the source and the main actor uses it. The user interface code never gets a variable of the type `AVCaptureSession`.
+A preview source is the other side: an object that can give a session to a target. The method takes one parameter of the type `PreviewTarget`. The protocol is `Sendable`, because the capture service creates the source and the main actor uses it. The user interface code never gets a variable of the type `AVCaptureSession`.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=1-10
 /// A protocol that enables a preview source to connect to a preview target.
@@ -206,7 +206,7 @@ protocol PreviewTarget {
 ### Step
 At the end of the file, add `DefaultPreviewSource`, the source that the app uses.
 
-The source keeps the session in a private property. Its only operation is to give the session to a target.
+`DefaultPreviewSource` is a structure that conforms to `PreviewSource`. It keeps the session in the private constant `session` and gets it from `init(session:)`. Its only operation, `connect(to:)`, calls `setSession(_:)` on the target. The capture service creates the source with `init(session:)` later in this chapter.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=7-19
 /// A protocol that passes the app's capture session to the `CameraPreview` view.
@@ -233,7 +233,7 @@ struct DefaultPreviewSource: PreviewSource {
 ### Step
 Below the imports, add the `CameraPreview` structure with its source.
 
-[`UIViewRepresentable`](https://developer.apple.com/documentation/swiftui/uiviewrepresentable) lets SwiftUI show a UIKit view. You need it because only a UIKit view can have the preview layer as its layer.
+[`UIViewRepresentable`](https://developer.apple.com/documentation/swiftui/uiviewrepresentable) lets SwiftUI show a UIKit view. You need it because only a UIKit view can have the preview layer as its layer. The structure keeps the source in the private constant `source` of the type `PreviewSource`, and gets it from `init(source:)`. `CameraView` creates the preview with `CameraPreview(source:)` in the last section.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=4-10,12
 import SwiftUI
@@ -256,7 +256,7 @@ The project does not compile at this time. `CameraPreview` does not have the met
 ### Step
 In `CameraPreview`, add the nested `PreviewView` class with its two initializers.
 
-`PreviewView` is the UIKit view, and it is the preview target. The `init(coder:)` initializer is necessary for a `UIView` subclass that has its own initializer. The app never calls it.
+`PreviewView` is a subclass of `UIView` that conforms to `PreviewTarget`. Its `init()` only calls `super.init(frame: .zero)`. The `required init?(coder:)` initializer is necessary for a `UIView` subclass that has its own initializer. The app never calls it, so its body is `fatalError("init(coder:) has not been implemented")`, as Xcode suggests. The class does not conform to the protocol yet; you add `setSession(_:)` two steps later.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=7-19,21
     private let source: PreviewSource
@@ -289,7 +289,7 @@ The Apple sample adds a placeholder image to this view when the app runs in the 
 ### Step
 In `PreviewView`, override `layerClass`, and add the `previewLayer` property.
 
-Each `UIView` has one backing layer, and [`layerClass`](https://developer.apple.com/documentation/uikit/uiview/layerclass) tells UIKit to create that layer as a preview layer. Thus the layer always has the size of the view, and you write no layout code. The forced cast in `previewLayer` is safe for the same reason.
+Each `UIView` has one backing layer, and [`layerClass`](https://developer.apple.com/documentation/uikit/uiview/layerclass) tells UIKit to create that layer as a preview layer. Thus the layer always has the size of the view, and you write no layout code. Write `override class var layerClass: AnyClass`, and return `AVCaptureVideoPreviewLayer.self`. `previewLayer` is a computed property of the type `AVCaptureVideoPreviewLayer` that returns `layer as! AVCaptureVideoPreviewLayer`. The forced cast is safe for the same reason.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=11-18
     class PreviewView: UIView, PreviewTarget {
@@ -317,7 +317,7 @@ Each `UIView` has one backing layer, and [`layerClass`](https://developer.apple.
 ### Step
 Below `previewLayer`, add the `setSession(_:)` method that `PreviewTarget` requires.
 
-The method is `nonisolated`, so a source can call it from each thread. But a layer belongs to the main thread. Thus the method sets the [`session`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/session) property in a task on the main actor.
+The method is `nonisolated`, so a source can call it from each thread. But a layer belongs to the main thread. Thus the method sets the [`session`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/session) property of `previewLayer` in a task on the main actor: `Task { @MainActor in ... }`.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=5-11
         var previewLayer: AVCaptureVideoPreviewLayer {
@@ -338,7 +338,7 @@ The method is `nonisolated`, so a source can call it from each thread. But a lay
 ### Step
 In `CameraPreview`, above `PreviewView`, add the two methods that `UIViewRepresentable` requires.
 
-SwiftUI calls `makeUIView(context:)` one time. The method creates the view and connects it to the source. `updateUIView(_:context:)` is empty, because the view has no SwiftUI state that can change.
+SwiftUI calls `makeUIView(context:)` one time. The method returns a `PreviewView`: it creates the view with `PreviewView()`, calls `source.connect(to:)` with it, and returns it. `updateUIView(_:context:)` takes the `PreviewView` and the context, and is empty, because the view has no SwiftUI state that can change. The type of both `context` parameters is `Context`.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=9-18
 struct CameraPreview: UIViewRepresentable {
@@ -377,7 +377,7 @@ The service is an actor with a special property: it runs on its own serial dispa
 ### Step
 In the `AVCam` group, create the file `CaptureService.swift`, and replace its contents with the imports and an empty actor.
 
-Camera calls can be slow, and it is safer not to call a session from many threads at the same time. An actor runs its code away from the main thread, and it runs only one call at a time. The compiler checks this.
+The file imports `Foundation` and, with `@preconcurrency`, `AVFoundation`. Camera calls can be slow, and it is safer not to call a session from many threads at the same time. An actor runs its code away from the main thread, and it runs only one call at a time. The compiler checks this.
 
 ```swift file=AVCam/CaptureService.swift highlight=1-14
 /*
@@ -397,7 +397,7 @@ actor CaptureService {
 ```
 
 ### Step
-In the actor, add a private constant for the capture session.
+In the actor, add the private constant `captureSession`, a new `AVCaptureSession`.
 
 The property is private. Only the actor can change the session, so each change of the session is in this file.
 
@@ -409,9 +409,9 @@ actor CaptureService {
 ```
 
 ### Step
-Below the session, add a serial dispatch queue with the name `sessionQueue`.
+Below the session, add the private constant `sessionQueue`, a serial dispatch queue.
 
-A serial queue runs one block of work at a time, in order. A [`DispatchSerialQueue`](https://developer.apple.com/documentation/dispatch/dispatchserialqueue) can also be the executor of an actor. The label helps you find the queue in the debugger.
+A serial queue runs one block of work at a time, in order. A [`DispatchSerialQueue`](https://developer.apple.com/documentation/dispatch/dispatchserialqueue) can also be the executor of an actor. Create it with `DispatchSerialQueue(label:)` and the label `"com.karolkakol.AVCam.sessionQueue"`. The label helps you find the queue in the debugger.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5
     // The app's capture session.
@@ -424,7 +424,7 @@ A serial queue runs one block of work at a time, in order. A [`DispatchSerialQue
 ### Step
 Below the queue, add the `unownedExecutor` property, which returns the queue as an executor.
 
-An actor usually runs on the shared thread pool of Swift, and code on that pool must not block. But `startRunning()` blocks until the camera runs. With [`unownedExecutor`](https://developer.apple.com/documentation/swift/actor/unownedexecutor), all code of this actor runs on the session queue, where a blocking call is acceptable.
+An actor usually runs on the shared thread pool of Swift, and code on that pool must not block. But `startRunning()` blocks until the camera runs. With [`unownedExecutor`](https://developer.apple.com/documentation/swift/actor/unownedexecutor), all code of this actor runs on the session queue, where a blocking call is acceptable. The property is `nonisolated`, has the type `UnownedSerialExecutor`, and returns `sessionQueue.asUnownedSerialExecutor()`.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7
     // A serial dispatch queue to use for capture control actions.
@@ -439,7 +439,7 @@ An actor usually runs on the shared thread pool of Swift, and code on that pool 
 ### Step
 Add the `previewSource` property at the top of the actor, and add an initializer that creates the source.
 
-The property is `nonisolated`, so the main actor can read it without `await`. This is safe, because the property is a constant and `PreviewSource` is `Sendable`. The source is the only way out of the actor for the session.
+The property is a `nonisolated let` of the type `PreviewSource`, so the main actor can read it without `await`. This is safe, because the property is a constant and `PreviewSource` is `Sendable`. The initializer `init()` sets it to `DefaultPreviewSource(session: captureSession)`. The source is the only way out of the actor for the session.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-4,17-20
 actor CaptureService {
@@ -474,9 +474,9 @@ The service is still empty. In this section, you add the three operations of a f
 The order is important. A camera gives only black frames until the person gives access. Thus the service does not touch the camera before it knows the answer.
 
 ### Step
-Below the initializer, add the `isAuthorized` property. In this step, it only reads the current status.
+Below the initializer, add the computed property `isAuthorized` of the type `Bool`, with a `get async` getter. In this step, it only reads the current status.
 
-[`authorizationStatus(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/authorizationstatus(for:)) returns the answer that the system remembers. It shows no alert. The property is `async`, because the next step adds a call that waits for the person.
+[`authorizationStatus(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/authorizationstatus(for:)) with `.video` returns the answer that the system remembers. It shows no alert. The getter stores `status == .authorized` in a local variable `isAuthorized` and returns it. The getter is `async`, because the next step adds a call that waits for the person. Start the region with the comment `// MARK: - Authorization`.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-17
     init() {
@@ -501,7 +501,7 @@ Below the initializer, add the `isAuthorized` property. In this step, it only re
 ### Step
 In `isAuthorized`, request access when the system does not have an answer yet.
 
-[`requestAccess(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/requestaccess(for:completionhandler:)) shows the system alert with your usage description. The `await` keyword suspends the property until the person selects an answer. The system shows this alert only one time for each app.
+[`requestAccess(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/requestaccess(for:completionhandler:)) shows the system alert with your usage description. Call it only when `status == .notDetermined`, and store the result in the local variable. The `await` keyword suspends the property until the person selects an answer. The system shows this alert only one time for each app.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-10
     var isAuthorized: Bool {
@@ -520,9 +520,9 @@ In `isAuthorized`, request access when the system does not have an answer yet.
 ```
 
 ### Step
-At the end of the actor, add the `addInput(for:)` method.
+At the end of the actor, add the private method `addInput(for:)`, which takes an `AVCaptureDevice`, throws, and returns an `AVCaptureDeviceInput`.
 
-An [`AVCaptureDeviceInput`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput) connects one device to a session. Always call [`canAddInput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddinput(_:)) first: `addInput(_:)` raises an exception when the session cannot use the input. The method returns the input for chapter 2, and `@discardableResult` lets this chapter ignore it.
+An [`AVCaptureDeviceInput`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput) connects one device to a session. Create it with `try AVCaptureDeviceInput(device:)`. Always call [`canAddInput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddinput(_:)) first: `addInput(_:)` raises an exception when the session cannot use the input. When the session cannot use it, throw `CameraError.addInputFailed`. The method returns the input for chapter 2, and `@discardableResult` lets this chapter ignore it.
 
 ```swift file=AVCam/CaptureService.swift highlight=1-11
     // Adds an input to the capture session to connect the specified capture device.
@@ -540,9 +540,9 @@ An [`AVCaptureDeviceInput`](https://developer.apple.com/documentation/avfoundati
 ```
 
 ### Step
-Above `addInput(for:)`, add the `setUpSession()` method with an empty `do` block.
+Above `addInput(for:)`, add the private method `setUpSession()`, which throws, with an empty `do` block.
 
-The `catch` block changes each error into `CameraError.setupFailed`, because the model only needs to know that the setup failed. Xcode shows a warning for the empty `do` block until the next step.
+The `catch` block changes each error into `CameraError.setupFailed`, because the model only needs to know that the setup failed. Start the region with the comment `// MARK: - Capture setup`. Xcode shows a warning for the empty `do` block until the next step.
 
 ```swift file=AVCam/CaptureService.swift highlight=1-8
     // MARK: - Capture setup
@@ -562,7 +562,7 @@ The `catch` block changes each error into `CameraError.setupFailed`, because the
 ### Step
 In the `do` block, find the back camera and add an input for it.
 
-[`default(_:for:position:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/default(_:for:position:)) returns one camera of the type that you ask for, or `nil`. Each iPhone has a wide-angle camera on the back. Chapter 2 replaces this lookup with one that knows all cameras.
+[`default(_:for:position:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/default(_:for:position:)) returns one camera of the type that you ask for, or `nil`. Ask for `.builtInWideAngleCamera`, the media type `.video`, and the position `.back`: each iPhone has a wide-angle camera on the back. Use `guard let defaultCamera = ... else`, and throw `CameraError.videoDeviceUnavailable` in the `else` branch. Then call `try addInput(for: defaultCamera)`. Chapter 2 replaces this lookup with one that knows all cameras.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-9
     private func setUpSession() throws {
@@ -581,9 +581,9 @@ In the `do` block, find the back camera and add an input for it.
 ```
 
 ### Step
-Above `setUpSession()`, add the `start()` method, which configures and starts the session.
+Above `setUpSession()`, add the method `start()`, which is `async throws`, and which configures and starts the session.
 
-The method checks the authorization again, which costs almost nothing now and protects the camera code from a caller that did not ask. [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) blocks until the session runs. This is why the actor has its own queue.
+The method checks the authorization again, which costs almost nothing now and protects the camera code from a caller that did not ask. It returns early with one `guard`: `guard await isAuthorized, !captureSession.isRunning else { return }`. Then it calls `try setUpSession()`. Start the region with the comment `// MARK: - Capture session life cycle`. [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) blocks until the session runs. This is why the actor has its own queue.
 
 ```swift file=AVCam/CaptureService.swift highlight=1-8
     // MARK: - Capture session life cycle
@@ -612,7 +612,7 @@ You also write a `Camera` protocol and a second model for Xcode previews, becaus
 ### Step
 Open `AVCamApp.swift`. Replace the header comment from the template with the header of the sample, and import `os`.
 
-Each file of the sample starts with a comment of this form. The `os` module contains the `Logger` type. The template header in your file shows your name and your date.
+Each file of the sample starts with a comment of this form: a reference to `LICENSE.txt` and an "Abstract:" line. The exact words are in the solution; a comment does not change the build. The `os` module contains the `Logger` type. The template header in your file shows your name and your date.
 
 ```swift file=AVCam/AVCamApp.swift remove
 //
@@ -636,7 +636,7 @@ import SwiftUI
 ```
 
 ### Step
-At the end of `AVCamApp.swift`, add a global logger.
+At the end of `AVCamApp.swift`, add the global constant `logger`, a new `Logger()`.
 
 A constant outside of each type is visible in all files of the target. `CameraModel` uses it in a moment. That file does not import `os`, and this is why you changed the Member Import Visibility setting.
 
@@ -650,9 +650,9 @@ let logger = Logger()
 ```
 
 ### Step
-In the `Model` group, create the file `Camera.swift`, and replace its contents.
+In the `Model` group, create the file `Camera.swift`, and replace its contents with the `Camera` protocol.
 
-The views use this protocol, not the `CameraModel` class, so you can give them a different model in Xcode previews. The protocol is on the main actor, because the views read its properties. `AnyObject` limits it to classes, and `SendableMetatype` lets generic code use the model type from each isolation domain.
+The protocol has three requirements: the read-only property `status` of the type `CameraStatus`, the read-only property `previewSource` of the type `PreviewSource`, and the method `start()`, which is `async`. The file imports SwiftUI. The views use this protocol, not the `CameraModel` class, so you can give them a different model in Xcode previews. The protocol is on the main actor, because the views read its properties. `AnyObject` limits it to classes, and `SendableMetatype` lets generic code use the model type from each isolation domain.
 
 ```swift file=AVCam/Model/Camera.swift new
 /*
@@ -685,7 +685,7 @@ protocol Camera: AnyObject, SendableMetatype {
 ### Step
 In the `AVCam` group, create the file `CameraModel.swift`, and replace its contents with an empty model class.
 
-`@Observable` makes SwiftUI draw a view again when a property that the view reads changes, and `@MainActor` makes sure that each change occurs on the main thread. The comment about the Simulator comes from the sample. In this tutorial, the app uses `CameraModel` in the Simulator too.
+The class is `final class CameraModel: Camera`, with the two attributes `@MainActor` and `@Observable`, and imports SwiftUI. `@Observable` makes SwiftUI draw a view again when a property that the view reads changes, and `@MainActor` makes sure that each change occurs on the main thread. The comment about the Simulator comes from the sample. In this tutorial, the app uses `CameraModel` in the Simulator too.
 
 ```swift file=AVCam/CameraModel.swift highlight=1-21
 /*
@@ -714,7 +714,7 @@ final class CameraModel: Camera {
 ### Step
 In the class, add the status, the preview source, the capture service, and an empty initializer.
 
-`private(set)` lets the views read the status, but only the model can change it. `previewSource` passes the source of the capture service to the views. The initializer stays empty in all chapters, as in the sample.
+`status` is `private(set) var status = CameraStatus.unknown`: the views read the status, but only the model can change it. `previewSource` is a computed property that returns `captureService.previewSource`. `captureService` is a private constant, a new `CaptureService()`. The initializer `init()` stays empty in all chapters, as in the sample.
 
 ```swift file=AVCam/CameraModel.swift highlight=3-14
 final class CameraModel: Camera {
@@ -738,7 +738,7 @@ final class CameraModel: Camera {
 ### Step
 Below the initializer, add the `start()` method. In this step, it starts the capture service and sets the status.
 
-The `await` moves the work to the session queue, so the main thread stays free while the camera starts. When `start()` of the service throws, the model writes the error to the log and sets the `failed` status. After the `await`, the code is on the main actor again, so the status change is safe.
+The `await` moves the work to the session queue, so the main thread stays free while the camera starts. When `start()` of the service throws, the model writes the error to the log with `logger.error("Failed to start capture service. \(error)")` and sets the `failed` status. Start the region with the comment `// MARK: - Starting the camera`. After the `await`, the code is on the main actor again, so the status change is safe.
 
 ```swift file=AVCam/CameraModel.swift highlight=5-16
     init() {
@@ -788,7 +788,7 @@ The service returns from its `start()` method without an error when the person d
 ### Step
 Create a group with the name `Preview Content`. In it, create the file `PreviewCameraModel.swift`, and replace its contents.
 
-This model has no capture service. Its preview source does nothing, and its initializer accepts a status. Thus an Xcode preview can show each state of the interface without a camera.
+This model has no capture service. The class is `@Observable class PreviewCameraModel: Camera`, and the file imports Foundation and SwiftUI. A nested structure `PreviewSourceStub` conforms to `PreviewSource` with an empty `connect(to:)`. The constant `previewSource` holds a `PreviewSourceStub()`. `status` is `private(set) var status = CameraStatus.unknown`. The initializer is `init(status: CameraStatus = .unknown)`; the default value matters, because the previews of the next section call `PreviewCameraModel()` and `PreviewCameraModel(status: .failed)`. `start()` sets `status` to `.running` when it is `.unknown`. Thus an Xcode preview can show each state of the interface without a camera.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift new
 /*
@@ -828,9 +828,11 @@ class PreviewCameraModel: Camera {
 ### Step
 In the `Preview Content` group, create the file `PreviewBackground.swift`, and replace its contents.
 
-The controls of the app are translucent and sit on the camera picture. On the black canvas of an Xcode preview, their dark backgrounds are invisible. This view puts a gray gradient behind its content. Each `#Preview` block of a control uses it, so that the canvas shows the control completely. This file is not in the Apple sample.
+The controls of the app are translucent and sit on the camera picture. On the black canvas of an Xcode preview, their dark backgrounds are invisible. This view puts a gray gradient behind its content. Each `#Preview` block of a control uses it, so that the canvas shows the control completely. This file is not in the Apple sample. It is boilerplate: copy it as it is.
 
-```swift file=AVCam/Preview Content/PreviewBackground.swift new
+The view is `struct PreviewBackground<Content: View>: View` with the property `@ViewBuilder let content: Content`. The body is a `ZStack` with a `LinearGradient` from `Color(white: 0.45)` at the top to `Color(white: 0.2)` at the bottom, with `.ignoresSafeArea()`, and `content` above it.
+
+```swift file=AVCam/Preview Content/PreviewBackground.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -869,9 +871,11 @@ The last section connects the parts. `CameraView` puts the preview and a status 
 ### Step
 In the `Views` group, create a group with the name `Overlays`. In it, create the file `StatusOverlayView.swift`, and replace its contents.
 
-The view is empty for the `unknown` and `running` statuses. For the other two statuses, it makes the preview darker and shows a message: red when the person denied access, orange when the camera did not start. The test for yellow is for a status that chapter 10 adds.
+The view is empty for the `unknown` and `running` statuses. For the other two statuses, it makes the preview darker and shows a message: red when the person denied access, orange when the camera did not start. The test for yellow is for a status that chapter 10 adds. The message texts come from the sample, so copy this file as it is.
 
-```swift file=AVCam/Views/Overlays/StatusOverlayView.swift new
+The view has the constant `status: CameraStatus` and the array `handled` with `.unauthorized` and `.failed`. When `handled` contains the status, the body shows a `Rectangle` with the fill `Color(white: 0.0, opacity: 0.5)`, and a `Text` with the message: font `.headline`, white text, `.padding()`, the color as background, a corner radius of 8, and a maximum width of 600. The computed properties `color` (`.red`, `.orange`, or `.clear`) and `message` (the two texts, or an empty string) switch on the status. Two `#Preview` blocks, "Failed" and "Unauthorized", show `CameraView` with a `PreviewCameraModel` inside a `PreviewBackground`.
+
+```swift file=AVCam/Views/Overlays/StatusOverlayView.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -943,11 +947,11 @@ struct StatusOverlayView: View {
 The project does not compile at this time. The previews at the end of the file use `CameraView`, which you create in the next step.
 
 ### Step
-In the `AVCam` group, create the file `CameraView.swift`, and replace its contents with the view structure and its preview.
+In the `AVCam` group, create the file `CameraView.swift`, and replace its contents with the view structure, without its body, and its preview.
 
-The view is generic. It accepts each type that conforms to `Camera`: the real `CameraModel` in the app, and `PreviewCameraModel` in the `#Preview` block.
+The view is `@MainActor struct CameraView<CameraModel: Camera>: View`, and it holds the model in `@State var camera: CameraModel`. It is generic: it accepts each type that conforms to `Camera`, the real `CameraModel` in the app, and `PreviewCameraModel()` in the `#Preview` block, inside a `PreviewBackground`. The project does not compile until the next step adds the `body`.
 
-```swift file=AVCam/CameraView.swift highlight=1-2,4-6,8,10-11,13,15-23,25-29
+```swift file=AVCam/CameraView.swift highlight=1-2,4-6,8,10-11,13,15,17-21
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -962,14 +966,6 @@ struct CameraView<CameraModel: Camera>: View {
 
     @State var camera: CameraModel
 
-    var body: some View {
-        ZStack {
-            // A view that provides a preview of the captured content.
-            CameraPreview(source: camera.previewSource)
-            // A view that presents a status message over the camera preview.
-            StatusOverlayView(status: camera.status)
-        }
-    }
 }
 
 #Preview {
@@ -982,7 +978,7 @@ struct CameraView<CameraModel: Camera>: View {
 ### Step
 Add the `body` property with the camera preview and the status overlay.
 
-A `ZStack` puts its views on top of each other. The overlay is above the preview. The preview gets the preview source from the model, so this file does not import AVFoundation.
+A `ZStack` puts its views on top of each other: first `CameraPreview(source: camera.previewSource)`, then `StatusOverlayView(status: camera.status)`. The overlay is above the preview. The preview gets the preview source from the model, so this file does not import AVFoundation.
 
 ```swift file=AVCam/CameraView.swift highlight=5-12
 struct CameraView<CameraModel: Camera>: View {
@@ -1003,7 +999,7 @@ struct CameraView<CameraModel: Camera>: View {
 ### Step
 In `AVCamApp.swift`, add a documentation comment and the `camera` state property to the app structure.
 
-`@State` makes SwiftUI keep one model for the full life of the app. The comment about the Simulator comes from the sample and is out of date: the code creates a `CameraModel` in all cases.
+The property is `@State private var camera = CameraModel()`. `@State` makes SwiftUI keep one model for the full life of the app. The documentation comment, `/// The AVCam app's main entry point.`, goes between `@main` and the `struct` line. The comment about the Simulator above the property comes from the sample and is out of date: the code creates a `CameraModel` in all cases.
 
 ```swift file=AVCam/AVCamApp.swift highlight=2,4-7
 @main
@@ -1019,7 +1015,7 @@ struct AVCamApp: App {
 ### Step
 In the window group, replace `ContentView()` with the camera view, and hide the status bar.
 
-A camera app uses the full screen for the picture. The clock and the battery symbol do not help the person to take a photo.
+Write `CameraView(camera: camera)` with the modifier `.statusBarHidden(true)`. A camera app uses the full screen for the picture. The clock and the battery symbol do not help the person to take a photo.
 
 ```swift file=AVCam/AVCamApp.swift remove
             ContentView()

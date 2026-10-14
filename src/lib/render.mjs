@@ -45,7 +45,9 @@ function swiftFirstUses(site) {
 
 /** The Swift notes of a step: a card at the first use of a construct, a pointer at later uses. */
 function swiftNotesHtml(site, page, step) {
-  const ids = findSwiftNotes(stepNewLines(step));
+  let ids = findSwiftNotes(stepNewLines(step));
+  // A closure on the main actor already explains tasks and the main actor; do not stack three cards.
+  if (ids.includes('closure-isolation')) ids = ids.filter((id) => id !== 'task' && id !== 'main-actor');
   if (!ids.length) return '';
   const first = swiftFirstUses(site);
   const cards = [];
