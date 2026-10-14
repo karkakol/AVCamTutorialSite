@@ -439,7 +439,7 @@ The property is `true` while the method waits for the capture service. The `defe
 ```
 
 ### Step
-In `PreviewCameraModel.swift`, add the same property, and a `switchVideoDevices()` method that only writes a log message.
+In `PreviewCameraModel.swift`, add the same property, and a `switchVideoDevices()` method that only writes a message with the global `logger` from `AVCamApp.swift`.
 
 SwiftUI previews use this model, and it has no camera. The method is not `async` here: Swift accepts a synchronous method for an `async` requirement of a protocol.
 
@@ -474,7 +474,7 @@ This file holds small view helpers that all controls of the app share:
 - `makeBody(configuration:)` draws the label with the font size, in `.primary` when the button is enabled and in `Color(white: 0.4)` when it is not. The background is `.black.opacity(0.4)`, which lets the preview show through. A large button is clipped to a `Circle`, a small one to a `Rectangle`; `AnyShape` makes the two cases one type.
 - The style reads `isEnabled`, `verticalSizeClass`, and `horizontalSizeClass` from the environment. It adds a padding of 10 points for a large button, and also for a small one in a regular size class, where there is more space, for example on iPad.
 
-This file is boilerplate. If you work in "Try first" mode, it is fine to copy it.
+This file is boilerplate. If you work in "Try first" mode, press "Show solution" and copy the file.
 
 SwiftUI has a type with the same name. In your app, the name refers to your type, because a type of your module has priority over a type of an imported module.
 
@@ -528,7 +528,7 @@ struct DefaultButtonStyle: ButtonStyle {
 ### Step
 In the `Views` folder, create the folders `Toolbars/MainToolbar`. In `MainToolbar`, create `SwitchCameraButton.swift`, and replace its contents.
 
-The button shows the symbol `arrow.triangle.2.circlepath` with your `DefaultButtonStyle` in the large size, in a frame of `largeButtonSize`. A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
+Like `CameraView` in chapter 1, the view is generic over the `Camera` protocol and holds the model in `@State var camera`; the next views follow the same pattern. The button shows the symbol `arrow.triangle.2.circlepath` with your `DefaultButtonStyle` in the large size, in a frame of `largeButtonSize`. A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
 
 The app does not show the button yet: the interface is connected in the next section. The preview block at the end of the file shows the button in the Xcode canvas now. Open the canvas with Option-Command-Return. `PreviewBackground` is the gray stand-in for the camera picture from chapter 1.
 
@@ -572,7 +572,7 @@ struct SwitchCameraButton<CameraModel: Camera>: View {
 ### Step
 In the same folder, create `MainToolbar.swift`, and replace its contents.
 
-The `Spacer` moves the switch button to the trailing edge. In later chapters, you add the capture button and the thumbnail button to this `HStack`.
+The `Spacer` moves the switch button to the trailing edge. The stack is white, uses a font of size 24, has a height of 80 points, and has padding at the leading and trailing edges. In later chapters, you add the capture button and the thumbnail button to this `HStack`.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift new result="../images/ch02-s3-7.jpg|The main toolbar in the Xcode preview canvas: the switch button at the trailing side. The toolbar alone sits in the middle. CameraUI moves it to the bottom in the next step."
 /*
@@ -667,7 +667,7 @@ When the camera changes, there is a short gap in the frames of the preview. Then
 In this section, you write `PreviewContainer`, a view that holds the preview and applies the effect. Then you put the container and the camera interface into `CameraView`.
 
 ### Step
-In the `Views` folder, create `PreviewContainer.swift` with a generic container view that keeps its content.
+In the `Views` folder, create `PreviewContainer.swift`, and replace its contents with a generic container view that keeps its content.
 
 The container is generic, so it can hold any view. The `@ViewBuilder` attribute lets the caller give the content as a closure of view code. The body shows a `previewView` property, which you add in the next step.
 
@@ -1016,7 +1016,7 @@ This property stops the app if the session has no connection to a preview layer.
 ### Step
 Above `videoPreviewLayer`, add the `updatePreviewRotation(_:)` method, which sets an angle on the connection of the preview layer.
 
-The service runs on the session queue, but the preview layer is an interface object that belongs to the main thread. So the method reads the `connection` of the layer and then sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) inside `Task { @MainActor in ... }`, a task on the main actor.
+The service runs on the session queue, but the preview layer is an interface object that belongs to the main thread. So the method reads the optional `connection` of the layer and then sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) inside `Task { @MainActor in ... }`, a task on the main actor.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-10
     }
@@ -1033,7 +1033,7 @@ The service runs on the session queue, but the preview layer is an interface obj
 ```
 
 ### Step
-Above `updatePreviewRotation(_:)`, add the `createRotationCoordinator(for:)` method. Create the coordinator, and apply its current preview angle.
+Above `updatePreviewRotation(_:)`, add the `createRotationCoordinator(for:)` method. Create the coordinator with `AVCaptureDevice.RotationCoordinator(device:previewLayer:)`, and apply its current preview angle.
 
 The coordinator needs the camera and the layer that shows the preview. Key-value observing reports only the changes that occur later. So the method applies the current value of [`videoRotationAngleForHorizonLevelPreview`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelpreview) one time here. The coordinator also has a capture angle, because a photo must be level relative to gravity also when the interface does not turn with the device.
 

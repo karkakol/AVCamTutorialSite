@@ -397,7 +397,8 @@ function solutionPlace(step, env) {
         run += 1;
         const last = !hl.has(i + 2);
         if (last) {
-          const indent = (fence.lines[i - run + 1].match(/^\s*/) || [''])[0];
+          const firstText = fence.lines.slice(i - run + 1, i + 1).find((l) => l.trim()) || '';
+          const indent = (firstText.match(/^\s*/) || [''])[0];
           body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// your code goes here\n</span></span>`;
           run = 0;
         }

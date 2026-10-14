@@ -104,7 +104,9 @@ function analyzeFences(page, repo, missingBranches) {
     // For the "Try first" cover: the step creates the file when it is not on the start branch,
     // and the names of the declarations around the first new line say where the code goes.
     if (isStep && page.startBranch && repo.hasBranch(page.startBranch)) {
-      fence.createsFile = repo.fileLines(page.startBranch, fence.file) === null;
+      // Only the first step that shows a file that is not on the start branch creates it.
+      const first = page.fences.find((f) => f.file === fence.file && !f.remove && f.where.step !== undefined);
+      fence.createsFile = first === fence && repo.fileLines(page.startBranch, fence.file) === null;
     }
     if (isStep) fence.enclosing = enclosingDeclarations(fileLines, fence.highlight.length ? map[fence.highlight[0] - 1] : 0);
     if (isStep) {
