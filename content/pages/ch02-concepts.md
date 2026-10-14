@@ -136,23 +136,24 @@ AVCam uses a small part of the device API. This is the full map.
 
 ### Device types on iPhone and iPad
 
-| Device type | Kind | What it is |
-|---|---|---|
-| [`.builtInWideAngleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinwideanglecamera) | Physical | The general camera. An iPhone or iPad usually has one on the back and one on the front. |
-| [`.builtInUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinultrawidecamera) | Physical | The camera with the short focal length (the "0.5x" camera). |
-| [`.builtInTelephotoCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintelephotocamera) | Physical | The camera with the long focal length. |
-| [`.builtInDualCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualcamera) | Virtual | Wide and telephoto. It can supply depth. |
-| [`.builtInDualWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) | Virtual | Ultra-wide and wide. It can supply depth. |
-| [`.builtInTripleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) | Virtual | Ultra-wide, wide, and telephoto. |
-| [`.builtInTrueDepthCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintruedepthcamera) | Virtual | The front color camera together with an infrared camera. It supplies depth. |
-| [`.builtInLiDARDepthCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinlidardepthcamera) | Virtual | A back color camera together with the LiDAR scanner. It supplies accurate depth. |
-| [`.external`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/external) | Physical | A USB camera that is connected to an iPad. It has no front or back position. |
-| [`.continuityCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/continuitycamera) | — | An iPhone that operates as the camera of a Mac or an Apple TV. |
+| Device type | Kind | Since iOS | What it is |
+|---|---|---|---|
+| [`.builtInWideAngleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinwideanglecamera) | Physical | 10.0 | The general camera. An iPhone or iPad usually has one on the back and one on the front. |
+| [`.builtInUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinultrawidecamera) | Physical | 13.0 | The camera with the short focal length (the "0.5x" camera). |
+| [`.builtInTelephotoCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintelephotocamera) | Physical | 10.0 | The camera with the long focal length. |
+| [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) | Physical | 27.1 | The ultra-wide camera on the outer side of iPhone Duo. See chapter 16. |
+| [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera) | Physical | 27.1 | The ultra-wide camera on the inner side of iPhone Duo. See chapter 16. |
+| [`.builtInDualCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualcamera) | Virtual | 10.2 | Wide and telephoto. It can supply depth. |
+| [`.builtInDualWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) | Virtual | 13.0 | Ultra-wide and wide. It can supply depth. |
+| [`.builtInTripleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) | Virtual | 13.0 | Ultra-wide, wide, and telephoto. |
+| [`.builtInTrueDepthCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintruedepthcamera) | Virtual | 11.1 | The front color camera together with an infrared camera. It supplies depth. |
+| [`.builtInLiDARDepthCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinlidardepthcamera) | Virtual | 15.4 | A back color camera together with the LiDAR scanner. It supplies accurate depth. |
+| [`.external`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/external) | Physical | 17.0 | A USB camera that is connected to an iPad. It has no front or back position. |
+| [`.continuityCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/continuitycamera) | — | 17.0 | An iPhone that operates as the camera of a Mac or an Apple TV. |
 
 Which types exist depends on the model. That is the reason for discovery sessions: you ask, and you do not assume.
 
-> [!NOTE]
-> The iOS 27.1 SDK adds two more physical types, [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) and [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera). Like all other types, they are in a discovery result only if you ask for them.
+The table has every camera type of the iOS 27.1 SDK. Three more types exist, but they are not cameras on iPhone: [`.microphone`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/microphone) is the audio device type (its old name, [`.builtInMicrophone`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinmicrophone), is deprecated since iOS 17), [`.builtInDuoCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinduocamera) is the deprecated old name of the dual camera, and [`.deskViewCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/deskviewcamera) exists on macOS only.
 
 ### Control of a virtual device
 
