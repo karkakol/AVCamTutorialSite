@@ -71,6 +71,13 @@ function fullFileButton(fence, env) {
   return `<button type="button" class="tool" data-full-file data-file-key="${escapeHtml(fence.fileKey)}" data-file-src="${escapeHtml(src)}" data-lines="${lines}" title="View full file" aria-label="View full file">${icon('expand')}<span class="tool-label">View full file</span></button>`;
 }
 
+/** Screenshots of the app after a step, shown under its code card. */
+function resultImages(fence, env) {
+  if (!fence.results || !fence.results.length || !env.image) return '';
+  const items = fence.results.map((r) => `<figure class="result">${env.image(r.src, r.caption || 'The app after this step')}${r.caption ? `<figcaption>${escapeHtml(r.caption)}</figcaption>` : ''}</figure>`).join('');
+  return `<div class="step-results"><p class="step-results-title">${icon('phone')}<span>What you see</span></p><div class="step-results-row">${items}</div></div>`;
+}
+
 /** The code card of a tutorial step. */
 export function renderStepCode(block, env) {
   const fence = block.code;
@@ -101,7 +108,7 @@ export function renderStepCode(block, env) {
 </figcaption>
 <div class="code-scroll" tabindex="0" role="group" aria-label="Code: ${escapeHtml(file)}">${removed}<pre class="code" data-main><code>${body}</code></pre></div>
 ${hidden ? `<button type="button" class="code-more" data-expand aria-expanded="false" data-count="${fence.lines.length}">Show all ${fence.lines.length} lines</button>` : ''}
-</figure>`;
+</figure>${resultImages(fence, env)}`;
 }
 
 export function renderSettings(settings, env) {
@@ -119,7 +126,7 @@ export function renderSettings(settings, env) {
 <ul class="settings-rows">
 ${rows}
 </ul>
-</figure>`;
+</figure>${resultImages(settings, env)}`;
 }
 
 export function renderLinks(content, env) {

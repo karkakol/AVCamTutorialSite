@@ -18,6 +18,7 @@ export function parseInfo(info) {
     isNew: false,
     remove: false,
     transient: false,
+    results: [], // [{ src, caption }] result images shown under the code
     badHighlight: false,
   };
   let rest = String(info || '').trim();
@@ -37,7 +38,7 @@ export function parseInfo(info) {
   // file=path. The path can have spaces ("AVCam/Preview Content/X.swift"):
   // it ends at the next attribute or at the end of the line. Quotes also work.
   rest = rest.replace(
-    /(^|\s)file=(?:"([^"]*)"|(.+?))(?=\s+(?:highlight=|new\b|remove\b|transient\b)|\s*$)/,
+    /(^|\s)file=(?:"([^"]*)"|(.+?))(?=\s+(?:highlight=|result=|new\b|remove\b|transient\b)|\s*$)/,
     (m, lead, quoted, bare) => {
       out.file = (quoted !== undefined ? quoted : bare).trim();
       return ' ';
@@ -46,6 +47,16 @@ export function parseInfo(info) {
 
   rest = rest.replace(/(^|\s)highlight=(\S*)/, (m, lead, value) => {
     out.highlightRaw = value;
+    return ' ';
+  });
+
+  // result="path|caption; path|caption": screenshots of the app after this step.
+  rest = rest.replace(/(^|\s)result=(?:"([^"]*)"|(\S*))/, (m, lead, quoted, bare) => {
+    const value = quoted !== undefined ? quoted : bare;
+    out.results = value.split(';').map((item) => {
+      const [src, ...caption] = item.split('|');
+      return { src: src.trim(), caption: caption.join('|').trim() };
+    }).filter((r) => r.src);
     return ' ';
   });
 

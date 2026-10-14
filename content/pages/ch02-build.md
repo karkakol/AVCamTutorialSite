@@ -767,7 +767,7 @@ Build and run the app. Tap the switch button at the bottom right of the screen.
 
 The preview becomes blurred for a short time. Then it shows the front camera. A second tap brings back the back camera. With SimCam, each camera shows its own source.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch02-s4-5-a.jpg|At the start: the back camera, with the switch button at the bottom right.; ../images/ch02-s4-5-c.jpg|After the tap: the front camera."
 Action: Product > Run (Command-R), then tap the switch button
 Result: a short blur, then the preview of the front camera
 Second tap: a short blur, then the preview of the back camera

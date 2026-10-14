@@ -212,12 +212,14 @@ function makeFence(page, token, where) {
     isNew: info.isNew,
     remove: info.remove,
     transient: info.transient,
+    results: info.results || [],
     where,
     // Filled by the analysis (analyze.mjs):
     map: null, // file line of each fence line (0 = not found)
     numbers: null, // the line numbers to show
     fileKey: null, // set when the whole file is available on the branch
   };
+  for (const r of fence.results) page.images.push({ src: r.src, line: fence.line });
   const count = fence.lines.length;
   if (info.badHighlight) {
     page.problems.push({ level: 'error', line: fence.line, where: where.where, step: where.step, message: `highlight="${info.highlightRaw}" is not valid. Use line numbers and ranges, for example highlight=4-6,9.` });
@@ -260,7 +262,7 @@ function parseSettings(token) {
       if (at === -1) return l.endsWith(':') ? { key: l.slice(0, -1).trim(), value: '' } : { key: '', value: l.trim() };
       return { key: l.slice(0, at).trim(), value: l.slice(at + 2).trim() };
     });
-  return { type: 'settings', title: info.title || 'Settings', rows, line: token.map ? token.map[0] + 1 : 0 };
+  return { type: 'settings', title: info.title || 'Settings', rows, results: info.results || [], line: token.map ? token.map[0] + 1 : 0 };
 }
 
 function parseSection(group, ctx) {
@@ -359,6 +361,7 @@ function parseStep(part, ctx) {
     if (block.type === 'fence') {
       const info = parseInfo(token.info);
       if (info.lang === 'settings') {
+        for (const r of info.results || []) page.images.push({ src: r.src, line: token.map ? token.map[0] + 1 : 0 });
         candidate = parseSettings(token);
       } else if (info.lang !== 'links') {
         const fence = makeFence(page, token, fenceWhere);
