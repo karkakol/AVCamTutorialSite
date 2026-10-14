@@ -8,6 +8,61 @@ import { asideOpen } from './markdown.mjs';
 import { QUIZ_TITLE } from './parse.mjs';
 import { renderStepCode, renderSettings, fileDataName, codeLines } from './blocks.mjs';
 import { resolveImage, resolveLink } from './analyze.mjs';
+import { SWIFT_NOTES, findSwiftNotes } from './swift-notes.mjs';
+
+const NOTE_BY_ID = new Map(SWIFT_NOTES.map((n) => [n.id, n]));
+
+/** The new lines of a step: the highlighted lines, or every line of a new file. */
+function stepNewLines(step) {
+  const fence = step.block && step.block.type === 'code' ? step.block.code : null;
+  if (!fence) return [];
+  if (fence.isNew || fence.highlight.length === 0) return fence.lines;
+  return fence.highlight.map((n) => fence.lines[n - 1]).filter((l) => l !== undefined);
+}
+
+/** The first step (in chapter order) that uses each Swift construct. Cached on the site. */
+function swiftFirstUses(site) {
+  if (site.swiftFirstUses) return site.swiftFirstUses;
+  const first = new Map();
+  for (const chapter of site.chapters || []) {
+    if (chapter.fixture) continue;
+    for (const entry of chapter.entries) {
+      const page = entry.page;
+      if (!page || page.kind !== 'tutorial') continue;
+      for (const section of page.sections) {
+        for (const item of section.items) {
+          if (item.type !== 'step') continue;
+          for (const id of findSwiftNotes(stepNewLines(item))) {
+            if (!first.has(id)) first.set(id, { slug: entry.slug, stepId: item.id, chapter: chapter.number, section: section.number, step: item.number });
+          }
+        }
+      }
+    }
+  }
+  site.swiftFirstUses = first;
+  return first;
+}
+
+/** The Swift notes of a step: a card at the first use of a construct, a pointer at later uses. */
+function swiftNotesHtml(site, page, step) {
+  const ids = findSwiftNotes(stepNewLines(step));
+  if (!ids.length) return '';
+  const first = swiftFirstUses(site);
+  const cards = [];
+  const refs = [];
+  for (const id of ids) {
+    const note = NOTE_BY_ID.get(id);
+    const use = first.get(id);
+    if (!use || (use.slug === page.slug && use.stepId === step.id)) {
+      cards.push(`<div class="swift-note"><p class="swift-note-title">${icon('swift')}<span>Swift: <code>${e(note.title)}</code></span></p><p>${e(note.text)} <a href="${note.link}" target="_blank" rel="noopener">Swift documentation</a></p></div>`);
+    } else if (!note.common) {
+      const where = use.slug === page.slug ? `step ${use.section}.${use.step}` : `chapter ${use.chapter}, step ${use.section}.${use.step}`;
+      refs.push(`<a href="${use.slug}.html#${use.stepId}"><code>${e(note.title)}</code></a> (${where})`);
+    }
+  }
+  const refHtml = refs.length ? `<p class="swift-refs">${icon('swift')}<span>Swift: ${refs.join(', ')}</span></p>` : '';
+  return cards.join('') + refHtml;
+}
 
 const e = escapeHtml;
 const KIND_LABEL = { article: 'Article', tutorial: 'Tutorial' };
@@ -398,7 +453,7 @@ function renderTutorial(site, page, env) {
 <button type="button" class="check" data-step-check aria-pressed="false" aria-label="${label} of section ${section.number}: mark as done" title="Mark as done">${icon('check')}</button>
 </header>
 <div class="step-instruction">${render(item.instruction)}</div>
-${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}
+${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}${swiftNotesHtml(site, page, item)}
 </article>
 <div class="step-block" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}</div>`;
           }

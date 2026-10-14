@@ -524,6 +524,11 @@ pre.code-removed { padding-bottom: 4px; }
 .step-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
 .step-label { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
 .step-instruction { margin-top: 6px; font-size: 1.0938rem; line-height: 1.5; font-weight: 500; }
+.swift-note { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font-size: 0.9375rem; line-height: 1.5; }
+.swift-note p { margin: 0; }
+.swift-note-title { display: flex; align-items: center; gap: 6px; margin-bottom: 6px !important; font-weight: 600; color: var(--text); }
+.swift-note-title .icon, .swift-refs .icon { width: 15px; height: 15px; color: var(--accent); flex: none; }
+.swift-refs { display: flex; align-items: flex-start; gap: 6px; margin: 12px 0 0; color: var(--muted); font-size: 0.875rem; line-height: 1.5; }
 .step-caption { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 1rem; line-height: 1.55; }
 .step-caption > * + * { margin-top: 0.7em; }
 .step-caption ul, .step-caption ol { padding-left: 1.25em; }

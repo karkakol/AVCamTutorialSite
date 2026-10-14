@@ -154,6 +154,10 @@ Other use: a list of menu choices or template options (`Product Name: AVCam`).
 - The last step of each section is a checkpoint when possible: "Build and run", with what the learner must see.
 - 3 quiz questions that test understanding, not memory.
 
+## Swift notes (automatic)
+
+The generator adds a "Swift" card to the step where a Swift construct (for example `#available`, `#if targetEnvironment`, `actor`, `defer`) appears for the first time in chapter order, and a short pointer to that step at later uses. The glossary is `src/lib/swift-notes.mjs`: one entry per construct with a pattern, a short text, and a link. Writers do not add these notes by hand; add an entry to the glossary instead. Constructs marked `common` get no pointer.
+
 ## Diagrams
 
 SVG files, hand-written, simple. Use only `currentColor` and these CSS variables for colours, so that they follow the light and dark themes: `var(--accent)`, `var(--muted)`, `var(--surface)`, `var(--line)`. The site inlines SVG files. Give each SVG a `viewBox`, a `<title>`, and no fixed width or height. Use the `font-family: inherit` text default; keep text at 13 px or larger at a 720 px wide `viewBox`.
