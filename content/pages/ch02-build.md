@@ -23,9 +23,9 @@ The class uses [`AVCaptureDevice.DiscoverySession`](https://developer.apple.com/
 ![Three physical back cameras and the three virtual devices that group them](../images/ch02-virtual-devices.svg)
 
 ### Step
-In the `AVCam` folder, create a folder with the name `Capture`. In it, create `DeviceLookup.swift` with a class that has three discovery session properties.
+In the `AVCam` folder, create a folder with the name `Capture`. In it, create `DeviceLookup.swift`, and replace its contents with a `final class DeviceLookup` that has three private discovery session properties.
 
-A discovery session filters by one position. So the class keeps one session for the back, one for the front, and one for external cameras, which have no position. The header comment also names microphones. You add the microphone lookup in chapter 8.
+The three properties are `frontCameraDiscoverySession`, `backCameraDiscoverySession`, and `externalCameraDiscoverSession`, all of type `AVCaptureDevice.DiscoverySession`. The file imports `Combine` as in Apple's sample; nothing in this chapter uses it. A discovery session filters by one position. So the class keeps one session for the back, one for the front, and one for external cameras, which have no position. The header comment also names microphones. You add the microphone lookup in chapter 8.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift highlight=1-18
 /*
@@ -51,7 +51,7 @@ final class DeviceLookup {
 ### Step
 Add an initializer that creates the three discovery sessions.
 
-The order of the device types is a priority list, and the result has the same order. The back session returns the dual camera first if the device has one, and the wide camera if not. An external camera has the position `.unspecified`.
+The back session asks for `[.builtInDualCamera, .builtInWideAngleCamera]` with the position `.back`. The front session asks for `[.builtInTrueDepthCamera, .builtInWideAngleCamera]` with `.front`. The external session asks for `[.external]` with `.unspecified`. The media type is `.video` for all three. The order of the device types is a priority list, and the result has the same order. The back session returns the dual camera first if the device has one, and the wide camera if not. An external camera has the position `.unspecified`.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift highlight=8-18
 final class DeviceLookup {
@@ -96,7 +96,7 @@ At the end of the initializer, set the user-preferred camera to the back camera 
 The documentation says that `systemPreferredCamera` is `nil` only when no camera is available. The sample tests for `nil` here all the same. This tutorial did not verify on a real device when the test is true.
 
 ### Step
-Below the initializer, add the `defaultCamera` property, which returns the system-preferred camera or throws an error.
+Below the initializer, add the `defaultCamera` property of type `AVCaptureDevice`, which returns the system-preferred camera or throws `CameraError.videoDeviceUnavailable`.
 
 [`systemPreferredCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/systempreferredcamera) is the camera that the system recommends at this time. The system calculates it from the user's selections and from events such as the connection of an external camera. A computed property can throw an error when its getter has the `throws` keyword.
 
@@ -163,7 +163,7 @@ A camera app cannot do its work without a camera, so the sample stops with a cle
 ```
 
 ### Step
-In `CaptureService.swift`, add a property for the active video input and a property for the device lookup.
+In `CaptureService.swift`, add the property `activeVideoInput` of type `AVCaptureDeviceInput?` and the constant `deviceLookup` with a new `DeviceLookup`, both private.
 
 An [`AVCaptureDeviceInput`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput) connects one camera to the session. The service keeps the input of the camera in use, because it must remove this object from the session when the camera changes.
 
@@ -272,7 +272,7 @@ All changes between [`beginConfiguration()`](https://developer.apple.com/documen
 ```
 
 ### Step
-Remove the current input. Then try to add an input for the new device, and add the old input again after a failure.
+Remove the current input with `removeInput(_:)`. Then try to add an input for the new device with the `addInput(for:)` helper from chapter 1, and add the old input again with `addInput(_:)` of the session after a failure.
 
 - The removal comes first, because the session does not accept a second camera input: [`canAddInput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddinput(_:)) returns `false`, and `addInput(for:)` throws an error.
 - The `catch` block is the fallback. It connects the old camera again, so that the session is not without a camera when the commit runs.
@@ -376,7 +376,7 @@ The views of the app do not use the capture service directly. They use the `Came
 In this section, you add a method and a state property to the protocol and to its two model classes. Then you build the views: a button style, the switch button, a toolbar, and a view for the full camera interface.
 
 ### Step
-In `Camera.swift`, add the `switchVideoDevices()` method and the `isSwitchingVideoDevices` property to the protocol.
+In `Camera.swift`, add the `async` method `switchVideoDevices()` and the read-only `Bool` property `isSwitchingVideoDevices` to the protocol.
 
 `CameraModel` and `PreviewCameraModel` conform to this protocol. The project does not compile until you add the two members to the two classes.
 
@@ -469,9 +469,12 @@ In the `AVCam` folder, create a folder with the name `Support`. In it, create `V
 
 This file holds small view helpers that all controls of the app share:
 
-- `largeButtonSize` is the size of the large buttons in the toolbar.
-- `DefaultButtonStyle` draws a button label on a dark background that lets the preview show through. A large button is a circle. A disabled button is gray.
-- The style adds padding in a regular size class, where there is more space, for example on iPad.
+- `largeButtonSize` is a global `CGSize` constant of 64 by 64 points, the size of the large buttons in the toolbar.
+- `DefaultButtonStyle` is a `ButtonStyle`. Its nested enumeration `Size` has the cases `small` (raw value 22) and `large` (24), the font size of the label. The initializer takes `size:`.
+- `makeBody(configuration:)` draws the label with the font size, in `.primary` when the button is enabled and in `Color(white: 0.4)` when it is not. The background is `.black.opacity(0.4)`, which lets the preview show through. A large button is clipped to a `Circle`, a small one to a `Rectangle`; `AnyShape` makes the two cases one type.
+- The style reads `isEnabled`, `verticalSizeClass`, and `horizontalSizeClass` from the environment. It adds a padding of 10 points for a large button, and also for a small one in a regular size class, where there is more space, for example on iPad.
+
+This file is boilerplate. If you work in "Try first" mode, it is fine to copy it.
 
 SwiftUI has a type with the same name. In your app, the name refers to your type, because a type of your module has priority over a type of an imported module.
 
@@ -525,7 +528,9 @@ struct DefaultButtonStyle: ButtonStyle {
 ### Step
 In the `Views` folder, create the folders `Toolbars/MainToolbar`. In `MainToolbar`, create `SwitchCameraButton.swift`, and replace its contents.
 
-A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
+The button shows the symbol `arrow.triangle.2.circlepath` with your `DefaultButtonStyle` in the large size, in a frame of `largeButtonSize`. A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
+
+The app does not show the button yet: the interface is connected in the next section. The preview block at the end of the file shows the button in the Xcode canvas now. Open the canvas with Option-Command-Return. `PreviewBackground` is the gray stand-in for the camera picture from chapter 1.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/SwitchCameraButton.swift new result="../images/ch02-s3-6.jpg|The switch button in the Xcode preview canvas, on the preview background. The app does not show it yet."
 /*
@@ -563,15 +568,13 @@ struct SwitchCameraButton<CameraModel: Camera>: View {
 }
 ```
 
-### Tip
-The app does not show the button yet: the interface is connected in the next section. The preview block at the end of the file shows the button in the Xcode canvas now. Open the canvas with Option-Command-Return. `PreviewBackground` is the gray stand-in for the camera picture from chapter 1.
 
 ### Step
 In the same folder, create `MainToolbar.swift`, and replace its contents.
 
 The `Spacer` moves the switch button to the trailing edge. In later chapters, you add the capture button and the thumbnail button to this `HStack`.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift new result="../images/ch02-s3-7.jpg|The main toolbar in the Xcode preview canvas: the switch button at the trailing side, at the bottom of the screen."
+```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift new result="../images/ch02-s3-7.jpg|The main toolbar in the Xcode preview canvas: the switch button at the trailing side. The toolbar alone sits in the middle. CameraUI moves it to the bottom in the next step."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -752,11 +755,13 @@ The `onChange` modifier gives the old value and the new value to the method. The
 ```
 
 ### Step
-In `CameraView.swift`, put `CameraPreview` into a `PreviewContainer`, and replace the status overlay with `CameraUI`.
+In `CameraView.swift`, replace the whole content of the `ZStack`: put `CameraPreview` into a `PreviewContainer`, and replace the status overlay with `CameraUI`.
 
 The preview moves into the closure of the container, one indentation level deeper. `CameraUI` contains the status overlay, so `CameraView` does not need its own.
 
 ```swift file=AVCam/CameraView.swift remove
+            // A view that provides a preview of the captured content.
+            CameraPreview(source: camera.previewSource)
             // A view that presents a status message over the camera preview.
             StatusOverlayView(status: camera.status)
 ```
@@ -778,7 +783,7 @@ The preview moves into the closure of the container, one indentation level deepe
 ### Step
 Build and run the app. Tap the switch button at the bottom right of the screen.
 
-The preview becomes blurred for a short time. Then it shows the front camera. A second tap brings back the back camera. With SimCam, each camera shows its own source.
+The preview becomes blurred for a short time. Then it shows the front camera. A second tap brings back the back camera. With SimCam, each camera shows its own source. The blur lasts a fraction of a second, too short for a screenshot; the pictures show the states before and after it.
 
 ```settings title="Checkpoint" result="../images/ch02-s4-5-a.jpg|At the start: the back camera, with the switch button at the bottom right.; ../images/ch02-s4-5-c.jpg|After the tap: the front camera."
 Action: Product > Run (Command-R), then tap the switch button
@@ -796,7 +801,7 @@ The app reads `systemPreferredCamera` one time, at the start. But the value can 
 In this section, you write an observer that reports each change as a value of an asynchronous stream. The capture service reads the stream and changes the camera.
 
 ### Step
-In the `Capture` folder, create `SPCObserver.swift` with a class that observes the `systemPreferredCamera` class property with key-value observing (KVO).
+In the `Capture` folder, create `SPCObserver.swift`, and replace its contents with the class `SystemPreferredCameraObserver`, a subclass of `NSObject`, which observes the `systemPreferredCamera` class property with key-value observing (KVO).
 
 `systemPreferredCamera` is a property of the `AVCaptureDevice` class, not of one device object. The Swift `observe(_:options:changeHandler:)` method with a key path cannot observe a class property. So the code uses the older form of KVO: a string for the key path, and the class object `AVCaptureDevice.self` as the object to observe. This form needs an observer that inherits from `NSObject`.
 
@@ -876,7 +881,7 @@ The system calls this method each time the observed property changes. The `.new`
 ```
 
 ### Step
-In `CaptureService.swift`, add a property that holds the observer.
+In `CaptureService.swift`, add the private constant `systemPreferredCamera` with a new `SystemPreferredCameraObserver`.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-6
     // An object the service uses to retrieve capture devices.
@@ -973,7 +978,7 @@ In this section, you apply the preview angle. You apply the capture angle in cha
 ![A rotation coordinator gives a preview angle to the preview layer and a capture angle to the outputs](../images/ch02-rotation-angles.svg)
 
 ### Step
-In `CaptureService.swift`, add properties for the rotation coordinator and for its observers.
+In `CaptureService.swift`, add the private property `rotationCoordinator` of type `AVCaptureDevice.RotationCoordinator!` and the private array `rotationObservers` of `AnyObject`.
 
 The coordinator is an implicitly unwrapped optional, because the service can create it only when it knows the camera. The array holds the observation objects. An observation stops when its object goes away.
 
@@ -990,7 +995,7 @@ The coordinator is an implicitly unwrapped optional, because the service can cre
 ### Step
 At the end of the actor, add the `videoPreviewLayer` property, which finds the preview layer in the connections of the session.
 
-The service has no reference to the preview view. But in chapter 1, the view gave the session to its layer, and that made a connection between the session and the layer. The service follows this connection back to the layer.
+The service has no reference to the preview view. But in chapter 1, the view gave the session to its layer, and that made a connection between the session and the layer. The service follows this connection back to the layer: it reads the `connections` array of the session and takes the first connection whose `videoPreviewLayer` is not `nil`. If there is none, the app is misconfigured, and the property stops it with `fatalError`.
 
 ```swift file=AVCam/CaptureService.swift highlight=2-9
     }
@@ -1011,7 +1016,7 @@ This property stops the app if the session has no connection to a preview layer.
 ### Step
 Above `videoPreviewLayer`, add the `updatePreviewRotation(_:)` method, which sets an angle on the connection of the preview layer.
 
-The service runs on the session queue, but the preview layer is an interface object that belongs to the main thread. So the method reads the connection of the layer and then sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) in a task on the main actor.
+The service runs on the session queue, but the preview layer is an interface object that belongs to the main thread. So the method reads the `connection` of the layer and then sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) inside `Task { @MainActor in ... }`, a task on the main actor.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-10
     }

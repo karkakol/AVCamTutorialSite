@@ -384,7 +384,7 @@ function solutionPlace(step, env) {
   const fileHtml = `<code>${e(file)}</code>`;
   const removes = step.block.removes || [];
   let out = '';
-  if (fence.isNew) {
+  if (fence.isNew || fence.createsFile) {
     out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml} and write the whole file yourself. The step text says what the file contains.</p>`;
   } else {
     const hl = new Set(fence.highlight);
@@ -409,7 +409,9 @@ function solutionPlace(step, env) {
     const where = context > 0
       ? `in ${fileHtml}. The lines below are already in your file; they show the place. Write your code at the marked line. The line numbers are those of the finished chapter.`
       : `in ${fileHtml}, at the place that the step text names. The whole region is new code.`;
-    out += `<p class="solution-text"><strong>Where:</strong> ${where}</p>`;
+    const enclosing = (fence.enclosing || []).slice().reverse();
+    const inside = enclosing.length ? ` Inside ${enclosing.map((d) => `<code>${e(d)}</code>`).join(' › ')}.` : '';
+    out += `<p class="solution-text"><strong>Where:</strong> ${where}${inside}</p>`;
     out += `<pre class="code solution-place"><code>${body}</code></pre>`;
   }
   for (const r of removes) {

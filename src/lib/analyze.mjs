@@ -47,6 +47,29 @@ export function analyzeSite(site, repo) {
   return { notices };
 }
 
+const DECLARATION = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|open|final|static|override|nonisolated|mutating|class|indirect|convenience|required)\s+)*(actor|class|struct|enum|extension|protocol|func|init|var|let|subscript)\b.*\{\s*$/;
+
+/** The declarations that enclose a file line, inner first: ["private func setUpSession() throws", "actor CaptureService"]. */
+function enclosingDeclarations(fileLines, fileLine) {
+  if (!fileLine) return [];
+  const indentOf = (s) => s.match(/^\s*/)[0].length;
+  let indent = indentOf(fileLines[fileLine - 1]);
+  const out = [];
+  for (let i = fileLine - 2; i >= 0 && out.length < 2; i -= 1) {
+    const line = fileLines[i];
+    if (!line.trim()) continue;
+    const ind = indentOf(line);
+    if (ind < indent && DECLARATION.test(line)) {
+      out.push(line.trim().replace(/\s*\{$/, ''));
+      indent = ind;
+      if (ind === 0) break;
+    } else if (ind < indent) {
+      indent = ind;
+    }
+  }
+  return out;
+}
+
 function analyzeFences(page, repo, missingBranches) {
   const branch = page.branch;
   if (branch && repo.available && !repo.hasBranch(branch)) missingBranches.add(branch);
@@ -78,6 +101,12 @@ function analyzeFences(page, repo, missingBranches) {
     const later = laterByFile.get(fence.file);
     const { map, unmatched } = align(fence.lines, fileLines, isStep ? later : undefined);
     fence.map = map;
+    // For the "Try first" cover: the step creates the file when it is not on the start branch,
+    // and the names of the declarations around the first new line say where the code goes.
+    if (isStep && page.startBranch && repo.hasBranch(page.startBranch)) {
+      fence.createsFile = repo.fileLines(page.startBranch, fence.file) === null;
+    }
+    if (isStep) fence.enclosing = enclosingDeclarations(fileLines, fence.highlight.length ? map[fence.highlight[0] - 1] : 0);
     if (isStep) {
       for (const n of fence.highlight) if (map[n - 1]) later.add(map[n - 1]);
     }
