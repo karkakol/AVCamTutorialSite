@@ -69,11 +69,13 @@
   });
   refreshTryFirst();
   doc.addEventListener('click', function (event) {
-    var reveal = event.target.closest('[data-reveal], [data-reveal-section]');
+    var reveal = event.target.closest('[data-reveal], [data-reveal-section], [data-hide]');
     if (!reveal) return;
     var block = reveal.closest('.step-block');
     var blocks = reveal.hasAttribute('data-reveal-section') ? $$('.step-block', block.parentElement) : [block];
-    blocks.forEach(function (b) { b.classList.add('is-revealed'); });
+    // A hide button covers the code again, so that the learner can glance at the solution and keep writing.
+    var show = !reveal.hasAttribute('data-hide');
+    blocks.forEach(function (b) { b.classList.toggle('is-revealed', show); });
     if (typeof layout === 'function') window.requestAnimationFrame(layout);
   });
 
