@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420">
+  <title>The recording pipeline of the dual mode: each camera input feeds its preview layer and a video data output, the microphone feeds an audio data output, the three outputs deliver sample buffers to the dual recorder on one queue, the mixer draws the small picture into the full picture with a Metal kernel, and the movie recorder writes the mixed frames and the audio to a file with an asset writer.</title>
+  <defs>
+    <marker id="ch18-pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="ch18-pipe-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- The session -->
+  <rect x="10" y="30" width="410" height="300" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <!-- The data output queue -->
+  <rect x="440" y="30" width="270" height="300" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="215" y="20" fill="var(--muted)" font-size="13">AVCaptureMultiCamSession</text>
+    <text x="575" y="20" fill="var(--muted)" font-size="13">The data output queue</text>
+
+    <!-- Inputs -->
+    <rect x="24" y="48" width="130" height="56" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="89" y="72" fill="currentColor" font-weight="600">Back camera</text>
+    <text x="89" y="92" fill="var(--muted)" font-size="13">input</text>
+
+    <rect x="24" y="150" width="130" height="56" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="89" y="174" fill="currentColor" font-weight="600">Front camera</text>
+    <text x="89" y="194" fill="var(--muted)" font-size="13">input</text>
+
+    <rect x="24" y="252" width="130" height="56" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="89" y="276" fill="currentColor" font-weight="600">Microphone</text>
+    <text x="89" y="296" fill="var(--muted)" font-size="13">input, back port</text>
+
+    <!-- Preview layers -->
+    <rect x="200" y="40" width="96" height="30" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="248" y="60" fill="var(--muted)" font-size="13">preview layer</text>
+
+    <rect x="200" y="142" width="96" height="30" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="248" y="162" fill="var(--muted)" font-size="13">preview layer</text>
+
+    <!-- Data outputs -->
+    <rect x="200" y="84" width="200" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="300" y="109" fill="currentColor" font-size="13">AVCaptureVideoDataOutput</text>
+
+    <rect x="200" y="186" width="200" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="300" y="211" fill="currentColor" font-size="13">AVCaptureVideoDataOutput</text>
+
+    <rect x="200" y="260" width="200" height="40" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="300" y="285" fill="currentColor" font-size="13">AVCaptureAudioDataOutput</text>
+
+    <!-- The dual recorder -->
+    <rect x="456" y="48" width="238" height="178" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="575" y="72" fill="currentColor" font-weight="600">DualRecorder</text>
+    <text x="575" y="92" fill="var(--muted)" font-size="13">sorts the frames by output</text>
+
+    <rect x="470" y="104" width="210" height="30" rx="8" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="575" y="124" fill="var(--muted)" font-size="13">latest small picture frame</text>
+
+    <rect x="470" y="146" width="210" height="66" rx="8" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="575" y="168" fill="currentColor" font-size="13" font-weight="600">PiPVideoMixer</text>
+    <text x="575" y="186" fill="var(--muted)" font-size="13">Metal kernel, one run per</text>
+    <text x="575" y="202" fill="var(--muted)" font-size="13">full picture frame</text>
+
+    <!-- The movie recorder -->
+    <rect x="456" y="252" width="238" height="56" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="575" y="276" fill="currentColor" font-weight="600">MovieRecorder</text>
+    <text x="575" y="296" fill="var(--muted)" font-size="13">AVAssetWriter, video and audio</text>
+
+    <!-- The library -->
+    <rect x="456" y="356" width="238" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="575" y="383" fill="currentColor" font-size="13">Photos library (stopRecording)</text>
+
+    <text x="215" y="356" fill="var(--muted)" font-size="13">Connections made by hand, as in chapter 17.</text>
+    <text x="215" y="376" fill="var(--muted)" font-size="13">The preview layers show the live pictures.</text>
+    <text x="215" y="396" fill="var(--muted)" font-size="13">The recorder mixes only while it records.</text>
+  </g>
+
+  <!-- Input to preview layer and to data output (muted) -->
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch18-pipe-arrow-muted)">
+    <path d="M154 70 H198"/>
+    <path d="M154 172 H198"/>
+  </g>
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+    <path d="M154 84 L198 100"/>
+    <path d="M154 186 L198 202"/>
+    <path d="M154 280 H198"/>
+  </g>
+
+  <!-- Data outputs to the recorder: sample buffers -->
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+    <path d="M400 104 H454"/>
+    <path d="M400 206 H454"/>
+    <path d="M400 280 H454"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--accent)" text-anchor="middle">
+    <text x="427" y="98">frames</text>
+    <text x="427" y="200">frames</text>
+    <text x="427" y="274">audio</text>
+  </g>
+
+  <!-- Mixer to movie recorder, movie recorder to library -->
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+    <path d="M575 226 V250"/>
+    <path d="M575 308 V354"/>
+  </g>
+  <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="start">
+    <text x="584" y="243">mixed frames</text>
+    <text x="584" y="336">finish, then save</text>
+  </g>
+</svg>
