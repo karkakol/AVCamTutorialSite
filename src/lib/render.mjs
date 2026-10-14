@@ -190,6 +190,13 @@ ${main}
 </div>
 <div class="filedialog-body code-scroll" tabindex="0"></div>
 </dialog>
+<dialog class="filedialog shotsdialog" id="shots-dialog" aria-labelledby="shots-dialog-title">
+<div class="filedialog-head">
+<div class="filedialog-titles"><h2 id="shots-dialog-title">What you see</h2><p class="filedialog-note"></p></div>
+<button type="button" class="tool tool-icon" data-close-dialog aria-label="Close">${icon('close')}</button>
+</div>
+<div class="shotsdialog-body"></div>
+</dialog>
 <div class="toast" role="status" aria-live="polite"></div>
 ${dev ? '<script>new EventSource("/__reload").onmessage = function () { location.reload(); };</script>' : ''}
 </body>

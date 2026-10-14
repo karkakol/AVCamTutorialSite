@@ -471,9 +471,32 @@
     }
     var full = event.target.closest('[data-full-file]');
     if (full) openFile(full);
+    var shots = event.target.closest('[data-show-results]');
+    if (shots) openShots(shots);
     var close = event.target.closest('[data-close-dialog]');
     if (close) close.closest('dialog').close();
   });
+
+  // The screenshots of a step, from the template next to its code card.
+  var shotsDialog = $('#shots-dialog');
+  function openShots(button) {
+    if (!shotsDialog) return;
+    var block = button.closest('.step-block');
+    var template = block && $('.step-results', block);
+    if (!template) return;
+    var bodyEl = $('.shotsdialog-body', shotsDialog);
+    var note = $('.filedialog-note', shotsDialog);
+    var step = block.closest('.steps') && $('#' + block.getAttribute('data-block-for'));
+    note.textContent = step ? ($('.step-label', step).textContent + ': ' + $('.step-instruction', step).textContent.trim()) : '';
+    bodyEl.innerHTML = '';
+    bodyEl.appendChild(template.content.cloneNode(true));
+    if (shotsDialog.showModal) shotsDialog.showModal(); else shotsDialog.setAttribute('open', '');
+  }
+  if (shotsDialog) {
+    shotsDialog.addEventListener('click', function (event) {
+      if (event.target === shotsDialog) shotsDialog.close();
+    });
+  }
 
   var dialog = $('#file-dialog');
   if (dialog) {

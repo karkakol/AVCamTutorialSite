@@ -75,7 +75,14 @@ function fullFileButton(fence, env) {
 function resultImages(fence, env) {
   if (!fence.results || !fence.results.length || !env.image) return '';
   const items = fence.results.map((r) => `<figure class="result">${env.image(r.src, r.caption || 'The app after this step')}${r.caption ? `<figcaption>${escapeHtml(r.caption)}</figcaption>` : ''}</figure>`).join('');
-  return `<div class="step-results"><p class="step-results-title">${icon('phone')}<span>What you see</span></p><div class="step-results-row">${items}</div></div>`;
+  // The screenshots stay in a template; a toolbar button shows them in a dialog.
+  return `<template class="step-results">${items}</template>`;
+}
+
+/** The toolbar button that opens the screenshots of a step. */
+function resultsButton(fence) {
+  if (!fence.results || !fence.results.length) return '';
+  return `<button type="button" class="tool tool-shots" data-show-results title="What you see after this step" aria-label="What you see after this step">${icon('phone')}<span class="tool-label">What you see</span></button>`;
 }
 
 /** The code card of a tutorial step. */
@@ -104,7 +111,7 @@ export function renderStepCode(block, env) {
   return `<figure class="codecard${hidden ? ' has-excerpt' : ''}" data-code style="--digits:${digits(numbers)}">
 <figcaption class="codecard-head">
 <span class="codecard-file" title="${escapeHtml(file)}">${icon('file')}${pathHtml(file)}</span>${badges}
-<span class="codecard-tools"><button type="button" class="tool tool-hide" data-hide title="Hide the solution again" aria-label="Hide the solution again">${icon('eyeOff')}<span class="tool-label">Hide</span></button>${fullFileButton(fence, env)}<button type="button" class="tool" data-copy-code="${partial ? 'hl' : 'all'}" title="${partial ? 'Copy new lines' : 'Copy code'}" aria-label="${partial ? 'Copy new lines' : 'Copy code'}">${icon('copy')}<span class="tool-label">${partial ? 'Copy new lines' : 'Copy code'}</span></button></span>
+<span class="codecard-tools">${resultsButton(fence)}<button type="button" class="tool tool-hide" data-hide title="Hide the solution again" aria-label="Hide the solution again">${icon('eyeOff')}<span class="tool-label">Hide</span></button>${fullFileButton(fence, env)}<button type="button" class="tool" data-copy-code="${partial ? 'hl' : 'all'}" title="${partial ? 'Copy new lines' : 'Copy code'}" aria-label="${partial ? 'Copy new lines' : 'Copy code'}">${icon('copy')}<span class="tool-label">${partial ? 'Copy new lines' : 'Copy code'}</span></button></span>
 </figcaption>
 <div class="code-scroll" tabindex="0" role="group" aria-label="Code: ${escapeHtml(file)}">${removed}<pre class="code" data-main><code>${body}</code></pre></div>
 ${hidden ? `<button type="button" class="code-more" data-expand aria-expanded="false" data-count="${fence.lines.length}">Show all ${fence.lines.length} lines</button>` : ''}
@@ -122,7 +129,7 @@ export function renderSettings(settings, env) {
     })
     .join('\n');
   return `<figure class="settings-card">
-<figcaption>${icon('settings')}<span>${escapeHtml(settings.title)}</span></figcaption>
+<figcaption>${icon('settings')}<span>${escapeHtml(settings.title)}</span>${resultsButton(settings) ? `<span class="codecard-tools">${resultsButton(settings)}</span>` : ''}</figcaption>
 <ul class="settings-rows">
 ${rows}
 </ul>
