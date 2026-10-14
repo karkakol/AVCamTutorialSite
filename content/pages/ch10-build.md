@@ -341,15 +341,25 @@ Add a preview for the interrupted state above the two previews at the end of the
 
 You cannot make an interruption in the Xcode canvas. A preview with a fixed status lets you examine the look of the message with no camera and no phone call.
 
-```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=3-5
+```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=3-7
 }
 
 #Preview("Interrupted") {
-    CameraView(camera: PreviewCameraModel(status: .interrupted))
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel(status: .interrupted))
+    }
 }
 
 #Preview("Failed") {
-    CameraView(camera: PreviewCameraModel(status: .failed))
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel(status: .failed))
+    }
+}
+
+#Preview("Unauthorized") {
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel(status: .unauthorized))
+    }
 }
 ```
 

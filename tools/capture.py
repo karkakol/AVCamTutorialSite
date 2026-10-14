@@ -49,11 +49,10 @@ A capture harness: renders one view of the app with ImageRenderer, like an Xcode
 import os
 import SwiftUI
 
-/// The view at the size of an iPhone 18 Pro, on a gray background that keeps translucent controls visible.
+/// The view at the size of an iPhone 18 Pro, on the preview background of the app (from chapter 1).
 struct Snapshot: View {
     var body: some View {
-        ZStack {
-            Color(white: 0.35)
+        PreviewBackground {
             %s
         }
         .frame(width: 402, height: 874)

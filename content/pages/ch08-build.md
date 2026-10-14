@@ -1176,9 +1176,11 @@ At the end of `CameraView.swift`, add the `SwipeDirection` enumeration.
 
 The enumeration has four cases, as in the Apple sample. The app uses only `left` and `right`.
 
-```swift file=AVCam/CameraView.swift highlight=5-10
+```swift file=AVCam/CameraView.swift highlight=7-12
 #Preview {
-    CameraView(camera: PreviewCameraModel())
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel())
+    }
 }
 
 enum SwipeDirection {
@@ -1208,15 +1210,15 @@ import SwiftUI
 
 /// A view that toggles the camera's capture mode.
 struct CaptureModeView<CameraModel: Camera>: View {
-
+    
     @State var camera: CameraModel
     @Binding private var direction: SwipeDirection
-
+    
     init(camera: CameraModel, direction: Binding<SwipeDirection>) {
         self.camera = camera
         _direction = direction
     }
-
+    
     var body: some View {
         Picker("Capture Mode", selection: $camera.captureMode) {
             ForEach(CaptureMode.allCases) {
@@ -1233,7 +1235,7 @@ struct CaptureModeView<CameraModel: Camera>: View {
             // Increment the selected index when swiping right.
             let increment = direction == .right
             let newIndex = selectedIndex + (increment ? 1 : -1)
-
+            
             guard newIndex >= 0, newIndex < modes.count else { return }
             camera.captureMode = modes[newIndex]
         }
@@ -1241,7 +1243,9 @@ struct CaptureModeView<CameraModel: Camera>: View {
 }
 
 #Preview {
-    CaptureModeView(camera: PreviewCameraModel(), direction: .constant(.left))
+    PreviewBackground {
+        CaptureModeView(camera: PreviewCameraModel(), direction: .constant(.left))
+    }
 }
 ```
 
@@ -1273,7 +1277,7 @@ In the compact layout, the picker is between the spacer and the main toolbar. In
     CameraUI(camera: PreviewCameraModel())
 ```
 
-```swift file=AVCam/Views/CameraUI.swift highlight=7,19-20,42
+```swift file=AVCam/Views/CameraUI.swift highlight=7,19-20,43
     /// This view arranges UI elements vertically.
     @ViewBuilder
     var compactUI: some View {
@@ -1285,7 +1289,7 @@ In the compact layout, the picker is between the spacer and the main toolbar. In
                 .padding(.bottom, bottomPadding)
         }
     }
-
+    
     /// This view arranges UI elements in a layered stack.
     @ViewBuilder
     var regularUI: some View {
@@ -1305,7 +1309,7 @@ In the compact layout, the picker is between the spacer and the main toolbar. In
             .padding(.bottom, 32)
         }
     }
-
+    
     var bottomPadding: CGFloat {
         // Dynamically calculate the offset for the bottom toolbar in iOS.
         let bounds = CGRect(origin: .zero, size: windowSize)
@@ -1315,7 +1319,9 @@ In the compact layout, the picker is between the spacer and the main toolbar. In
 }
 
 #Preview {
-    CameraUI(camera: PreviewCameraModel(), swipeDirection: .constant(.left))
+    PreviewBackground {
+        CameraUI(camera: PreviewCameraModel(), swipeDirection: .constant(.left))
+    }
 }
 ```
 
@@ -1521,7 +1527,7 @@ The action of the movie button ignores its parameter and calls `toggleRecording(
     CaptureButton(camera: PreviewCameraModel())
 ```
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=6,18-31,36-37,39-41
+```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=6,18-31,35-39,41-45
 /// A view that displays an appropriate capture button for the selected mode.
 @MainActor
 struct CaptureButton<CameraModel: Camera>: View {
@@ -1557,11 +1563,15 @@ struct CaptureButton<CameraModel: Camera>: View {
 }
 
 #Preview("Photo") {
-    CaptureButton(camera: PreviewCameraModel(captureMode: .photo))
+    PreviewBackground {
+        CaptureButton(camera: PreviewCameraModel(captureMode: .photo))
+    }
 }
 
 #Preview("Video") {
-    CaptureButton(camera: PreviewCameraModel(captureMode: .video))
+    PreviewBackground {
+        CaptureButton(camera: PreviewCameraModel(captureMode: .video))
+    }
 }
 ```
 

@@ -54,6 +54,10 @@ Folders in the site repository:
 - Chapter 10 connects `CaptureService.isInterrupted` to `CameraModel.status` (`.interrupted`). The Apple sample publishes the value but never shows it.
 - Anything else: avoid it. If you must deviate, write the reason in `notes/chapter-NN.md`.
 
+## Deviation from the sample: previews (14 Oct 2026)
+
+The user asked that every control is visible in the Xcode preview canvas. Chapter 1 adds `AVCam/Preview Content/PreviewBackground.swift` (a gray gradient that stands in for the camera picture). Every `#Preview` block that shows a control on the camera wraps it in `PreviewBackground { }`, and `SwitchCameraButton`, `ThumbnailButton`, and `FeaturesToolbar` get a preview block that the sample does not have. Apart from this, the code equals the sample until chapter 13. The capture tool (`tools/capture.py --view`) renders the same views with the same background for the "What you see" screenshots.
+
 ## Scope
 
 All 13 chapters are built (code, pages, validation). The user first asked for chapters 1 to 3 only, then asked for all chapters on 1 Oct 2026.

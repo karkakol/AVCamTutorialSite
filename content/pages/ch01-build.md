@@ -825,6 +825,40 @@ class PreviewCameraModel: Camera {
 }
 ```
 
+### Step
+In the `Preview Content` group, create the file `PreviewBackground.swift`, and replace its contents.
+
+The controls of the app are translucent and sit on the camera picture. On the black canvas of an Xcode preview, their dark backgrounds are invisible. This view puts a gray gradient behind its content. Each `#Preview` block of a control uses it, so that the canvas shows the control completely. This file is not in the Apple sample.
+
+```swift file=AVCam/Preview Content/PreviewBackground.swift new
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A background for Xcode previews that stands in for the camera picture.
+*/
+
+import SwiftUI
+
+/// A view that stands in for the camera picture in Xcode previews.
+///
+/// The controls of the app are translucent and sit on the live camera picture. On the black
+/// canvas of a preview, their dark backgrounds are invisible. This view puts a gray gradient
+/// behind its content, so that a preview shows each control completely.
+struct PreviewBackground<Content: View>: View {
+    
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(white: 0.45), Color(white: 0.2)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            content
+        }
+    }
+}
+```
+
 ### Tip
 Press Command-B. The project builds. Only the views are missing now.
 
@@ -893,11 +927,15 @@ struct StatusOverlayView: View {
 }
 
 #Preview("Failed") {
-    CameraView(camera: PreviewCameraModel(status: .failed))
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel(status: .failed))
+    }
 }
 
 #Preview("Unauthorized") {
-    CameraView(camera: PreviewCameraModel(status: .unauthorized))
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel(status: .unauthorized))
+    }
 }
 ```
 
@@ -909,7 +947,7 @@ In the `AVCam` group, create the file `CameraView.swift`, and replace its conten
 
 The view is generic. It accepts each type that conforms to `Camera`: the real `CameraModel` in the app, and `PreviewCameraModel` in the `#Preview` block.
 
-```swift file=AVCam/CameraView.swift highlight=1-18
+```swift file=AVCam/CameraView.swift highlight=1-2,4-6,8,10-11,13,15-23,25-29
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -923,10 +961,21 @@ import SwiftUI
 struct CameraView<CameraModel: Camera>: View {
 
     @State var camera: CameraModel
+
+    var body: some View {
+        ZStack {
+            // A view that provides a preview of the captured content.
+            CameraPreview(source: camera.previewSource)
+            // A view that presents a status message over the camera preview.
+            StatusOverlayView(status: camera.status)
+        }
+    }
 }
 
 #Preview {
-    CameraView(camera: PreviewCameraModel())
+    PreviewBackground {
+        CameraView(camera: PreviewCameraModel())
+    }
 }
 ```
 

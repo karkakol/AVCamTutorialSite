@@ -527,7 +527,7 @@ In the `Views` folder, create the folders `Toolbars/MainToolbar`. In `MainToolba
 
 A button action is synchronous, and the model method is `async`, so the action starts a `Task`. The `allowsHitTesting(_:)` modifier makes the button ignore taps while a switch is in progress. Thus the person cannot start a second switch before the first one ends.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/SwitchCameraButton.swift new result="../images/ch02-s3-6.jpg|The button alone, rendered with the preview camera model on a gray background, so that the dark circle of the button is visible. The app does not show the button yet."
+```swift file=AVCam/Views/Toolbars/MainToolbar/SwitchCameraButton.swift new result="../images/ch02-s3-6.jpg|The switch button in the Xcode preview canvas, on the preview background. The app does not show it yet."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -539,9 +539,9 @@ import SwiftUI
 
 /// A view that displays a button to switch between available cameras.
 struct SwitchCameraButton<CameraModel: Camera>: View {
-
+    
     @State var camera: CameraModel
-
+    
     var body: some View {
         Button {
             Task {
@@ -555,25 +555,23 @@ struct SwitchCameraButton<CameraModel: Camera>: View {
         .allowsHitTesting(!camera.isSwitchingVideoDevices)
     }
 }
-```
 
-### Tip
-Nothing shows this button yet: the app connects the interface in the next section, and this file has no `#Preview` block, because Apple's sample has none. To see the button now, add a preview block at the end of the file and open the canvas with Option-Command-Return:
-
-```swift
 #Preview {
-    SwitchCameraButton(camera: PreviewCameraModel())
+    PreviewBackground {
+        SwitchCameraButton(camera: PreviewCameraModel())
+    }
 }
 ```
 
-Remove the block again before you continue, so that your file stays equal to the branch. The next two files have a preview block, so the canvas shows them at once.
+### Tip
+The app does not show the button yet: the interface is connected in the next section. The preview block at the end of the file shows the button in the Xcode canvas now. Open the canvas with Option-Command-Return. `PreviewBackground` is the gray stand-in for the camera picture from chapter 1.
 
 ### Step
 In the same folder, create `MainToolbar.swift`, and replace its contents.
 
 The `Spacer` moves the switch button to the trailing edge. In later chapters, you add the capture button and the thumbnail button to this `HStack`.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift new result="../images/ch02-s3-7.jpg|The main toolbar with the preview camera model: the switch button at the trailing side, at the bottom of the screen. The gray stands in for the camera picture."
+```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift new result="../images/ch02-s3-7.jpg|The main toolbar in the Xcode preview canvas: the switch button at the trailing side, at the bottom of the screen."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -587,7 +585,7 @@ import SwiftUI
 struct MainToolbar<CameraModel: Camera>: View {
 
     @State var camera: CameraModel
-
+    
     var body: some View {
         HStack {
             Spacer()
@@ -598,13 +596,15 @@ struct MainToolbar<CameraModel: Camera>: View {
         .frame(height: height)
         .padding([.leading, .trailing])
     }
-
+    
     var height: CGFloat? { 80 }
 }
 
 #Preview {
-    Group {
-        MainToolbar(camera: PreviewCameraModel())
+    PreviewBackground {
+        Group {
+            MainToolbar(camera: PreviewCameraModel())
+        }
     }
 }
 ```
@@ -614,7 +614,7 @@ In the `Views` folder, create `CameraUI.swift`, and replace its contents.
 
 This view holds all controls that lie on top of the preview. The toolbar is at the bottom. The status overlay from chapter 1 is an overlay of this view now.
 
-```swift file=AVCam/Views/CameraUI.swift new result="../images/ch02-s3-8.jpg|CameraUI with the preview camera model: the toolbar over the full screen. The status overlay shows nothing, because the status is not failed."
+```swift file=AVCam/Views/CameraUI.swift new result="../images/ch02-s3-8.jpg|CameraUI in the Xcode preview canvas: the toolbar over the full screen. The status overlay shows nothing, because the status is not failed."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -628,7 +628,7 @@ import SwiftUI
 struct CameraUI<CameraModel: Camera>: View {
 
     @State var camera: CameraModel
-
+    
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -641,7 +641,9 @@ struct CameraUI<CameraModel: Camera>: View {
 }
 
 #Preview {
-    CameraUI(camera: PreviewCameraModel())
+    PreviewBackground {
+        CameraUI(camera: PreviewCameraModel())
+    }
 }
 ```
 
@@ -759,7 +761,7 @@ The preview moves into the closure of the container, one indentation level deepe
             StatusOverlayView(status: camera.status)
 ```
 
-```swift file=AVCam/CameraView.swift highlight=3-9 result="../images/ch02-s4-4.jpg|CameraView with the preview camera model. The preview area is black, because the preview model has no camera. The real camera picture comes when you run the app."
+```swift file=AVCam/CameraView.swift highlight=3-9 result="../images/ch02-s4-4.jpg|CameraView in the Xcode preview canvas. The preview model has no camera, so the preview background shows through. The real camera picture comes when you run the app."
     var body: some View {
         ZStack {
             // A container view that manages the placement of the preview.

@@ -1065,6 +1065,22 @@ Put the menu into the stack, after the Live Photo button.
 ```
 
 ### Step
+At the end of `FeatureToolbar.swift`, add a preview of the toolbar on the preview background.
+
+Apple's sample has no preview for this toolbar. With one, the Xcode canvas shows the Live Photo button and the menu without a run of the app. Open the canvas with Option-Command-Return.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=3-8
+    }
+}
+
+#Preview {
+    PreviewBackground {
+        FeaturesToolbar(camera: PreviewCameraModel())
+    }
+}
+```
+
+### Step
 In `CameraUI.swift`, add the features toolbar to the two layouts.
 
 In the compact layout, the toolbar is at the top of the screen, and the spacer keeps the main toolbar at the bottom. In the regular layout, the toolbar is in the same bar as the main toolbar, 250 points to the right of the center. The comment in the sample says "vertical", but the offset is horizontal.
