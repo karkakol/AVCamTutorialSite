@@ -1,0 +1,63 @@
+# Chapter 2 build page: learner review
+
+Date: 14 Oct 2026
+Page: `content/pages/ch02-build.md` (45 steps in 6 sections), rendered as `dist/ch02-build.html`.
+
+## Method
+
+Two personas went through all 45 steps.
+
+- **The copier** reads the instruction, pastes the highlighted lines at the place the fence shows, and builds at each checkpoint. Checked: is the place clear, is anything needed that no step says, does a step depend on a later step, are the checkpoints true. `git diff chapter-01 chapter-02` was compared with the steps (12 Swift files change; the project file does not change, because the project uses synchronized folders; no step is missing for a file).
+- **The self-implementer** uses the "Try first" mode. This person sees only the instruction, the caption, the place card (file, context lines, placeholder), the "What you see" pictures, and the Swift notes. Checked: does the text give the names and the API, where does the person get stuck, do the names match the solution, are the pictures at the right steps and correct.
+
+The site features were judged from the rendered page: the place card text of each step, the six Swift note cards, the six pictures, and the tip after step 3.6. The replay (`tools/replay.py`) had already shown that every section builds and that the end state equals `chapter-02`; this review did not run it again.
+
+## Findings
+
+| # | Step | Persona | Problem | Severity | Suggested fix |
+|---|------|---------|---------|----------|---------------|
+| 1 | 3.5 | self-implementer | The caption does not give enough to write `ViewExtensions.swift`: the `Size` enum with `.small` (22) and `.large` (24), `init(size:)`, the padding of 10, the black background with 40 % opacity, the circle for large and the rectangle for small (`AnyShape`), the gray `Color(white: 0.4)` for a disabled button, and `largeButtonSize` as 64 x 64. Step 3.6 then calls `DefaultButtonStyle(size: .large)`, so the enum name and case are load-bearing. | high | Add a short spec list to the caption with these names and numbers. Or mark this step as "copy this file" in Try first mode (a new attribute that keeps the code visible). |
+| 2 | 4.4 | copier | The `remove` fence lists only the two `StatusOverlayView` lines. The old `CameraPreview` comment and call (at the shallow indentation) are not in a `remove` fence, but the highlighted lines contain them again inside the container. A copier who pastes the highlighted lines ends with two previews. The caption says "the preview moves", which is the only hint. | medium | Put the old two `CameraPreview` lines into the `remove` fence too, or change the instruction to "replace the whole content of the `ZStack`". |
+| 3 | 3.7 | both | The picture caption says the switch button is "at the bottom of the screen". The canvas picture shows the button at the trailing side in the middle of the screen, because the `MainToolbar` preview has no `Spacer` above the toolbar. | medium | Caption: "The main toolbar in the Xcode preview canvas: the switch button at the trailing side. `CameraUI` moves the toolbar to the bottom in the next step." |
+| 4 | 3.1 | self-implementer | The instruction does not say that `switchVideoDevices()` is `async`. Step 3.3 needs `await` inside it, and the caption of 3.4 refers to "the model method is `async`" as a known fact. A self-implementer writes a synchronous requirement and must change it later. | medium | Instruction: "add the `async` method `switchVideoDevices()` and ...". |
+| 5 | 1.2 | self-implementer | The device type lists are not given. The caption names the dual camera and the wide camera for the back, but not `.builtInTrueDepthCamera` for the front and not `.external` for the external session. These names cannot be guessed. | medium | Add one sentence to the caption: "Back: `.builtInDualCamera`, `.builtInWideAngleCamera`. Front: `.builtInTrueDepthCamera`, `.builtInWideAngleCamera`. External: `.external`." |
+| 6 | 5.1 | self-implementer | The class name `SystemPreferredCameraObserver` is not in the instruction or the caption. The file name `SPCObserver.swift` suggests a different name. Step 5.4's solution uses `SystemPreferredCameraObserver()`, so the later solution does not match the learner's code. | medium | Name the class in the instruction: "create `SPCObserver.swift` with the class `SystemPreferredCameraObserver` ...". |
+| 7 | 1.7 | self-implementer | The property names `activeVideoInput` and `deviceLookup` are not in step 1.7. `deviceLookup` appears first in the instruction of 1.8 and `activeVideoInput` first in the caption of 2.3. The solutions of 1.8, 2.1 and 2.3 use these names. | medium | Instruction: "add the property `activeVideoInput` for the active video input and the property `deviceLookup` for the device lookup". |
+| 8 | 6.2 | self-implementer | The caption explains the idea (the session has a connection to the layer) but does not name the API: `captureSession.connections` and `AVCaptureConnection.videoPreviewLayer`. A learner does not know that a connection has a `videoPreviewLayer` property. | medium | Caption: "Each `AVCaptureConnection` in `captureSession.connections` has an optional `videoPreviewLayer`. Take the first one that is not `nil`." |
+| 9 | 6.3 | self-implementer, Swift notes | `Task { @MainActor in ... }` is the first use of a closure with an actor attribute on this page, and there is no Swift note for it. The caption says "a task on the main actor" but not how to write it. | medium | Add a glossary entry (`/Task\s*\{\s*@MainActor\s+in/`): "A closure can state the actor it runs on. `Task { @MainActor in }` runs the task on the main thread, where interface objects live." |
+| 10 | 6.1 | self-implementer, Swift notes | The implicitly unwrapped optional (`RotationCoordinator!`) has no Swift note. The caption uses the term, but a learner who does not know it cannot write the `!`. | low | Add a glossary entry for `Type!` (implicitly unwrapped optional). |
+| 11 | 1.1, 4.1, 5.1 | self-implementer, place hint | These steps create a file, but the fence uses `highlight=` and not `new`. The cover then says "at the place that the step text names. The whole region is new code", not "create the file". Step 1.1 also does not say "replace its contents" as steps 3.5 to 3.8 do. | low | Generator: when the highlighted region starts at line 1 of a file that is not on `startBranch`, say "create the file ... and write this region". Page: add "and replace its contents" in 1.1, 4.1, and 5.1. |
+| 12 | 1.4 | self-implementer | The instruction says "throws an error" but does not name `CameraError.videoDeviceUnavailable`. The old `guard` in `setUpSession()` still shows it at this point, so the learner can find it, but with effort. | low | Name the error case in the caption. |
+| 13 | 2.3 | self-implementer | "Add the old input again" does not say which API. The learner may use the throwing helper `addInput(for:)` instead of `captureSession.addInput(_:)`, and the helper needs a device, not an input. | low | Caption: "Use `captureSession.addInput(_:)` with the input object that you still hold." |
+| 14 | 3.6 | self-implementer | The SF Symbol name `arrow.triangle.2.circlepath` is not given. The picture shows the icon, but the learner must find the name in the SF Symbols app. | low | Name the symbol in the caption. |
+| 15 | 3.6 (Tip) | both, site feature | The tip about the preview canvas (Option-Command-Return, correct shortcut) sits after step 3.6. In Try first mode the learner opens the "What you see" picture of 3.6 before the tip. The picture captions say "in the Xcode preview canvas", which helps, but the learner does not yet know how to open the canvas. | low | Move the tip text into the caption of 3.6 (before the block), or put the tip before step 3.6. |
+| 16 | 4.5 | both, pictures | The checkpoint promises "a short blur" and the picture names (`-a`, `-c`) suggest a middle picture `-b`. There is no picture of the blurred state. | low | Add a capture of the blurred frame, or say in the caption of the second picture that the blur is too short for a capture. |
+| 17 | 1.5, 2.1, 2.2, 3.3, 5.5, 6.2 | self-implementer, place hint | The context of the place card is one or two bare `}` lines. The hint works only together with "below X" in the instruction. On 6.2 the line number of the `}` (181) is the end of a method that does not exist yet at this step, which can confuse. | low | Writers: add one named line of context (the signature of the method above). Generator: when all context lines are braces or blank, add the name of the enclosing or preceding declaration to the "Where" text. |
+| 18 | 5.4, 6.1 | self-implementer | The private property names (`systemPreferredCamera`, `rotationCoordinator`, `rotationObservers`) are not given. The learner's names differ from the solutions of 5.5, 6.4, and 6.5. Harmless, because the learner uses their own names in their own code. | low | Name the properties in the instructions, as the page does for `currentDevice` and `defaultCamera`. |
+| 19 | 1.1 | self-implementer | The solution has `import Combine`, which the file does not use. A self-implementer does not write it and sees a difference in `git diff` that means nothing. | low | Remove the import from the `chapter-02` branch, or say in the caption that it is not needed. |
+
+Counts: high 1, medium 8, low 10.
+
+### Checks that passed
+
+- Every change of `git diff chapter-01 chapter-02` has a step, including the two deletions in `CaptureService.swift` (step 1.8) and the deletion in `CameraView.swift` (step 4.4, see finding 2). The project file does not change.
+- No step needs an unlisted action. The folders (`Capture`, `Support`, `Views/Toolbars/MainToolbar`) are named in the steps. No import, target membership, or Info.plist change is missing.
+- Step order: step 4.1 refers to `previewView` from step 4.2 and says so. All other steps use only code from earlier steps.
+- Checkpoints: the project builds at 1.9, after 2.6 (note), 3.9, 4.5, 5.8, and 6.8. The claims about the Simulator at 1.9 and 4.5 match the pictures of 4.5.
+- Swift notes present: `get throws` (1.4), `#if targetEnvironment` (1.6), `defer` (2.2), `@Environment` and key path (3.5), `AsyncStream` (5.2), `[weak self]` (6.5). All are at the first use and the texts are correct for the construct in the step.
+- Pictures 3.6, 3.8, 4.4, 4.5 a and c are correct and at the right steps. The captions of 3.6, 3.8, 4.4, and 4.5 are correct.
+
+## Steps that are fine for both personas
+
+1.3, 1.6, 1.8, 1.9, 2.4, 2.5, 2.6, 3.2, 3.4, 3.8, 3.9, 4.2, 4.3, 5.2, 5.3, 5.6, 5.7, 5.8, 6.4, 6.5, 6.6, 6.7, 6.8 (23 of 45).
+
+## Suggestions beyond this chapter
+
+1. **Name every new identifier in the instruction.** The self-implementer needs the name of each type, method, and property that a later step or solution uses. The page does this well for `defaultCamera`, `cameras`, `currentDevice`, and `changeCaptureDevice(to:)`, and misses it for `activeVideoInput`, `SystemPreferredCameraObserver`, and the device types. A validator rule can check that each identifier declared on a highlighted line is in the instruction or caption of the step.
+2. **Say `async`, `private(set)`, `throws` in the instruction** when a declaration has them. A protocol requirement that is `async` changes what the learner writes in three files.
+3. **A "copy this file" mode for boilerplate steps.** A new helper file like `ViewExtensions.swift` is not a good self-implementation task. A fence attribute could keep the code visible in Try first mode.
+4. **`remove` fences for moved lines.** When lines move to a new indentation (code moves into a closure), list the old lines in a `remove` fence. The validator cannot see this, because git counts them as replaced.
+5. **Place hints with only braces.** The generator can add the name of the enclosing or preceding declaration when all context lines are `}` or blank. This repeats in every chapter where a step says "at the end of the actor" or "below X".
+6. **File creation steps.** Use `new` for the first fence of a new file, or let the generator detect a file that is not on `startBranch`, so the cover says "create the file".
+7. **Picture captions describe the canvas, not the app.** When a picture is a preview canvas, say what the preview of this one view shows and what the final app shows differently (finding 3). Check each canvas caption against the picture.
+8. **Glossary gaps for concurrency syntax.** `Task { @MainActor in }`, implicitly unwrapped optionals, and `override` with `super.init()` in an `NSObject` subclass are likely to repeat in later chapters (photo capture, movie capture, rotation of outputs).
