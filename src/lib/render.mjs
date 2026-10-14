@@ -378,7 +378,7 @@ function solutionPlace(step, env) {
   const removes = step.block.removes || [];
   let out = '';
   if (fence.isNew) {
-    out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml}. The solution has ${fence.lines.length} lines.</p>`;
+    out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml} and write the whole file yourself. The step text says what the file contains.</p>`;
   } else {
     const hl = new Set(fence.highlight);
     const html = env.highlight(fence.lines.join('\n'), fence.lang || 'swift');
@@ -391,7 +391,7 @@ function solutionPlace(step, env) {
         const last = !hl.has(i + 2);
         if (last) {
           const indent = (fence.lines[i - run + 1].match(/^\s*/) || [''])[0];
-          body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// write ${run === 1 ? 'one new line' : `${run} new lines`} here\n</span></span>`;
+          body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// your code goes here\n</span></span>`;
           run = 0;
         }
       } else {
@@ -400,8 +400,8 @@ function solutionPlace(step, env) {
     });
     const context = fence.lines.length - fence.highlight.length;
     const where = context > 0
-      ? `in ${fileHtml}. The lines around the new code are already in your file; the line numbers are those of the finished chapter.`
-      : `in ${fileHtml}. The step text says where. All ${fence.lines.length} lines of this region are new.`;
+      ? `in ${fileHtml}. The lines below are already in your file; they show the place. Write your code at the marked line. The line numbers are those of the finished chapter.`
+      : `in ${fileHtml}, at the place that the step text names. The whole region is new code.`;
     out += `<p class="solution-text"><strong>Where:</strong> ${where}</p>`;
     out += `<pre class="code solution-place"><code>${body}</code></pre>`;
   }
