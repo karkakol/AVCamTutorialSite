@@ -4,7 +4,8 @@
 Usage:  node src/dump-steps.mjs > steps.json
         python3 tools/capture.py steps.json <slug> <section>.<step> <name> [action ...]
 Actions: wait:<seconds>  shot:<suffix>
-Option:  --view '<SwiftUI expression>'  shows only that view (like an Xcode preview) on a black screen,
+Option:  --view '<SwiftUI expression>'  renders only that view with ImageRenderer (like an Xcode preview) on a gray background,
+         --screen  with --view: a screenshot of the window instead of the render (for views with a UIViewRepresentable),
          for example --view 'MainToolbar(camera: PreviewCameraModel())'. The app entry point is replaced in the capture build.
         python3 tools/capture.py steps.json shot <name>      (a screenshot of the app that runs now)
 Example: python3 tools/capture.py steps.json ch02-build 4.5 ch02-s4-5 wait:8 shot:a
@@ -43,21 +44,37 @@ def state_after(page, section_no, step_no):
 
 
 HARNESS = """/*
-A capture harness: shows one view of the app, like an Xcode preview. Not part of the tutorial.
+A capture harness: renders one view of the app with ImageRenderer, like an Xcode preview. Not part of the tutorial.
 */
 import os
 import SwiftUI
 
+/// The view at the size of an iPhone 18 Pro, on a gray background that keeps translucent controls visible.
+struct Snapshot: View {
+    var body: some View {
+        ZStack {
+            Color(white: 0.35)
+            %s
+        }
+        .frame(width: 402, height: 874)
+        // The app runs in the dark appearance; ImageRenderer renders the light one unless told otherwise.
+        .environment(\\.colorScheme, .dark)
+    }
+}
+
 @main
 struct AVCamApp: App {
+    init() {
+        let renderer = ImageRenderer(content: Snapshot())
+        renderer.scale = 3
+        if let image = renderer.uiImage, let data = image.pngData() {
+            try? data.write(to: URL.documentsDirectory.appending(path: "snapshot.png"))
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                // Black, like the Xcode preview canvas.
-                Color.black.ignoresSafeArea()
-                %s
-            }
-            .statusBarHidden(true)
+            Snapshot().ignoresSafeArea().statusBarHidden(true)
         }
     }
 }
@@ -105,10 +122,15 @@ def build_and_launch(work):
     subprocess.run(["xcrun", "simctl", "launch", SIM, BUNDLE], check=True, capture_output=True)
 
 
-def shot(name):
+def shot(name, rendered=False):
     os.makedirs(IMAGES, exist_ok=True)
     raw = os.path.join(R.WORK, "shot.png")
-    subprocess.run(["xcrun", "simctl", "io", SIM, "screenshot", raw], check=True, capture_output=True)
+    if rendered:
+        # The harness wrote the rendered view into the Documents folder of the app.
+        container = subprocess.run(["xcrun", "simctl", "get_app_container", SIM, BUNDLE, "data"], capture_output=True, text=True, check=True).stdout.strip()
+        subprocess.run(["cp", os.path.join(container, "Documents", "snapshot.png"), raw], check=True)
+    else:
+        subprocess.run(["xcrun", "simctl", "io", SIM, "screenshot", raw], check=True, capture_output=True)
     out = os.path.join(IMAGES, name + ".jpg")
     subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "82", "-Z", "900", raw, "--out", out], check=True, capture_output=True)
     print("saved", os.path.relpath(out, R.SITE), os.path.getsize(out) // 1024, "KB")
@@ -131,6 +153,11 @@ def main():
         i = actions.index("--view")
         view = actions[i + 1]
         del actions[i:i + 2]
+    # ImageRenderer draws a placeholder for a UIViewRepresentable (the camera preview). --screen takes a
+    # screenshot of the harness window instead.
+    screen = "--screen" in actions
+    if screen:
+        actions.remove("--screen")
     states, seen_target = state_after(page, sec, step)
     work = write_state(page, states, seen_target, view, f"-{sec}.{step}")
     build_and_launch(work)
@@ -139,7 +166,7 @@ def main():
         if kind == "wait":
             time.sleep(float(arg))
         elif kind == "shot":
-            shot(f"{name}-{arg}" if arg else name)
+            shot(f"{name}-{arg}" if arg else name, rendered=view is not None and not screen)
         elif kind == "tap":
             x, y = arg.split(",")
             tap(x, y)
