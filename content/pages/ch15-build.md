@@ -10,7 +10,7 @@ branch: chapter-15
 
 In this tutorial, you correct four defects that the earlier chapters found in the Apple sample. At the end, the app saves a movie when the recording ends by itself, the "LIVE" badge stays on while a Live Photo records, a movie gets the correct rotation after a change of mode, and a person with AirPods hears the capture sound at the click.
 
-This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample, and Apple did not confirm the defects. The defects come from a careful read of the code and of the SDK headers.
+This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. The defects come from a careful read of the code and of the SDK headers. Apple confirmed only the rotation defect, in the article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app).
 
 You add no new files. You add approximately 85 lines to five files, and you remove 13 lines. Most of the work is the first fix, the recording. It has three sections. The other three fixes are small, and each has one section.
 

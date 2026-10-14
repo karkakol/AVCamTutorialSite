@@ -8,7 +8,7 @@ branch: chapter-15
 ---
 
 > [!IMPORTANT]
-> This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. Apple did not confirm the four defects: they come from a careful read of the code and of the SDK headers.
+> This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. The defects come from a careful read of the code and of the SDK headers. Apple confirmed only the third one: the article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) says that this occurs in AVCam at a change between photo and video capture.
 
 In chapters 7, 8, and 11, a section with the title "Things to know about the sample" listed weak points of AVCam. Until now, you kept the code as Apple wrote it. In this chapter, you correct four of these points.
 
@@ -157,7 +157,7 @@ The coordinator always has the current value in [`videoRotationAngleForHorizonLe
 
 **How to test.** On a real iPhone: landscape, change to video mode, record, and open the movie in the Photos app.
 
-**What was verified.** Nothing at run time. The Simulator does not show the orientation of a capture. In the Simulator, the change of mode and a recording still work with the new line. This tutorial did not measure which angle a new connection has, so it does not say how the movie looks without the fix.
+**What was verified.** Nothing at run time. The Simulator does not show the orientation of a capture. In the Simulator, the change of mode and a recording still work with the new line. Apple's article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) confirms the cause: an output that the app adds starts at a default angle, not at the current angle, and this occurs in AVCam at a change between photo and video capture. This tutorial did not measure the default angle, so it does not say how the movie looks without the fix.
 
 ### Defect 4: the late capture sound
 

@@ -167,7 +167,7 @@ The chapter uses a small part of the zoom API.
 | [`systemRecommendedVideoZoomRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange) | The range that the system recommends for a zoom slider (iOS 18). The system zoom slider uses it. | Not in the app |
 | [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) | The camera of a virtual device that supplies the picture now. You can observe it. | Not in the app |
 | [`setPrimaryConstituentDeviceSwitchingBehavior(_:restrictedSwitchingBehaviorConditions:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/setprimaryconstituentdeviceswitchingbehavior(_:restrictedswitchingbehaviorconditions:)) | Controls when a virtual device can change its camera, for example not during a recording. | Not in the app |
-| [`nominalFocalLengthIn35mmFilm`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/nominalfocallengthin35mmfilm) | The focal length of a camera (iOS 26), for labels such as "24 mm". | Not in the app |
+| [`nominalFocalLengthIn35mmFilm`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/nominalfocallengthin35mmfilm) | The focal length of a camera (iOS 26), for labels such as "24 mm". The value is 0 for a virtual device, so read it from the constituent devices. | Not in the app |
 
 Some features make the zoom range smaller. The SDK names depth data delivery and Center Stage. An app that uses them must observe the two range properties and must not keep old limits.
 
@@ -175,7 +175,7 @@ Some features make the zoom range smaller. The SDK names depth data delivery and
 
 The design is this tutorial's own. These are its decisions and the alternatives.
 
-**Virtual devices first.** The back discovery session of the sample lists `[.builtInDualCamera, .builtInWideAngleCamera]`. The chapter puts `.builtInTripleCamera` and `.builtInDualWideCamera` before them. A discovery session sorts its result in the order of the type list, so the first device is the one with the most cameras. The alternative is to use the physical cameras and to change the session input at each zoom level. That gives full manual control, but each change of the input interrupts the preview, and you must write the lens selection yourself.
+**Virtual devices first.** The back discovery session of the sample lists `[.builtInDualCamera, .builtInWideAngleCamera]`. The chapter puts `.builtInTripleCamera` and `.builtInDualWideCamera` before them. A discovery session sorts its result in the order of the type list, so the first device is the one with the most cameras. The alternative is to use the physical cameras and to change the session input at each zoom level. That gives full manual control, but each change of the input probably interrupts the preview, and you must write the lens selection yourself.
 
 **Zoom levels from the device, not from a table.** The code makes the levels from the smallest zoom factor and the switch-over zoom factors. It contains no list of iPhone models. A new iPhone with different lenses gets correct levels with no change of the code.
 

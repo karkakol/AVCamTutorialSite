@@ -11,7 +11,7 @@ uncovered: AVCam.xcodeproj/project.pbxproj
 
 In this tutorial, you give the app a zoom. At the end, the back camera uses all its lenses, a zoom control shows levels such as 0.5, 1, and 3, a tap on a level moves the zoom smoothly, and a pinch on the preview changes the zoom continuously.
 
-This is the first chapter of part 2, "Beyond the sample". The code of this chapter is not in the Apple sample. The design is this tutorial's own. You create one new file and add approximately 250 lines to eight files that you know. Read [Concepts: zoom and lenses](ch14-concepts.md) first. It explains the camera facts behind each step, and the limits of this design.
+This is the first chapter of part 2, "Beyond the sample". The code of this chapter is not in the Apple sample. The design is this tutorial's own. You create one new file and change eight files that you know. Together, that is approximately 250 new lines. Read [Concepts: zoom and lenses](ch14-concepts.md) first. It explains the camera facts behind each step, and the limits of this design.
 
 > [!IMPORTANT]
 > The simulated camera cannot zoom. In the Simulator, the zoom control does not appear and the picture does not change, so most checkpoints show that the app builds and runs as before. You can see the zoom control in the Xcode canvas. Real zoom needs a real iPhone, and nobody ran this chapter on one. Where a step tells you what occurs on an iPhone, the text comes from the Apple SDK and from the code, not from a test.
