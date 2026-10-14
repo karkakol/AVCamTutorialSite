@@ -290,6 +290,23 @@
       ]
     },
     {
+      "number": 17,
+      "title": "Two cameras at once",
+      "abstract": "A multi-camera session captures from the back camera and the front camera at the same time. The app adds a dual mode, connects each camera to its own preview by hand, and keeps the hardware cost in budget.",
+      "pages": [
+        {
+          "slug": "ch17-concepts",
+          "kind": "article",
+          "title": "Concepts: two cameras at once"
+        },
+        {
+          "slug": "ch17-build",
+          "kind": "tutorial",
+          "title": "Build: two cameras at once"
+        }
+      ]
+    },
+    {
       "number": 0,
       "title": "Finish",
       "abstract": "",

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 330">
+  <title>A multi-camera session with connections made by hand: each camera input has a video port, and one connection links each port to its own preview layer. There are no automatic links between a camera and the preview layer of the other camera.</title>
+  <defs>
+    <marker id="ch17-conn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <!-- The session -->
+  <rect x="10" y="36" width="700" height="254" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+  <g font-family="inherit" font-size="14" text-anchor="middle">
+    <text x="360" y="24" fill="var(--muted)" font-size="13">AVCaptureMultiCamSession</text>
+
+    <!-- Inputs -->
+    <rect x="26" y="56" width="180" height="84" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="116" y="84" fill="currentColor" font-weight="600">Back camera input</text>
+    <text x="116" y="104" fill="var(--muted)" font-size="13">addInputWithNoConnections</text>
+    <text x="116" y="124" fill="var(--muted)" font-size="13">multi-camera format</text>
+
+    <rect x="26" y="186" width="180" height="84" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="116" y="214" fill="currentColor" font-weight="600">Front camera input</text>
+    <text x="116" y="234" fill="var(--muted)" font-size="13">addInputWithNoConnections</text>
+    <text x="116" y="254" fill="var(--muted)" font-size="13">multi-camera format</text>
+
+    <!-- Ports -->
+    <rect x="246" y="76" width="120" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="306" y="103" fill="currentColor" font-size="13">video port</text>
+
+    <rect x="246" y="206" width="120" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="306" y="233" fill="currentColor" font-size="13">video port</text>
+
+    <!-- Preview layers -->
+    <rect x="514" y="56" width="180" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="604" y="84" fill="currentColor" font-weight="600">Back preview layer</text>
+    <text x="604" y="104" fill="var(--muted)" font-size="13">setSessionWithNoConnection</text>
+    <text x="604" y="124" fill="var(--muted)" font-size="13">not mirrored</text>
+
+    <rect x="514" y="186" width="180" height="84" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="604" y="214" fill="currentColor" font-weight="600">Front preview layer</text>
+    <text x="604" y="234" fill="var(--muted)" font-size="13">setSessionWithNoConnection</text>
+    <text x="604" y="254" fill="var(--muted)" font-size="13">mirrored</text>
+
+    <!-- Labels on the connections -->
+    <text x="440" y="86" fill="var(--accent)" font-size="13">AVCaptureConnection</text>
+    <text x="440" y="216" fill="var(--accent)" font-size="13">AVCaptureConnection</text>
+
+    <text x="360" y="312" fill="var(--muted)" font-size="13">The app makes each connection. The session makes none by itself.</text>
+  </g>
+
+  <!-- Input to port -->
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+    <path d="M206 98 H246"/>
+    <path d="M206 228 H246"/>
+  </g>
+
+  <!-- The connections -->
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch17-conn-arrow)">
+    <path d="M366 98 H512"/>
+    <path d="M366 228 H512"/>
+  </g>
+
+  <!-- The links that a plain addInput would make, and that this session does not make -->
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" stroke-dasharray="3 5" opacity="0.6">
+    <path d="M366 110 L512 216"/>
+    <path d="M366 216 L512 110"/>
+  </g>
+  <g stroke="var(--muted)" stroke-width="2" fill="none">
+    <path d="M432 154 L448 172 M448 154 L432 172"/>
+  </g>
+</svg>

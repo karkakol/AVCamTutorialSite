@@ -160,7 +160,7 @@ Result: the app starts from the Lock Screen, Control Center, and the Action butt
 - `CameraModel`: `cameraState`, `syncState()`, persistence in `didSet`. `CaptureService.start(with:)`. `AVCamApp`: scene phase sync.
 - Targets `AVCamCaptureExtension` and `AVCamControlCenterExtension`, with shared source membership as in the sample.
 
-## Part 2: beyond the sample (chapters 14 to 16, added 2 Oct 2026)
+## Part 2: beyond the sample (chapters 14 to 18, added 2 Oct 2026; 17 and 18 on 14 Oct 2026)
 
 These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the code rules ("the final state equals the Apple sample") ends at `chapter-13`. All other rules stay. Each page of part 2 says clearly that the code is not Apple's.
 
@@ -168,7 +168,10 @@ These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the
 - **Chapter 15 — Fix the sample (`chapter-15`)**: a recording that ends by itself, the Live Photo badge counter, the rotation angle of a new movie connection, the capture sound before the capture work.
 - **Chapter 16 — iPhone Duo (`chapter-16`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
 
-`main` equals `chapter-16`.
+- **Chapter 17 — Two cameras at once (`chapter-17`)**: `AVCaptureMultiCamSession` as a second session, a dual capture mode, connections made by hand, two preview views with a tap to swap, multi-camera formats, hardware and system pressure costs. Research: `research/07-multicam.md`. Based on Apple's AVMultiCamPiP sample (`~/tutorials/AVMultiCamPiPCapturingFromMultipleCameras`).
+- **Chapter 18 — Record picture in picture (`chapter-18`, planned)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
+
+`main` equals `chapter-16` until the user moves it (`git merge --ff-only chapter-17` on `main`).
 
 ## Hand-off notes (`notes/chapter-NN.md`)
 

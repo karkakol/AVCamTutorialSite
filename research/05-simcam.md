@@ -26,9 +26,11 @@ The user set two looping videos as sources and wants to keep them: `~/Desktop/ba
 | HDR video, 10-bit formats, stabilization | Not tested. Expect "not supported" in the Simulator. |
 | Camera Control, hardware button capture events, AirPods | Not available in the Simulator. Needs a real iPhone. |
 | Lock Screen capture extension | Not tested. |
+| `AVCaptureMultiCamSession`, two cameras at once (14 Oct 2026) | Works. `isMultiCamSupported` is true; two camera inputs with two data outputs each delivered 71 frames in 3 seconds. Two preview layers connected by hand show both sources. The second preview can take up to 20 seconds to show frames. `hardwareCost` and `systemPressureCost` are 0. |
 
 ## Use in checks
 
 - `xcrun simctl launch` is enough; SimCam loads by itself. `simcamctl diagnostics --device <udid>` must report "SimCam loaded" and "SimCam connected".
 - Saved media appears in `~/Library/Developer/CoreSimulator/Devices/<udid>/data/Media/DCIM/100APPLE/`. Count the files before and after a capture to verify a save.
 - Wait about 3 seconds after launch before a screenshot.
+- If the preview stays on "Waiting for SimCam..." or black, SimCam did not hook in. Check that the SimCam menu bar app runs, then terminate and relaunch the app (`xcrun simctl terminate <udid> <bundle id>`, then `launch`).
