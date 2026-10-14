@@ -24,7 +24,7 @@ The views and the model must not use AVFoundation types. In this section, you ad
 You also extend `CaptureActivity`, so that it can tell the interface that a Live Photo capture is in progress.
 
 ### Step
-In `DataTypes.swift`, add an `isLivePhoto` value to the `photoCapture` case, and add a second position to the pattern in `willCapture`.
+In `DataTypes.swift`, add the value `isLivePhoto: Bool = false` to the `photoCapture` case, after `willCapture`, and add a second position to the pattern in `willCapture`.
 
 The case now has two associated values, so a pattern must name two positions. The underscore ignores the value that the property does not need. The two values have defaults, thus the code from chapter 3 that creates `.photoCapture()` still compiles.
 
@@ -52,9 +52,9 @@ enum CaptureActivity {
 ```
 
 ### Step
-Add the `isLivePhoto` computed property above the `willCapture` property.
+Add the `isLivePhoto` computed property of type `Bool` above the `willCapture` property.
 
-The interface reads this property to show or hide the "LIVE" badge. As with `willCapture`, the caller needs no `switch` statement.
+The interface reads this property to show or hide the "LIVE" badge. As with `willCapture`, the caller needs no `switch` statement. Use `if case .photoCapture(_, let isLivePhoto) = self`, and return `false` for `idle`.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-11
 enum CaptureActivity {
@@ -79,9 +79,9 @@ enum CaptureActivity {
 ```
 
 ### Step
-Below the `Photo` structure, add the `QualityPrioritization` enumeration with its three cases.
+Below the `Photo` structure, add the `QualityPrioritization` enumeration with the cases `speed`, `balanced`, and `quality`.
 
-The raw values are 1, 2, and 3. These are the raw values of the AVFoundation type [`AVCapturePhotoOutput.QualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/qualityprioritization), so the capture code can convert with the raw value. `Identifiable` and `CaseIterable` let a SwiftUI picker list the cases. `Codable` is for chapter 13, where the app stores the value.
+The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. The raw values are 1, 2, and 3. These are the raw values of the AVFoundation type [`AVCapturePhotoOutput.QualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/qualityprioritization), so the capture code can convert with the raw value. `Identifiable` and `CaseIterable` let a SwiftUI picker list the cases. `Codable` is for chapter 13, where the app stores the value. The `description` property for `CustomStringConvertible` comes in the next step.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-11
 /// A structure that represents a captured photo.
@@ -100,9 +100,9 @@ enum CameraError: Error {
 ```
 
 ### Step
-Add the `description` property, which gives each case a name for the menu.
+Add the `description` property of type `String`, which gives each case a name for the menu.
 
-This property satisfies `CustomStringConvertible`. The first case has no space after `case`. This is how the Apple sample writes it, and Swift accepts it.
+This property satisfies `CustomStringConvertible`. A `switch` on `self` returns "Speed", "Balanced", and "Quality". The first case has no space after `case`. This is how the Apple sample writes it, and Swift accepts it.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-15
 enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvertible, Codable {
@@ -124,9 +124,9 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ```
 
 ### Step
-Between the `Photo` structure and the `QualityPrioritization` enumeration, add the `PhotoFeatures` structure with two properties.
+Between the `Photo` structure and the `QualityPrioritization` enumeration, add the `PhotoFeatures` structure with the properties `isLivePhotoEnabled` and `qualityPrioritization`.
 
-One value of this type goes with each capture request. It carries the two choices that the person makes in the interface: Live Photo on or off, and the quality prioritization.
+One value of this type goes with each capture request. It carries the two choices that the person makes in the interface: Live Photo on or off, and the quality prioritization. Both properties are `let`. The types are `Bool` and `QualityPrioritization`. The structure adopts no protocol.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-9
 /// A structure that represents a captured photo.
@@ -143,9 +143,9 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ```
 
 ### Step
-Below the `PhotoFeatures` structure, add the `CaptureCapabilities` structure with one property, an initializer, and a start value.
+Below the `PhotoFeatures` structure, add the `CaptureCapabilities` structure with the property `isLivePhotoCaptureSupported`, an initializer, and the start value `unknown`.
 
-This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The `unknown` value is the start value, with each capability set to `false`. In chapter 9, you add a second capability for HDR video.
+This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The property is `let isLivePhotoCaptureSupported: Bool`. The initializer is `init(isLivePhotoCaptureSupported: Bool = false)`. The start value is `static let unknown = CaptureCapabilities()`, with each capability set to `false`. Above the structure, the sample has a documentation comment on two lines: "A structure that represents the capture capabilities of `CaptureService` in" and "its current configuration." In chapter 9, you add a second capability for HDR video.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-17
 struct PhotoFeatures {
@@ -172,9 +172,9 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ### Step
 Create a new Swift file with the name `FoundationExtensions.swift` in the `Support` group, and replace its contents.
 
-Each Live Photo needs a file for its movie. This property makes a new URL in the temporary directory each time you read it. The name is a UUID, so two captures never get the same file.
+Each Live Photo needs a file for its movie. This property makes a new URL in the temporary directory each time you read it. The name is a UUID, so two captures never get the same file. The file has `import Foundation` and an `extension URL` with the static computed property `movieFileURL` of type `URL`. The property returns `URL.temporaryDirectory.appending(component: UUID().uuidString).appendingPathExtension(for: .quickTimeMovie)`. In Try first mode, the code of this step stays visible. Copy it as it is.
 
-```swift file=AVCam/Support/FoundationExtensions.swift new
+```swift file=AVCam/Support/FoundationExtensions.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -211,9 +211,9 @@ You do this before you enable the features. When the photo output starts to send
 ![The delegate callbacks of one Live Photo capture, and what AVCam does in each callback](../images/ch07-live-photo-callbacks.svg)
 
 ### Step
-In `PhotoCapture.swift`, add three properties to the `PhotoCaptureDelegate` class.
+In `PhotoCapture.swift`, add the private properties `isLivePhoto`, `isProxyPhoto`, and `livePhotoMovieURL` to the `PhotoCaptureDelegate` class.
 
-One delegate object handles one capture, as in chapter 3. Thus these properties hold the state of one capture only: if it is a Live Photo, if its data is a proxy, and where its movie file is.
+One delegate object handles one capture, as in chapter 3. Thus these properties hold the state of one capture only: if it is a Live Photo, if its data is a proxy, and where its movie file is. `isLivePhoto` and `isProxyPhoto` are `var` with the start value `false`. They go above `photoData`. `livePhotoMovieURL` is a `var` of type `URL?`. It goes below `photoData`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-6,9
 private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
@@ -233,7 +233,7 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 ### Step
 Change the first two callbacks, so that they find out if the capture is a Live Photo and put this value into the activity.
 
-The resolved settings say what the output really does. For a Live Photo, [`livePhotoMovieDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/livephotomoviedimensions) is the size of the movie. For each other capture, it is zero. The `.zero` value is from the `CMVideoDimensions` extension that you wrote in chapter 3.
+The resolved settings say what the output really does. For a Live Photo, [`livePhotoMovieDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/livephotomoviedimensions) is the size of the movie. For each other capture, it is zero. The `.zero` value is from the `CMVideoDimensions` extension that you wrote in chapter 3. In `willBeginCaptureFor`, replace the comment with `// Determine if this is a live capture.`, set `isLivePhoto`, and yield `.photoCapture(isLivePhoto: isLivePhoto)`. In `willCapturePhotoFor`, keep the comment and yield `.photoCapture(willCapture: true, isLivePhoto: isLivePhoto)`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
         // Signal that the photo output accepts the capture request.
@@ -260,7 +260,7 @@ The resolved settings say what the output really does. For a Live Photo, [`liveP
 ### Step
 Below `willCapturePhotoFor`, add the callback that arrives when the movie of a Live Photo stops.
 
-At [this callback](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishrecordinglivephotomovieforeventualfileat:resolvedsettings:)), the camera has all the video that it needs, but the file is not complete. The person can move the device again, so the delegate sends a value with `isLivePhoto: false`. This value switches the badge off.
+The callback is [`photoOutput(_:didFinishRecordingLivePhotoMovieForEventualFileAt:resolvedSettings:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishrecordinglivephotomovieforeventualfileat:resolvedsettings:)), with the parameters `outputFileURL: URL` and `resolvedSettings: AVCaptureResolvedPhotoSettings`. At this callback, the camera has all the video that it needs, but the file is not complete. The person can move the device again, so the delegate sends a value with `isLivePhoto: false`. This value switches the badge off.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-9
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
@@ -277,9 +277,9 @@ At [this callback](https://developer.apple.com/documentation/avfoundation/avcapt
 ```
 
 ### Step
-Add the callback that arrives when the movie file is complete, and keep the URL of the file.
+Add the callback `didFinishProcessingLivePhotoToMovieFileAt`, which arrives when the movie file is complete, and keep the URL of the file.
 
-As with the photo data, the delegate only keeps the result here. It reports in the last callback. If the callback has an error, the code writes it to the log and still keeps the URL. The concepts page tells you why this is a weak point.
+The full name is [`photoOutput(_:didFinishProcessingLivePhotoToMovieFileAt:duration:photoDisplayTime:resolvedSettings:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishprocessinglivephototomoviefileat:duration:photodisplaytime:resolvedsettings:error:)). The parameters are `outputFileURL: URL`, `duration: CMTime`, `photoDisplayTime: CMTime`, `resolvedSettings: AVCaptureResolvedPhotoSettings`, and `error: Error?`. As with the photo data, the delegate only keeps the result here. It reports in the last callback. If the callback has an error, the code writes it to the log with `logger.debug("Error processing Live Photo companion movie: \(String(describing: error))")` and still sets `livePhotoMovieURL = outputFileURL`. The concepts page tells you why this is a weak point.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=6-11
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL, resolvedSettings: AVCaptureResolvedPhotoSettings) {
@@ -298,9 +298,9 @@ As with the photo data, the delegate only keeps the result here. It reports in t
 ```
 
 ### Step
-Add the callback for a deferred photo, which keeps the data of the proxy and sets the proxy flag.
+Add the callback `didFinishCapturingDeferredPhotoProxy` for a deferred photo, which keeps the data of the proxy and sets the proxy flag.
 
-With deferred delivery, the output sends this callback in place of `didFinishProcessingPhoto` for a capture that needs long processing. An [`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) object is a photo, so `fileDataRepresentation()` works. The data must go to the library as a proxy, so the delegate keeps this fact in `isProxyPhoto`.
+The full name is [`photoOutput(_:didFinishCapturingDeferredPhotoProxy:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishcapturingdeferredphotoproxy:error:)), with the parameters `deferredPhotoProxy: AVCaptureDeferredPhotoProxy?` and `error: Error?`. With deferred delivery, the output sends this callback in place of `didFinishProcessingPhoto` for a capture that needs long processing. An [`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) object is a photo, so `fileDataRepresentation()` works. The data must go to the library as a proxy, so the delegate keeps this fact in `isProxyPhoto`. If `error` is not `nil`, write `logger.debug("Error capturing deferred photo: \(error)")` and return. The sample writes the long form `if let error = error` here. Then set `photoData` to `deferredPhotoProxy?.fileDataRepresentation()` and `isProxyPhoto` to `true`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=8-16
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL, duration: CMTime, photoDisplayTime: CMTime, resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
@@ -326,7 +326,7 @@ With deferred delivery, the output sends this callback in place of `didFinishPro
 ### Step
 In `DataTypes.swift`, add the `isProxy` and `livePhotoMovieURL` properties to the `Photo` structure.
 
-`Photo` is the value that goes from the capture actor to the main actor and then to the media library. It must carry all that the library needs to save the asset. `Bool` and `URL` are `Sendable`, so the structure stays `Sendable`.
+`Photo` is the value that goes from the capture actor to the main actor and then to the media library. It must carry all that the library needs to save the asset. Both properties are `let`. The types are `Bool` and `URL?`. `Bool` and `URL` are `Sendable`, so the structure stays `Sendable`.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=4-6
 /// A structure that represents a captured photo.
@@ -364,7 +364,7 @@ The photo output sends this callback last, when the photo and the movie are comp
 ### Step
 In `MediaLibrary.swift`, select the resource type of the photo from its `isProxy` value.
 
-A proxy must be a [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy) resource. Only then does the Photos library know that it must complete the photo later. With `.photo`, the library probably keeps the proxy image as the final photo.
+A proxy must be a [`.photoProxy`](https://developer.apple.com/documentation/photos/phassetresourcetype/photoproxy) resource. Only then does the Photos library know that it must complete the photo later. With `.photo`, the library probably keeps the proxy image as the final photo. Write the ternary `photo.isProxy ? .photoProxy : .photo` as the `with:` argument. The new comment above the line is `// Specify the appropriate resource type for the photo.`
 
 ```swift file=AVCam/Model/MediaLibrary.swift remove
             creationRequest.addResource(with: .photo, data: photo.data, options: options)
@@ -391,7 +391,7 @@ A proxy must be a [`.photoProxy`](https://developer.apple.com/documentation/phot
 ### Step
 Add the movie of a Live Photo to the same creation request as a paired video.
 
-A [`.pairedVideo`](https://developer.apple.com/documentation/photos/phassetresourcetype/pairedvideo) resource in the request of the photo makes one Live Photo asset. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), Photos moves the file out of the temporary directory and does not copy it. This is faster, and the app does not have to delete the file.
+A [`.pairedVideo`](https://developer.apple.com/documentation/photos/phassetresourcetype/pairedvideo) resource in the request of the photo makes one Live Photo asset. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), Photos moves the file out of the temporary directory and does not copy it. This is faster, and the app does not have to delete the file. Write `if let url = photo.livePhotoMovieURL` below the `location` line. Inside, make a second `PHAssetResourceCreationOptions` object with the name `livePhotoOptions`, set its `shouldMoveFile` to `true`, and call `addResource(with: .pairedVideo, fileURL: url, options: livePhotoOptions)`. The comment above the `if` is `// Save Live Photo data.`
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=7-12
             // Save primary photo.
@@ -494,9 +494,9 @@ With [`isAutoDeferredPhotoDeliveryEnabled`](https://developer.apple.com/document
 The code has no line for zero shutter lag. The system enables this feature automatically when the camera supports it.
 
 ### Step
-Add the `capabilities` property to the `PhotoCapture` class, below the `photoOutput` alias.
+Add the `private(set) var capabilities: CaptureCapabilities` property to the `PhotoCapture` class, below the `photoOutput` alias.
 
-The property holds what the photo output supports in the current configuration. Its start value is `unknown`, because the output has no camera until the service adds it to a session.
+The property holds what the photo output supports in the current configuration. Its start value is `.unknown`, because the output has no camera until the service adds it to a session. The comment above it is `// The current capabilities available.`
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-5
     // An internal alias for the output.
@@ -509,9 +509,9 @@ The property holds what the photo output supports in the current configuration. 
 ```
 
 ### Step
-Below `updateConfiguration(for:)`, add the `updateCapabilities(for:)` method, and call it at the end of `updateConfiguration(for:)`.
+Below `updateConfiguration(for:)`, add the private method `updateCapabilities(for device: AVCaptureDevice)`, and call it at the end of `updateConfiguration(for:)`.
 
-The "supported" values change with the camera and the session configuration. Thus the service reads them again each time it configures the output. The method does not use its `device` parameter. The Apple sample has it, and you keep it so that your code stays equal to the sample.
+The "supported" values change with the camera and the session configuration. Thus the service reads them again each time it configures the output. The method sets `capabilities` to `CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported)`. The closing brace of `updateConfiguration(for:)` is highlighted too, because git counts it as new. Do not add a second brace. The method does not use its `device` parameter. The Apple sample has it, and you keep it so that your code stays equal to the sample.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=9-10,12-14
     func updateConfiguration(for device: AVCaptureDevice) {
@@ -548,9 +548,9 @@ protocol OutputService {
 ```
 
 ### Step
-In `CaptureService.swift`, add a published `captureCapabilities` property below the `captureActivity` property.
+In `CaptureService.swift`, add the `@Published private(set) var captureCapabilities` property below the `captureActivity` property.
 
-The service publishes the capabilities in the same way as the activity, with `@Published` from Combine. A model on the main actor can then read each new value as an asynchronous sequence.
+The service publishes the capabilities in the same way as the activity, with `@Published` from Combine. The start value is `CaptureCapabilities.unknown`. The documentation comment is "A value that indicates the current capture capabilities of the service." A model on the main actor can then read each new value as an asynchronous sequence.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-6
 actor CaptureService {
@@ -593,9 +593,9 @@ Result: The app saves the photo and shows its thumbnail, as before.
 This section is level 2 of the rule: each capture asks for values inside the limits that the output prepared. The values come from the person, so you make a path for them: from the model, through the capture service, to the settings object.
 
 ### Step
-In `PhotoCapture.swift`, give `createPhotoSettings` a `features` parameter, and change the comment above it.
+In `PhotoCapture.swift`, give `createPhotoSettings` the parameter `with features: PhotoFeatures`, and change the comment above it.
 
-Also delete the empty line below the line with the method name, as the Apple sample does.
+The new comment is `// Create a photo settings object with the features a person enables in the UI.` Also delete the empty line below the line with the method name, as the Apple sample does.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
     // Create a photo settings object to configure the photo capture.
@@ -648,7 +648,7 @@ The initializer with a raw value changes the app type into the AVFoundation type
 ```
 
 ### Step
-Give `capturePhoto` a `features` parameter, and send the features to `createPhotoSettings(with:)`.
+Give `capturePhoto` the parameter `with features: PhotoFeatures`, and send the features to `createPhotoSettings(with:)`.
 
 The settings object is new for each capture, so the features of one capture cannot get into a different capture.
 
@@ -694,9 +694,9 @@ The actor only sends the call to the photo service. `PhotoFeatures` has two simp
 ```
 
 ### Step
-In `Camera.swift`, add the two properties that hold the choices of the person to the `Camera` protocol.
+In `Camera.swift`, add the properties `isLivePhotoEnabled` and `qualityPrioritization`, which hold the choices of the person, to the `Camera` protocol.
 
-The properties are `get set`, because the views change them. A SwiftUI picker needs a binding, and a binding needs a property that it can write.
+The types are `Bool` and `QualityPrioritization`. The properties are `get set`, because the views change them. A SwiftUI picker needs a binding, and a binding needs a property that it can write. The properties go below `focusAndExpose(at:)` and above `capturePhoto()`, each with a documentation comment: "A Boolean value that indicates whether to capture Live Photos when capturing stills." and "A value that indicates how to balance the photo capture quality versus speed."
 
 ```swift file=AVCam/Model/Camera.swift highlight=4-5,7-8
     /// Performs a one-time automatic focus and exposure operation.
@@ -713,9 +713,9 @@ The properties are `get set`, because the views change them. A SwiftUI picker ne
 ```
 
 ### Step
-In `CameraModel.swift`, add the two properties below the `capturePhoto()` method.
+In `CameraModel.swift`, add the properties `isLivePhotoEnabled` and `qualityPrioritization` below the `capturePhoto()` method.
 
-The defaults are a Live Photo and the `.quality` level. `.quality` is a sensible default only because responsive capture and deferred delivery are on. Without them, the person would wait after each photo.
+Write `var isLivePhotoEnabled = true` and `var qualityPrioritization = QualityPrioritization.quality`, not private, with the same documentation comments as in the protocol. The defaults are a Live Photo and the `.quality` level. `.quality` is a sensible default only because responsive capture and deferred delivery are on. Without them, the person would wait after each photo.
 
 ```swift file=AVCam/CameraModel.swift highlight=5-6,8-9
             self.error = error
@@ -735,7 +735,7 @@ The defaults are a Live Photo and the `.quality` level. `.quality` is a sensible
 ### Step
 In `capturePhoto()`, make a `PhotoFeatures` value from the two properties, and send it with the capture request.
 
-The model reads the properties at the moment of the tap. Each capture gets its own copy of the values, so a change in the interface during a capture has no effect on that capture.
+The model reads the properties at the moment of the tap. Each capture gets its own copy of the values, so a change in the interface during a capture has no effect on that capture. Name the local value `photoFeatures`.
 
 ```swift file=AVCam/CameraModel.swift remove
             let photo = try await captureService.capturePhoto()
@@ -785,9 +785,9 @@ The movie of a Live Photo continues for a short time after the tap. A camera app
 The delegate already sends `isLivePhoto: true` at the start of a capture and `isLivePhoto: false` when the movie stops. But with responsive capture, two captures can overlap, and the first one must not hide the badge of the second one. Thus the photo service counts the Live Photo captures that are in progress.
 
 ### Step
-In `PhotoCapture.swift`, add the `livePhotoCount` property below the `capabilities` property.
+In `PhotoCapture.swift`, add the `private var livePhotoCount = 0` property below the `capabilities` property.
 
-Each capture has its own delegate and its own progress task. The counter is in the `PhotoCapture` object, which all captures share.
+Each capture has its own delegate and its own progress task. The counter is in the `PhotoCapture` object, which all captures share. The comment above it is `// A count of Live Photo captures currently in progress.`
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-5
     // The current capabilities available.
@@ -800,9 +800,9 @@ Each capture has its own delegate and its own progress task. The counter is in t
 ```
 
 ### Step
-In `monitorProgress(of:isolation:)`, add a local `isLivePhoto` flag, copy each activity into a variable, and publish the variable.
+In `monitorProgress(of:isolation:)`, add a local `isLivePhoto` flag, copy each activity into a variable `currentActivity`, and publish the variable.
 
-The flag belongs to one task, and thus to one capture. It holds the last Live Photo state that this capture reported. The copy is a `var`, because the next steps can change the value before the service publishes it.
+The flag belongs to one task, and thus to one capture. It holds the last Live Photo state that this capture reported. Write `var isLivePhoto = false` above the comment line, before the `for await` loop. In the loop, write `var currentActivity = activity` as the first line, and `captureActivity = currentActivity` as the last line. The copy is a `var`, because the next steps can change the value before the service publishes it.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
                 captureActivity = activity
@@ -825,7 +825,7 @@ The flag belongs to one task, and thus to one capture. It holds the last Live Ph
 ### Step
 Change the counter when the Live Photo state of this capture changes.
 
-One capture sends `isLivePhoto: true` two times: in `willBeginCaptureFor` and in `willCapturePhotoFor`. The comparison with the local flag makes sure that the capture adds 1 only one time, and subtracts 1 only one time.
+One capture sends `isLivePhoto: true` two times: in `willBeginCaptureFor` and in `willCapturePhotoFor`. The comparison with the local flag makes sure that the capture adds 1 only one time, and subtracts 1 only one time. Write `if activity.isLivePhoto != isLivePhoto` between the copy and the publish line. Inside, set `isLivePhoto = activity.isLivePhoto` and write `livePhotoCount += isLivePhoto ? 1 : -1`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=3-9
             for await activity in delegate.activityStream {
@@ -844,7 +844,7 @@ One capture sends `isLivePhoto: true` two times: in `willBeginCaptureFor` and in
 ### Step
 When more than one Live Photo capture is in progress, publish an activity with `isLivePhoto` set to `true`.
 
-This is the code of the Apple sample. Its purpose is to keep the badge on while a different capture still records. The test `> 1` is probably not correct: when the first of two captures ends, the counter is 1, and the badge goes off. The concepts page shows the sequence. You keep the line, so that your code stays equal to the sample.
+This is the code of the Apple sample. Its purpose is to keep the badge on while a different capture still records. The test `> 1` is probably not correct: when the first of two captures ends, the counter is 1, and the badge goes off. The concepts page shows the sequence. You keep the line, so that your code stays equal to the sample. After the `+=` line, write `if livePhotoCount > 1` and set `currentActivity = .photoCapture(willCapture: activity.willCapture, isLivePhoto: true)` inside.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-9
                 if activity.isLivePhoto != isLivePhoto {
@@ -863,9 +863,9 @@ This is the code of the Apple sample. Its purpose is to keep the badge on while 
 ### Step
 Create a new Swift file with the name `LiveBadge.swift` in the `Overlays` group, and replace its contents.
 
-The badge is the word "LIVE" in white on the accent color, with the shape of a button border.
+The badge is the word "LIVE" in white on the accent color, with the shape of a button border. The file has `import SwiftUI` and the structure `LiveBadge: View`. The body is a `Group` with `Text("LIVE")` and the modifiers `.padding(6)`, `.foregroundColor(.white)`, and `.font(.subheadline.bold())`. The group has `.background(Color.accentColor.opacity(0.9))` and `.clipShape(.buttonBorder)`. The `#Preview` shows `LiveBadge()` with `.padding()` and `.background(.black)`. In Try first mode, the code of this step stays visible. Copy it as it is.
 
-```swift file=AVCam/Views/Overlays/LiveBadge.swift new
+```swift file=AVCam/Views/Overlays/LiveBadge.swift new copy result="../images/ch07-s5-5.jpg|The Live Photo badge in the Xcode preview canvas: a blue capsule with the word LIVE."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -899,7 +899,7 @@ struct LiveBadge: View {
 ### Step
 In `CameraUI.swift`, add the badge as an overlay at the top, and make it visible only while the activity is a Live Photo.
 
-The badge is always in the view tree, and only its opacity changes. The model stores each activity value that is not a `willCapture` value, so `camera.captureActivity.isLivePhoto` follows the values that the delegate sends at the start and at the end of the movie.
+Write `.overlay(alignment: .top)` above the existing `.overlay` with the status view. Inside, give `LiveBadge()` the modifier `.opacity(camera.captureActivity.isLivePhoto ? 1.0 : 0.0)`. The badge is always in the view tree, and only its opacity changes. The model stores each activity value that is not a `willCapture` value, so `camera.captureActivity.isLivePhoto` follows the values that the delegate sends at the start and at the end of the movie.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=4-7
         } action: { size in
@@ -932,7 +932,7 @@ The person cannot change the two features yet. In this last section, you create 
 ### Step
 Create a group with the name `FeatureToolbar` in the `Toolbars` group. In it, create a Swift file with the name `FeatureToolbar.swift`, and replace its contents.
 
-The name of the file has no "s", but the name of the view is `FeaturesToolbar`. This is how the Apple sample names them. The view adopts `PlatformView` from chapter 5, so it can select the size of its buttons from the size classes. The spacer pushes the controls to the trailing edge.
+The name of the file has no "s", but the name of the view is `FeaturesToolbar`. This is how the Apple sample names them. The structure is `FeaturesToolbar<CameraModel: Camera>: PlatformView`, with the two `@Environment` size class properties and `@State var camera: CameraModel`, as in `MainToolbar`. The view adopts `PlatformView` from chapter 5, so it can select the size of its buttons from the size classes. The body is an `HStack(spacing: 30)` with a `Spacer()`, with the modifiers `.buttonStyle(DefaultButtonStyle(size: isRegularSize ? .large : .small))` and `.padding([.leading, .trailing])`. The spacer pushes the controls to the trailing edge. `MainToolbar.swift` from chapter 5 is a good model.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift new
 /*
@@ -963,9 +963,9 @@ struct FeaturesToolbar<CameraModel: Camera>: PlatformView {
 ```
 
 ### Step
-Add the `livePhotoButton` property, and put the button into the stack.
+Add the `livePhotoButton` property of type `some View`, and put the button into the stack.
 
-The button changes `isLivePhotoEnabled` on the model. The next capture reads the new value. The icon has a slash when Live Photo is off.
+The `Button` action is `camera.isLivePhotoEnabled.toggle()`. The next capture reads the new value. The label is `Image(systemName:)` with the symbol `livephoto` when Live Photo is on and `livephoto.slash` when it is off. The comment above the property is `//  A button to toggle the enabled state of Live Photo capture.` with two spaces after the slashes, as in the sample.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=4,10-17
     var body: some View {
@@ -989,9 +989,9 @@ The button changes `isLivePhotoEnabled` on the model. The next capture reads the
 ```
 
 ### Step
-Below `livePhotoButton`, add the `prioritizePicker` property with a menu that contains a picker.
+Below `livePhotoButton`, add the `prioritizePicker` property with a `Menu` that contains a `Picker`.
 
-`$camera.qualityPrioritization` is a binding to the property of the model, so the picker reads and writes the value directly. `ForEach` can list the cases because the enumeration is `CaseIterable` and `Identifiable`. Each row shows the `description` of its case.
+Mark the property with `@ViewBuilder`; its type is `some View`. The picker is `Picker("Quality Prioritization", selection: $camera.qualityPrioritization)`. `$camera.qualityPrioritization` is a binding to the property of the model, so the picker reads and writes the value directly. Inside, `ForEach(QualityPrioritization.allCases)` can list the cases because the enumeration is `CaseIterable` and `Identifiable`. Each row is `Text($0.description)` with `.font(.body.weight(.bold))`. The `label` closure of the menu stays empty in this step. The sample has an empty line before `} label: {`. Keep it, so that your file stays equal to the sample.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=10-18,20-22
     //  A button to toggle the enabled state of Live Photo capture.
@@ -1022,7 +1022,7 @@ Below `livePhotoButton`, add the `prioritizePicker` property with a menu that co
 ### Step
 In the label of the menu, show a dial icon for the selected level.
 
-The icon shows the current level before the person opens the menu: a low dial for speed, a middle dial for balanced, and a high dial for quality.
+The icon shows the current level before the person opens the menu. Write a `switch` on `camera.qualityPrioritization` with one `Image(systemName:)` per case: `dial.low` for speed, `dial.medium` for balanced, and `dial.high` for quality.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=12-19
     @ViewBuilder
@@ -1067,9 +1067,9 @@ Put the menu into the stack, after the Live Photo button.
 ### Step
 At the end of `FeatureToolbar.swift`, add a preview of the toolbar on the preview background.
 
-Apple's sample has no preview for this toolbar. With one, the Xcode canvas shows the Live Photo button and the menu without a run of the app. Open the canvas with Option-Command-Return.
+Apple's sample has no preview for this toolbar. With one, the Xcode canvas shows the Live Photo button and the menu without a run of the app. Wrap `FeaturesToolbar(camera: PreviewCameraModel())` in `PreviewBackground` from chapter 3. Open the canvas with Option-Command-Return.
 
-```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=3-8
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=3-8 result="../images/ch07-s6-7.jpg|The features toolbar in the Xcode preview canvas: the Live Photo button and the quality menu."
     }
 }
 
@@ -1083,7 +1083,7 @@ Apple's sample has no preview for this toolbar. With one, the Xcode canvas shows
 ### Step
 In `CameraUI.swift`, add the features toolbar to the two layouts.
 
-In the compact layout, the toolbar is at the top of the screen, and the spacer keeps the main toolbar at the bottom. In the regular layout, the toolbar is in the same bar as the main toolbar, 250 points to the right of the center. The comment in the sample says "vertical", but the offset is horizontal.
+In the compact layout, the toolbar is at the top of the screen, and the spacer keeps the main toolbar at the bottom. In the regular layout, the toolbar goes into the `ZStack` after `MainToolbar`, with `.frame(width: 250)` and `.offset(x: 250)`: it is in the same bar as the main toolbar, 250 points to the right of the center. The comment on the offset line, `// The vertical offset from center.`, says "vertical", but the offset is horizontal.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=5,19-21
     /// This view arranges UI elements vertically.
@@ -1121,7 +1121,7 @@ Build and run the app. Tap the Live Photo button, open the quality menu, and tak
 
 The features toolbar is at the top right of the screen, with the Live Photo button and the dial of the quality menu. The menu has the three levels "Speed", "Balanced", and "Quality". In the Simulator with SimCam, each capture saves a JPEG photo and shows its thumbnail, with each setting. The features themselves need a real iPhone: there, look in the Photos app for the Live Photo.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch07-s6-8.jpg|The features toolbar at the top trailing corner: the Live Photo button and the quality menu."
 Action: Product > Run (Command-R)
 Result: The Live Photo button and the quality menu are at the top right. A capture saves a photo and shows its thumbnail.
 Note: In the Simulator with SimCam, the photo is not a Live Photo, and no badge appears.
