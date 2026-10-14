@@ -118,6 +118,12 @@ def build_and_launch(work):
     app = os.path.join(dd, "Build", "Products", "Debug-iphonesimulator", "AVCam.app")
     subprocess.run(["xcrun", "simctl", "terminate", SIM, BUNDLE], capture_output=True)
     subprocess.run(["xcrun", "simctl", "install", SIM, app], check=True)
+    # Remove the render of an earlier run, so that a failed render cannot pass as the new one.
+    container = subprocess.run(["xcrun", "simctl", "get_app_container", SIM, BUNDLE, "data"], capture_output=True, text=True)
+    if container.returncode == 0:
+        old = os.path.join(container.stdout.strip(), "Documents", "snapshot.png")
+        if os.path.exists(old):
+            os.remove(old)
     subprocess.run(["xcrun", "simctl", "launch", SIM, BUNDLE], check=True, capture_output=True)
 
 
@@ -127,7 +133,14 @@ def shot(name, rendered=False):
     if rendered:
         # The harness wrote the rendered view into the Documents folder of the app.
         container = subprocess.run(["xcrun", "simctl", "get_app_container", SIM, BUNDLE, "data"], capture_output=True, text=True, check=True).stdout.strip()
-        subprocess.run(["cp", os.path.join(container, "Documents", "snapshot.png"), raw], check=True)
+        rendered = os.path.join(container, "Documents", "snapshot.png")
+        for _ in range(20):          # the render can take a few seconds
+            if os.path.exists(rendered):
+                break
+            time.sleep(0.5)
+        if not os.path.exists(rendered):
+            raise SystemExit("The harness wrote no render. ImageRenderer cannot draw this view; use --screen.")
+        subprocess.run(["cp", rendered, raw], check=True)
     else:
         subprocess.run(["xcrun", "simctl", "io", SIM, "screenshot", raw], check=True, capture_output=True)
     out = os.path.join(IMAGES, name + ".jpg")

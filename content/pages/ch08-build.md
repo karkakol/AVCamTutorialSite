@@ -22,7 +22,7 @@ The capture code and the views exchange small value types. In this section, you 
 ### Step
 In `DataTypes.swift`, add the `movieCapture` case to the `CaptureActivity` enumeration.
 
-The associated value is the length of the recording in seconds. The default value lets the code write `.movieCapture()` at the start of a recording, when the length is zero.
+The associated value has the label `duration`, the type `TimeInterval`, and the default value `0.0`. It is the length of the recording in seconds. The default value lets the code write `.movieCapture()` at the start of a recording, when the length is zero. Give the case a doc comment, as `photoCapture` has.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=8-9
 /// An enumeration that defines the activity states the capture service supports.
@@ -44,9 +44,9 @@ enum CaptureActivity {
 ```
 
 ### Step
-Below the `willCapture` property, add the `currentTime` property and the `isRecording` property.
+Below the `willCapture` property, add the computed properties `currentTime: TimeInterval` and `isRecording: Bool`.
 
-The time view reads `currentTime`. Buttons read `isRecording` to know if they must be disabled. Each property returns a neutral value for all the cases that are not a movie capture, so the views need no `switch` statement.
+The time view reads `currentTime`. Buttons read `isRecording` to know if they must be disabled. Each property returns a neutral value for all the cases that are not a movie capture, so the views need no `switch` statement. `currentTime` returns the `duration` of a `movieCapture` case, and `.zero` for the other cases. `isRecording` returns `true` for a `movieCapture` case, and `false` for the other cases. Use `if case`, as the two properties above do.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=8-13,15-20
     var willCapture: Bool {
@@ -75,7 +75,7 @@ The time view reads `currentTime`. Buttons read `isRecording` to know if they mu
 ### Step
 Below `CaptureActivity`, add the `CaptureMode` enumeration with its two cases and the `systemName` property.
 
-`CaseIterable` supplies `allCases`, and `Identifiable` lets a `ForEach` use the cases. You use both in the mode picker. `systemName` is the name of the symbol that the picker shows. The `String` raw value and `Codable` are for chapter 13, where the app stores the mode.
+The declaration is `enum CaptureMode: String, Identifiable, CaseIterable, Codable`. The cases are `photo` and `video`, each with a doc comment. The `id` property returns `self` (`var id: Self { self }`). `CaseIterable` supplies `allCases`, and `Identifiable` lets a `ForEach` use the cases. You use both in the mode picker. `systemName` is the name of the symbol that the picker shows: `"camera.fill"` for `photo` and `"video.fill"` for `video`. The sample writes the `switch` without `return`. The `String` raw value and `Codable` are for chapter 13, where the app stores the mode.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=7,9-15,17-25
     var isRecording: Bool {
@@ -113,7 +113,7 @@ struct Photo: Sendable {
 ```
 
 ### Step
-Below the `Photo` structure, add the `Movie` structure, which holds the URL of a movie file.
+Below the `Photo` structure, add the `Movie` structure with one constant, `url: URL`, the URL of a movie file.
 
 A `Photo` holds its data in memory. A movie can be very large, so the app does not load it. A `Movie` holds only the URL of the file that the movie output writes. A URL is `Sendable`, so the value can go from the capture actor to the main actor.
 
@@ -178,9 +178,9 @@ Privacy - Microphone Usage Description: To record audio for Live Photos and vide
 ```
 
 ### Step
-In `DeviceLookup.swift`, add the `defaultMic` property below the `defaultCamera` property.
+In `DeviceLookup.swift`, add the property `defaultMic: AVCaptureDevice` below the `defaultCamera` property. Give it a `get throws` getter, as `defaultCamera` has.
 
-For cameras, you used discovery sessions, because the app selects between cameras. For audio, [`AVCaptureDevice.default(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/default(for:)) is sufficient. The app does not select a microphone. The capture session does this for you, and it selects a microphone that agrees with the camera in use.
+For cameras, you used discovery sessions, because the app selects between cameras. For audio, [`AVCaptureDevice.default(for:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/default(for:)) with the media type `.audio` is sufficient. When the result is `nil`, throw `CameraError.audioDeviceUnavailable`. The app does not select a microphone. The capture session does this for you, and it selects a microphone that agrees with the camera in use.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift highlight=11-19
     /// Returns the system-preferred camera for the host system.
@@ -207,7 +207,7 @@ For cameras, you used discovery sessions, because the app selects between camera
 ### Step
 In the `setUpSession()` method of `CaptureService.swift`, get the default microphone and add an input for it. Change the two comments.
 
-The service keeps the camera input in `activeVideoInput`, because it replaces that input when the camera changes. It never changes the microphone input, so it ignores the result of `addInput(for:)`. The method has the `@discardableResult` attribute for this purpose.
+Get the microphone with `try deviceLookup.defaultMic` into a local constant `defaultMic`, below `defaultCamera`. Then add it with `try addInput(for: defaultMic)`, below the line that sets `activeVideoInput`. The service keeps the camera input in `activeVideoInput`, because it replaces that input when the camera changes. It never changes the microphone input, so it ignores the result of `addInput(for:)`. The method has the `@discardableResult` attribute for this purpose. The two new comment texts are "Retrieve the default camera and microphone." and "Add inputs for the default camera and microphone devices."
 
 > [!NOTE]
 > `isAuthorized` asks only for camera access. The system asks for microphone access when the app creates the input with [`AVCaptureDeviceInput(device:)`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/init(device:)). If the person denies the microphone, the app probably cannot create the input, and then `setUpSession()` throws. The tutorial did not test this case on an iPhone.
@@ -273,7 +273,14 @@ A recording is not one request with one result. You start it, and at some later 
 ### Step
 Create a new Swift file with the name `MovieCapture.swift` in the `Capture` group, and replace its contents.
 
-The class has one output object for the life of the app. The capture service adds this object to the session and removes it when the mode changes. The `capabilities` property returns a value with all features off, because this chapter has no optional video feature. Chapter 9 changes this for HDR video.
+The file starts like `PhotoCapture.swift`: the license comment, `import AVFoundation`, and `import Combine`. The class is `final class MovieCapture: OutputService`. It has four members at this time:
+
+- `@Published private(set) var captureActivity: CaptureActivity = .idle`, the state of the movie capture.
+- `let output = AVCaptureMovieFileOutput()`, the output object. The class has one output object for the life of the app. The capture service adds this object to the session and removes it when the mode changes.
+- `private var movieOutput: AVCaptureMovieFileOutput { output }`, a computed alias with the concrete type. The later steps use `movieOutput`.
+- `var capabilities: CaptureCapabilities { CaptureCapabilities() }`, below the mark `// MARK: - Configuration`. The property returns a value with all features off, because this chapter has no optional video feature. Chapter 9 changes this for HDR video.
+
+The protocol has a default implementation of `updateConfiguration(for:)`, so the class compiles without it. You add the real method in the next section.
 
 ```swift file=AVCam/Capture/MovieCapture.swift new
 /*
@@ -306,9 +313,9 @@ final class MovieCapture: OutputService {
 ```
 
 ### Step
-Inside the class, below `movieOutput`, add the nested `MovieCaptureDelegate` class with a property for a continuation.
+Inside the class, below `movieOutput`, add the nested class `private class MovieCaptureDelegate: NSObject, AVCaptureFileOutputRecordingDelegate` with the property `continuation`.
 
-The class inherits from `NSObject`, because [`AVCaptureFileOutputRecordingDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate) is an Objective-C protocol. The continuation is an optional variable. It is `nil` during the recording, and the service sets it when somebody asks for the result.
+The class inherits from `NSObject`, because [`AVCaptureFileOutputRecordingDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate) is an Objective-C protocol. The continuation is an optional variable of the type `CheckedContinuation<Movie, Error>?`, as in `PhotoCapture` with `Photo`. It is `nil` during the recording, and the service sets it when somebody asks for the result. Put the mark `// MARK: - Movie capture delegate` and a doc comment above the class.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=6-8,10-11
     /// The capture output type for this service.
@@ -334,7 +341,7 @@ The class inherits from `NSObject`, because [`AVCaptureFileOutputRecordingDelega
 ### Step
 In the delegate class, add the `fileOutput(_:didFinishRecordingTo:from:error:)` method, which resumes the continuation.
 
-This is the only required method of the protocol. The output calls it one time for each recording, also after an error. Only at this time is the movie file complete. The optional chaining has a result that you must know: if no continuation is set, the delegate discards the result.
+This is the only required method of the protocol. Its parameters are `_ output: AVCaptureFileOutput`, `didFinishRecordingTo outputFileURL: URL`, `from connections: [AVCaptureConnection]`, and `error: Error?`. Xcode completes the signature when you type `fileOutput`. The output calls it one time for each recording, also after an error. Only at this time is the movie file complete. With `if let error`, call `continuation?.resume(throwing: error)`. Otherwise call `continuation?.resume(returning: Movie(url: outputFileURL))`. The optional chaining has a result that you must know: if no continuation is set, the delegate discards the result.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=7-15
     // MARK: - Movie capture delegate
@@ -356,9 +363,9 @@ This is the only required method of the protocol. The output calls it one time f
 ```
 
 ### Step
-Between `movieOutput` and the delegate class, add the `delegate` property and the `startRecording()` method.
+Between `movieOutput` and the delegate class, add the property `private var delegate: MovieCaptureDelegate?` and the method `startRecording()`, which is not `async` and does not throw.
 
-On iOS, a movie output makes one recording at a time, so the method first makes sure that no recording is in progress. Each recording gets a new delegate, and the property keeps it alive. `URL.movieFileURL` returns a new URL in the temporary directory for each call. That is necessary, because a recording fails if a file exists at the URL. [`startRecording(to:recordingDelegate:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/startrecording(to:recordingdelegate:)) returns immediately.
+Put the mark `// MARK: - Capturing a movie` between the property and the method. On iOS, a movie output makes one recording at a time, so the method first returns with a `guard` when `movieOutput.isRecording` is `true`. Each recording gets a new delegate: create a `MovieCaptureDelegate()`, store it in the property, and give it to the output. The property keeps it alive. `URL.movieFileURL` returns a new URL in the temporary directory for each call. That is necessary, because a recording fails if a file exists at the URL. [`startRecording(to:recordingDelegate:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/startrecording(to:recordingdelegate:)) returns immediately.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=6-7,9,11-14,16-19
     /// The capture output type for this service.
@@ -383,9 +390,9 @@ On iOS, a movie output makes one recording at a time, so the method first makes 
 ```
 
 ### Step
-Below `startRecording()`, add the `stopRecording()` method, which waits for the delegate with a checked continuation.
+Below `startRecording()`, add the method `stopRecording() async throws -> Movie`, which waits for the delegate with a checked continuation.
 
-For a photo, you created the continuation at the start of the capture. For a movie, you create it at the stop request, because only the stop request has a result. The order of the two lines is important: the delegate gets the continuation first, and then the output gets the stop request. Thus the callback cannot arrive before the continuation is in its place.
+For a photo, you created the continuation at the start of the capture. For a movie, you create it at the stop request, because only the stop request has a result. Return `try await withCheckedThrowingContinuation { continuation in ... }`. In the closure, the order of the two lines is important: first `delegate?.continuation = continuation`, and then `movieOutput.stopRecording()`. Thus the callback cannot arrive before the continuation is in its place.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=11-17,19-22
     /// Starts movie recording.
@@ -429,9 +436,9 @@ The movie service has two more jobs. It must tell the interface how long the rec
 The movie output sends no progress callbacks. It has a [`recordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/recordedduration) property, and the service reads it on a timer.
 
 ### Step
-In `MovieCapture.swift`, add the `refreshInterval` property and the `timerCancellable` property below the `delegate` property.
+In `MovieCapture.swift`, add the constant `private let refreshInterval = TimeInterval(0.25)` and the property `private var timerCancellable: AnyCancellable?` below the `delegate` property.
 
-The service reads the duration four times each second. The time view shows full seconds, and with this interval the number changes near the correct moment. An `AnyCancellable` object keeps a Combine subscription alive. When you cancel it or release it, the subscription stops.
+The service reads the duration four times each second. The time view shows full seconds, and with this interval the number changes near the correct moment. An `AnyCancellable` object keeps a Combine subscription alive. When you cancel it or release it, the subscription stops. The comment above the constant is "The interval at which to update the recording time."
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=9-11
     /// The capture output type for this service.
@@ -450,9 +457,9 @@ The service reads the duration four times each second. The time view shows full 
 ```
 
 ### Step
-Below the delegate class, add the `startMonitoringDuration()` method, which sets the activity to a movie capture.
+Below the delegate class, add the private method `startMonitoringDuration()`, which sets `captureActivity` to `.movieCapture()`.
 
-The interface observes `captureActivity`. With this line, it shows a recording immediately, with a duration of zero.
+The interface observes `captureActivity`. With this line, it shows a recording immediately, with a duration of zero. Put the mark `// MARK: - Monitoring recorded duration` above the method.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=16,18-21
     private class MovieCaptureDelegate: NSObject, AVCaptureFileOutputRecordingDelegate {
@@ -481,7 +488,7 @@ The interface observes `captureActivity`. With this line, it shows a recording i
 ### Step
 In `startMonitoringDuration()`, start a timer that reads the recorded duration and publishes it.
 
-[`Timer.publish(every:on:in:)`](https://developer.apple.com/documentation/foundation/timer/publish(every:tolerance:on:in:options:)) makes a publisher that fires on the main run loop. The `.common` mode keeps the timer active while the person touches a control. `autoconnect()` starts the timer when `sink` subscribes. `recordedDuration` is a `CMTime` value, and its `seconds` property gives a number for the activity.
+Assign the result to `timerCancellable`. [`Timer.publish(every:on:in:)`](https://developer.apple.com/documentation/foundation/timer/publish(every:tolerance:on:in:options:)) with `refreshInterval`, `.main`, and `.common` makes a publisher that fires on the main run loop. The `.common` mode keeps the timer active while the person touches a control. `autoconnect()` starts the timer when `sink` subscribes. The `sink` closure captures `[weak self]`, ignores its parameter, and returns with `guard let self`. `movieOutput.recordedDuration` is a `CMTime` value, and its `seconds` property gives the number for `captureActivity = .movieCapture(duration: duration)`.
 
 > [!NOTE]
 > The timer closure runs on the main thread. The capture service actor calls this class from its session queue. This is the design of the Apple sample. The concepts page tells you more.
@@ -502,7 +509,7 @@ In `startMonitoringDuration()`, start a timer that reads the recorded duration a
 ```
 
 ### Step
-Below `startMonitoringDuration()`, add the `stopMonitoringDuration()` method, which cancels the timer and resets the activity.
+Below `startMonitoringDuration()`, add the private method `stopMonitoringDuration()`, which calls `timerCancellable?.cancel()` and sets `captureActivity` to `.idle`.
 
 The `.idle` value enables the controls of the interface again and sets the time view back to zero.
 
@@ -528,7 +535,7 @@ The `.idle` value enables the controls of the interface again and sets the time 
 ```
 
 ### Step
-Call `startMonitoringDuration()` in `startRecording()`, and call `stopMonitoringDuration()` in `stopRecording()`.
+Call `startMonitoringDuration()` in `startRecording()`, below the `guard` statement. Call `stopMonitoringDuration()` in `stopRecording()`, as the last line of the continuation closure.
 
 The service publishes the recording state before it asks the output to start. The interface is thus a short time ahead of the output. The timer corrects the duration: `recordedDuration` stays at zero until the output writes.
 
@@ -562,9 +569,9 @@ The service publishes the recording state before it asks the output to start. Th
 ```
 
 ### Step
-Below `stopMonitoringDuration()`, add the `updateConfiguration(for:)` method. Get the video connection, and select the HEVC codec when the output supports it.
+Below `stopMonitoringDuration()`, add the protocol method `updateConfiguration(for device: AVCaptureDevice)`. Get the video connection, and select the HEVC codec when the output supports it.
 
-The capture service calls this method on each output service after each change of the camera or of the mode. In photo mode, the movie output is not in the session and has no connection, so the method returns. HEVC gives a smaller file than H.264 at approximately the same quality. The codec must be in [`availableVideoCodecTypes`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/availablevideocodectypes), so the code tests the list first.
+The capture service calls this method on each output service after each change of the camera or of the mode. Get the connection with `guard let connection = movieOutput.connection(with: .video) else { return }`. In photo mode, the movie output is not in the session and has no connection, so the method returns. HEVC gives a smaller file than H.264 at approximately the same quality. The codec must be in [`availableVideoCodecTypes`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/availablevideocodectypes), so the code tests `.contains(.hevc)` first. Then call `movieOutput.setOutputSettings([AVVideoCodecKey: AVVideoCodecType.hevc], for: connection)`. The method is not private, because the protocol requires it.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=7-11,13-17
     /// Stops the timer and resets the time to `CMTime.zero`.
@@ -596,7 +603,7 @@ The capture service calls this method on each output service after each change o
 ### Step
 At the end of `updateConfiguration(for:)`, ask for automatic video stabilization.
 
-You ask for stabilization on the connection, with [`preferredVideoStabilizationMode`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/preferredvideostabilizationmode). With `.auto`, the system selects a mode for the active format and frame rate. Stabilization crops the picture. If you turn it on when the recording starts, the framing changes at that moment. Thus the code sets it here, when the connection is new.
+Test `connection.isVideoStabilizationSupported` first. Then ask for stabilization on the connection, with [`preferredVideoStabilizationMode`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/preferredvideostabilizationmode). With `.auto`, the system selects a mode for the active format and frame rate. Stabilization crops the picture. If you turn it on when the recording starts, the framing changes at that moment. Thus the code sets it here, when the connection is new.
 
 > [!NOTE]
 > The Simulator with SimCam probably does not support HEVC and stabilization. The two `if` statements then do nothing.
@@ -640,7 +647,7 @@ A session has one configuration at a time. Photo mode and video mode are two con
 ![The capture session in photo mode and in video mode: the same inputs, a different preset, and the movie file output only in video mode](../images/ch08-session-modes.svg)
 
 ### Step
-In `CaptureService.swift`, add the `movieCapture` property and the `captureMode` property, and add the movie service to `outputServices`.
+In `CaptureService.swift`, add the constant `private let movieCapture = MovieCapture()` below `photoCapture`, and the property `private(set) var captureMode = CaptureMode.photo` below `activeVideoInput`. Add `movieCapture` to the array in `outputServices`.
 
 In chapter 3, you wrote code that sends the rotation angle and the configuration update to each element of `outputServices`. That code now reaches the movie service with no change. The service starts in photo mode, as before.
 
@@ -672,9 +679,9 @@ In chapter 3, you wrote code that sends the rotation angle and the configuration
 ```
 
 ### Step
-Below `currentDevice`, add the `setCaptureMode(_:)` method. Store the new mode, and open a configuration block.
+Below `currentDevice`, add the method `setCaptureMode(_ captureMode: CaptureMode) throws`. Store the new mode in `self.captureMode`, and open a configuration block.
 
-[`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) make the session apply all changes between them together. The `defer` statement runs the commit at each exit of the method, also when the method throws an error.
+Put the mark `// MARK: - Capture mode selection` above the method. [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) make the session apply all changes between them together. The `defer` statement runs the commit at each exit of the method, also when the method throws an error. The method throws, because the next step adds an output with the throwing helper `addOutput(_:)`.
 
 ```swift file=AVCam/CaptureService.swift highlight=9,11-16,18-21
     // The device for the active video input.
@@ -703,9 +710,9 @@ Below `currentDevice`, add the `setCaptureMode(_:)` method. Store the new mode, 
 ```
 
 ### Step
-In the configuration block, set the preset for the mode, and remove or add the movie output.
+In the configuration block, add a `switch` on `captureMode` that sets the preset for the mode, and removes or adds `movieCapture.output`.
 
-The [`.photo`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/photo) preset is for photos at the full resolution. The [`.high`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/high) preset is for video. While a movie file output is in the session, the photo output cannot capture Live Photos. So the service removes the movie output for photo mode and adds it for video mode. The photo output stays in the session in both modes.
+The [`.photo`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/photo) preset is for photos at the full resolution. The [`.high`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/high) preset is for video. While a movie file output is in the session, the photo output cannot capture Live Photos. So the service removes the movie output for photo mode with `captureSession.removeOutput(_:)`, and adds it for video mode with `try addOutput(_:)`, the helper from chapter 3. The photo output stays in the session in both modes.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-18
     func setCaptureMode(_ captureMode: CaptureMode) throws {
@@ -760,9 +767,9 @@ When the session gets the movie output, it makes a new connection for it. This c
 ```
 
 ### Step
-In `updateCaptureCapabilities()`, select the capabilities of the service for the current mode.
+In `updateCaptureCapabilities()`, replace the assignment with a `switch` on `captureMode` that selects the capabilities of `photoCapture` or `movieCapture`.
 
-The service publishes `captureCapabilities` for the interface. In video mode, the value now comes from the movie service, which reports no Live Photo capture. The model starts to read this value in chapter 9, for the HDR video button.
+The service publishes `captureCapabilities` for the interface. In video mode, the value now comes from the movie service, which reports no Live Photo capture. The new comment text is "Set the capture service's capabilities for the selected mode." The model starts to read this value in chapter 9, for the HDR video button.
 
 ```swift file=AVCam/CaptureService.swift remove
         // Set the capture service's capabilities.
@@ -806,7 +813,7 @@ The capture service can now prepare the session for video. In this section, you 
 ### Step
 In `observeOutputServices()`, merge the activity publishers of the photo service and the movie service.
 
-`Publishers.Merge` makes one publisher from two. Each value from the photo service or the movie service goes to the `captureActivity` property of the actor. Only one of the two services is busy at a time, so the values do not mix.
+`Publishers.Merge(_:_:)` makes one publisher from the two `$captureActivity` publishers. Each value from the photo service or the movie service goes to the `captureActivity` property of the actor, with the same `assign(to:)` call as before. Only one of the two services is busy at a time, so the values do not mix. Change the doc comment to "Merge the `captureActivity` values of the photo and movie capture services, and assign the value to the actor's property." on two lines. The sample has a stray backtick at the end of the second line; keep it, so that your file equals the branch.
 
 ```swift file=AVCam/CaptureService.swift remove
     /// Assign the `captureActivity` value of the photo capture service
@@ -825,9 +832,9 @@ In `observeOutputServices()`, merge the activity publishers of the photo service
 ```
 
 ### Step
-Below `capturePhoto(with:)`, add the `startRecording()` method and the `stopRecording()` method.
+Below `capturePhoto(with:)`, add the method `startRecording()` and the method `stopRecording() async throws -> Movie`, under the mark `// MARK: - Movie capture`.
 
-The two methods only send the call to the movie service. They are methods of the actor, so they start on the session queue, and the model calls them with `await`. `stopRecording()` returns when the delegate has the complete file.
+The two methods only send the call to the movie service. They are methods of the actor, so they start on the session queue, and the model calls them with `await`. `startRecording()` is not `async` and does not throw, like the method of the movie service. `stopRecording()` returns `try await movieCapture.stopRecording()`, when the delegate has the complete file.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-11,13-16
     // MARK: - Photo capture
@@ -851,9 +858,9 @@ The two methods only send the call to the movie service. They are methods of the
 ```
 
 ### Step
-In `MediaLibrary.swift`, add the `save(movie:)` method below the `save(photo:)` method.
+In `MediaLibrary.swift`, add the method `save(movie: Movie) async throws` below the `save(photo:)` method.
 
-The method uses the `performChange(_:)` method from chapter 4, so the permission test and the thumbnail are the same as for a photo. The resource type is `.video`, and the resource is a file, not data. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), the Photos library moves the file and does not copy it. A movie can be very large, and a copy uses two times the space for a moment. The move also removes the temporary file.
+The method gets `currentLocation` first, as `save(photo:)` does. Then it uses the `performChange(_:)` method from chapter 4, so the permission test and the thumbnail are the same as for a photo. In the closure, create a `PHAssetResourceCreationOptions` object and a request with `PHAssetCreationRequest.forAsset()`. Call `addResource(with: .video, fileURL: movie.url, options:)`, set the `location`, and return `placeholderForCreatedAsset`. The resource type is `.video`, and the resource is a file, not data. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), the Photos library moves the file and does not copy it. A movie can be very large, and a copy uses two times the space for a moment. The move also removes the temporary file.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=12-23
             // Save Live Photo data.
@@ -896,9 +903,9 @@ Result: The build succeeds with no errors.
 The views talk to the model, not to the capture service. In this section, you add three members to the model: the capture mode, a value that is `true` during a mode change, and a method that starts or stops a recording. Then you add the same members to the `Camera` protocol and to the preview model.
 
 ### Step
-In `CameraModel.swift`, add the `isSwitchingModes` property, and change three comments so that they also name movies.
+In `CameraModel.swift`, add the property `private(set) var isSwitchingModes = false` below `isSwitchingVideoDevices`, and change three comments so that they also name movies.
 
-The preview container reads this property to blur the preview during a mode change. You did the same with `isSwitchingVideoDevices` in chapter 2.
+The preview container reads this property to blur the preview during a mode change. You did the same with `isSwitchingVideoDevices` in chapter 2. The three comments get the words "photo or movie capture", "photo or video", and "photo or movie capture". The new property gets the comment "A Boolean value that indicates whether the app is currently switching capture modes."
 
 ```swift file=AVCam/CameraModel.swift remove
     /// The current state of photo capture.
@@ -932,9 +939,9 @@ final class CameraModel: Camera {
 ```
 
 ### Step
-Change the mark above `switchVideoDevices()`, and add the `captureMode` property with a `didSet` observer.
+Change the mark above `switchVideoDevices()` to `// MARK: - Changing modes and devices`. Below the mark, add the property `var captureMode = CaptureMode.photo` with a `didSet` observer.
 
-The mode picker writes to this property through a binding. A binding cannot call an `async` method, so the property observer starts the work. The `guard` statement stops the work while the camera does not run.
+The mode picker writes to this property through a binding. A binding cannot call an `async` method, so the property observer starts the work. For now, the observer has only a `guard` statement, `guard status == .running else { return }`, which stops the work while the camera does not run. The property is not `private(set)`, because the picker writes it.
 
 ```swift file=AVCam/CameraModel.swift remove
     // MARK: - Changing devices
@@ -961,7 +968,7 @@ The mode picker writes to this property through a binding. A binding cannot call
 ### Step
 In the observer, start a task that sets `isSwitchingModes` and tells the capture service to change the mode.
 
-The `defer` statement sets the property back to `false` when the capture service completes the change. The call uses `try?`, so the model ignores an error from the capture service. The concepts page tells you what this means.
+In the `Task`, set `isSwitchingModes = true`, and then `defer { isSwitchingModes = false }`. The `defer` statement sets the property back to `false` when the capture service completes the change. The call is `try? await captureService.setCaptureMode(captureMode)`. It uses `try?`, so the model ignores an error from the capture service. The concepts page tells you what this means.
 
 ```swift file=AVCam/CameraModel.swift highlight=5-10
     /// A value that indicates the mode of capture for the camera.
@@ -979,9 +986,9 @@ The `defer` statement sets the property back to `false` when the capture service
 ```
 
 ### Step
-Below `flashScreen()`, add the `toggleRecording()` method. For now, it starts a recording in each case.
+Below `flashScreen()`, add the method `toggleRecording() async` under the mark `// MARK: - Video capture`. For now, it starts a recording in each case.
 
-The method asks the capture service for its activity. It does not use a value from the interface. The capture service is the object that knows if a recording is in progress.
+The method has a `switch` on `await captureService.captureActivity` with only a `default` case, which calls `await captureService.startRecording()`. The method asks the capture service for its activity. It does not use a value from the interface. The capture service is the object that knows if a recording is in progress.
 
 ```swift file=AVCam/CameraModel.swift highlight=9,11-18
     /// Sets the `showCaptureFeedback` state to indicate that capture is underway.
@@ -1031,9 +1038,9 @@ Add the `movieCapture` case, which stops the recording and saves the movie to th
 ```
 
 ### Step
-In `Camera.swift`, add the three new members to the `Camera` protocol, and change two comments.
+In `Camera.swift`, add the three new members to the `Camera` protocol: `captureMode: CaptureMode { get set }` and `isSwitchingModes: Bool { get }` below `start()`, and `toggleRecording() async` below `shouldFlashScreen`. Change two comments.
 
-`captureMode` has a getter and a setter, because the picker reads and writes it. The other views only read the state.
+`captureMode` has a getter and a setter, because the picker reads and writes it. The other views only read the state. The two changed comments say "photo capture, movie capture, or idle" and "the most recent photo or video capture". Give each new member a doc comment.
 
 ```swift file=AVCam/Model/Camera.swift remove
     /// The camera's current activity state, which can be photo capture or idle.
@@ -1100,7 +1107,12 @@ The project does not compile at this time, because `PreviewCameraModel` does not
 ### Step
 In `PreviewCameraModel.swift`, add the same members, and give the initializer a `captureMode` parameter.
 
-The preview model has no session. It sets `isSwitchingModes` for a short time, so that an Xcode preview shows the same blur as the real app. The new parameter of the initializer lets a preview start in video mode. The text of the log message in `toggleRecording()` is the text of the Apple sample.
+The preview model has no session. Its forms differ from `CameraModel`:
+
+- `var captureMode = CaptureMode.photo` with a `didSet` observer, below `captureActivity`. The observer sets `isSwitchingModes = true`, and then a `Task` waits with `try? await Task.sleep(until: .now + .seconds(0.3), clock: .continuous)` and sets `self.isSwitchingModes = false`. Thus an Xcode preview shows the same blur as the real app.
+- `private(set) var isSwitchingModes = false`, directly below the property.
+- `init(captureMode: CaptureMode = .photo, status: CameraStatus = .unknown)`, which sets `self.captureMode` first. The new parameter lets a preview start in video mode.
+- `func toggleRecording()`, not `async`, at the end of the class. It logs `"Moving capture isn't implemented in PreviewCamera."`, the text of the Apple sample.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift remove
     init(status: CameraStatus = .unknown) {
@@ -1174,7 +1186,7 @@ The gesture is on the preview, in `CameraView`. The picker is in `CameraUI`. A s
 ### Step
 At the end of `CameraView.swift`, add the `SwipeDirection` enumeration.
 
-The enumeration has four cases, as in the Apple sample. The app uses only `left` and `right`.
+The enumeration has four cases, `left`, `right`, `up`, and `down`, as in the Apple sample. The app uses only `left` and `right`.
 
 ```swift file=AVCam/CameraView.swift highlight=7-12
 #Preview {
@@ -1194,11 +1206,11 @@ enum SwipeDirection {
 ### Step
 In the `Views` group, create a group with the name `Controls`. In it, create the Swift file `CaptureModeView.swift`, and replace its contents.
 
-The view is a segmented `Picker` with a binding to `camera.captureMode`. It is disabled during a recording, because a mode change removes the movie output and thus ends the recording.
+The view is `struct CaptureModeView<CameraModel: Camera>: View`. It has `@State var camera: CameraModel` and `@Binding private var direction: SwipeDirection`. Its initializer `init(camera: CameraModel, direction: Binding<SwipeDirection>)` sets `self.camera` and `_direction = direction`, the storage of the binding. The body is `Picker("Capture Mode", selection: $camera.captureMode)` with a `ForEach(CaptureMode.allCases)` that shows `Image(systemName: $0.systemName)` with `.tag($0.rawValue)`. The sample writes `.tag($0.rawValue)`; keep it, so that your file equals the branch. The modifiers are `.frame(width: 180)`, `.pickerStyle(.segmented)`, and `.disabled(camera.captureActivity.isRecording)`. The picker is disabled during a recording, because a mode change removes the movie output and thus ends the recording.
 
-The [`onChange(of:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) modifier does the swipe. A swipe to the right selects the next mode, and a swipe to the left selects the mode before. The `guard` statement keeps the index in the list. The closure runs only when the direction changes its value. With two modes, that is sufficient for swipes only: a second swipe in the same direction has no mode to go to. But after the person changes the mode with the picker, a swipe in the same direction as the last swipe has no effect.
+The [`onChange(of:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) modifier does the swipe: `.onChange(of: direction) { _, _ in ... }`. In the closure, get `CaptureMode.allCases`, the index of `camera.captureMode` in it (`firstIndex(of:)`, with `-1` when not found), and the new index: one more for a swipe to the right, one less for a swipe to the left. A `guard` statement keeps the new index in the list. Then set `camera.captureMode` to the mode at the new index. End the file with a `#Preview` in a `PreviewBackground` with `PreviewCameraModel()` and `direction: .constant(.left)`. The closure runs only when the direction changes its value. With two modes, that is sufficient for swipes only: a second swipe in the same direction has no mode to go to. But after the person changes the mode with the picker, a swipe in the same direction as the last swipe has no effect.
 
-```swift file=AVCam/Views/Controls/CaptureModeView.swift new
+```swift file=AVCam/Views/Controls/CaptureModeView.swift new result="../images/ch08-s8-6.jpg|The mode picker in the Xcode preview canvas: a segmented control with a camera symbol and a video symbol."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -1250,9 +1262,9 @@ struct CaptureModeView<CameraModel: Camera>: View {
 ```
 
 ### Step
-In `CameraUI.swift`, add a binding for the swipe direction.
+In `CameraUI.swift`, add `@Binding var swipeDirection: SwipeDirection` below `camera`.
 
-The state lives in `CameraView`, where the gesture is. `CameraUI` only gives the binding to the picker.
+The state lives in `CameraView`, where the gesture is. `CameraUI` only gives the binding to the picker. The project does not compile until step 8.5, because the calls of `CameraUI` do not give the binding yet.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=5
 /// A view that presents the main camera user interface.
@@ -1269,9 +1281,9 @@ struct CameraUI<CameraModel: Camera>: PlatformView {
 ```
 
 ### Step
-Add the `CaptureModeView` to the compact layout and to the regular layout, and give the preview a constant binding.
+Add `CaptureModeView(camera: camera, direction: $swipeDirection)` to the compact layout and to the regular layout, and give the preview the binding `.constant(.left)`.
 
-In the compact layout, the picker is between the spacer and the main toolbar. In the regular layout, an offset puts it on the left side of the bar, opposite to the features toolbar.
+In the compact layout, the picker is between the spacer and the main toolbar. In the regular layout, it is the first view in the `ZStack`, and `.offset(x: -250)` puts it on the left side of the bar, opposite to the features toolbar. The sample's comment on that line says "vertical"; keep it, so that your file equals the branch.
 
 ```swift file=AVCam/Views/CameraUI.swift remove
     CameraUI(camera: PreviewCameraModel())
@@ -1326,9 +1338,9 @@ In the compact layout, the picker is between the spacer and the main toolbar. In
 ```
 
 ### Step
-In `CameraView.swift`, add the two imports and the `swipeDirection` state, and give its binding to `CameraUI`.
+In `CameraView.swift`, add `import AVFoundation` and `import AVKit`, and the state `@State var swipeDirection = SwipeDirection.left` below `camera`. Give `$swipeDirection` to `CameraUI`.
 
-The two imports are from the Apple sample. This chapter does not need them. Chapter 11 uses AVKit for the hardware buttons.
+The two imports are from the Apple sample. This chapter does not need them. Chapter 11 uses AVKit for the hardware buttons. The comment above the state is "The direction a person swipes on the camera preview or mode selector."
 
 ```swift file=AVCam/CameraView.swift remove
             CameraUI(camera: camera)
@@ -1373,9 +1385,9 @@ struct CameraView<CameraModel: Camera>: PlatformView {
 ```
 
 ### Step
-Add the `swipeGesture` property, and attach it to the camera preview as a simultaneous gesture.
+Below `body`, add the property `swipeGesture: some Gesture`, and attach it to the camera preview with `.simultaneousGesture(swipeGesture)`, between `onTapGesture` and `opacity`.
 
-A drag must be 50 points long before it counts. When it ends, the sign of its horizontal distance gives the direction. `simultaneousGesture` lets the drag gesture and the tap gesture for focus work on the same view.
+The property returns `DragGesture(minimumDistance: 50)` with an `onEnded` closure. A drag must be 50 points long before it counts. When it ends, the sign of `$0.translation.width` gives the direction: `.left` when it is less than zero, otherwise `.right`. `simultaneousGesture` lets the drag gesture and the tap gesture for focus work on the same view.
 
 ```swift file=AVCam/CameraView.swift highlight=11-12,23-29
     var body: some View {
@@ -1418,7 +1430,7 @@ The capture service changes the session to the video configuration. The capture 
 > [!NOTE]
 > The tutorial did not test the swipe gesture in the Simulator. Use the picker for the checkpoints.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch08-s8-7.jpg|The mode picker above the main toolbar, in the photo mode."
 Action: Product > Run (Command-R), then select the video symbol in the picker
 Result: The picker shows the video mode as selected. The app continues to show the live preview.
 ```
@@ -1428,9 +1440,9 @@ Result: The picker shows the video mode as selected. The app continues to show t
 A camera shows the mode also in its capture button. In photo mode, the button is white. In video mode, it is red, and it changes its shape during a recording. In this section, you add the movie button and show it in video mode.
 
 ### Step
-At the end of `CaptureButton.swift`, add the `MovieCaptureButton` structure with its properties, its initializer, and a button style.
+At the end of `CaptureButton.swift`, add `private struct MovieCaptureButton: View` with its properties, its initializer, and a nested button style.
 
-The recording state is a binding. The `CaptureButton` view owns the state, and chapter 11 uses that to change the button from outside. `NoFadeButtonStyle` returns the label with no change, so the button does not become dim while the person presses it.
+The properties are `private let action: (Bool) -> Void`, `private let lineWidth = CGFloat(4.0)`, and `@Binding private var isRecording: Bool`. The initializer is `init(isRecording: Binding<Bool>, action: @escaping (Bool) -> Void)`; it sets `_isRecording = isRecording` and `self.action = action`. The recording state is a binding. The `CaptureButton` view owns the state, and chapter 11 uses that to change the button from outside. The nested `struct NoFadeButtonStyle: ButtonStyle` returns `configuration.label` from `makeBody(configuration:)` with no change, so the button does not become dim while the person presses it. The next step adds `body` between the initializer and the style.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=10,12-13,15,17-20,22-27
     struct PhotoButtonStyle: ButtonStyle {
@@ -1465,7 +1477,7 @@ private struct MovieCaptureButton: View {
 ### Step
 Add the `body` property, which draws a white ring and a red shape that changes with the recording state.
 
-The red shape is a rounded rectangle. When the app does not record, the corner radius is half of the width, which gives a circle. During a recording, the shape is smaller and its corners are less round, which gives the usual stop symbol. A tap changes `isRecording` in an animation and then calls the action.
+The body is a `ZStack` with two views. The first is a `Circle()` with `.stroke(lineWidth: lineWidth)` and `.foregroundColor(Color.white)`. The second is a `Button` with `.buttonStyle(NoFadeButtonStyle())`. Its label is a `GeometryReader` with a `RoundedRectangle`. The corner radius is `geometry.size.width` divided by `2.0` when the app does not record, which gives a circle, and by `4.0` during a recording. The rectangle has `.inset(by: lineWidth * 1.2)`, `.fill(.red)`, and `.scaleEffect(isRecording ? 0.6 : 1.0)`. Thus during a recording the shape is smaller and its corners are less round, which gives the usual stop symbol. The action of the button calls `isRecording.toggle()` inside `withAnimation(.easeInOut(duration: 0.25))`, and then `action(isRecording)`.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=13-33
 private struct MovieCaptureButton: View {
@@ -1511,9 +1523,9 @@ private struct MovieCaptureButton: View {
 ```
 
 ### Step
-In the `CaptureButton` view, add the `isRecording` state, and select the button for the capture mode. Then add a preview for video mode.
+In the `CaptureButton` view, add `@State var isRecording = false` below `camera`, and put a `switch` on `camera.captureMode` in `captureButton`. Then replace the preview with one preview for each mode.
 
-The action of the movie button ignores its parameter and calls `toggleRecording()`. The model then asks the capture service if a recording is in progress. The `isRecording` state of the view only controls the shape of the button.
+The `.photo` case keeps the `PhotoCaptureButton` call. The `.video` case is `MovieCaptureButton(isRecording: $isRecording) { _ in ... }` with a `Task` that calls `await camera.toggleRecording()`. The action ignores its parameter. The model then asks the capture service if a recording is in progress. The `isRecording` state of the view only controls the shape of the button. The two previews are `#Preview("Photo")` and `#Preview("Video")`, each with a `PreviewBackground` and a `PreviewCameraModel(captureMode:)` with `.photo` or `.video`. Delete the old preview and paste the two new ones in one go: the highlighted lines contain the first two lines of the old preview again.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift remove
         PhotoCaptureButton {
@@ -1524,7 +1536,11 @@ The action of the movie button ignores its parameter and calls `toggleRecording(
 ```
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift remove
-    CaptureButton(camera: PreviewCameraModel())
+#Preview("Photo") {
+    PreviewBackground {
+        CaptureButton(camera: PreviewCameraModel())
+    }
+}
 ```
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=6,18-31,35-39,41-45
@@ -1580,7 +1596,7 @@ Build and run the app. Select the video mode, tap the red button, wait some seco
 
 The first tap starts a recording, and the red circle changes to a rounded square. The second tap stops the recording, and the app saves the movie. Open the Photos app in the Simulator to see the movie. You cannot see the recording time yet.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch08-s9-4.jpg|The video mode: the capture button is red."
 Action: Product > Run (Command-R), select the video mode, then tap the capture button two times
 Result: The button is red in video mode and changes its shape during the recording. A new movie is in the Photos library.
 ```
@@ -1592,11 +1608,11 @@ During a recording, the person wants to see that the camera records and for how 
 ### Step
 Create a new Swift file with the name `RecordingTimeView.swift` in the `Overlays` group, and replace its contents.
 
-The view shows a time in a dark capsule. The extension changes a number of seconds into a text with hours, minutes, and seconds. The conversion to `Int` removes the fraction, so the text changes one time each second, although a new value arrives four times each second.
+In Try first mode, the code of this step stays visible. Copy it as it is. The view is `struct RecordingTimeView: PlatformView` with the two size class properties and the constant `time: TimeInterval`. The body is `Text(time.formatted)` with these modifiers, in this order: `.padding([.leading, .trailing], 12)`, `.padding([.top, .bottom], isRegularSize ? 8 : 0)`, `.background(Color(white: 0.0, opacity: 0.5))`, `.foregroundColor(.white)`, `.font(.title2.weight(.semibold))`, and `.clipShape(.capsule)`. Thus the view shows the time in a dark capsule. The extension of `TimeInterval` adds the computed property `formatted: String`. It changes a number of seconds into a text with hours, minutes, and seconds, with the format `"%0.2d:%0.2d:%0.2d"`. The conversion to `Int` removes the fraction, so the text changes one time each second, although a new value arrives four times each second.
 
 The preview names an image, `video_mode`. The asset catalog of the Apple sample does not contain an image with this name, and your asset catalog does not contain one. This has no effect on the app.
 
-```swift file=AVCam/Views/Overlays/RecordingTimeView.swift new
+```swift file=AVCam/Views/Overlays/RecordingTimeView.swift new copy result="../images/ch08-s10-1.jpg|The recording time view in the Xcode preview canvas, with 500 seconds as 00:08:20."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -1645,7 +1661,7 @@ extension TimeInterval {
 ### Step
 In `CameraUI.swift`, change the top overlay: show the Live Photo badge in photo mode and the recording time in video mode.
 
-`currentTime` is zero when no recording is in progress, so the view shows `00:00:00` in video mode before the first recording.
+Replace the two lines of the badge with a `switch` on `camera.captureMode`. The `.photo` case keeps the badge and its `opacity` modifier. The `.video` case shows `RecordingTimeView(time: camera.captureActivity.currentTime)` with `.offset(y: isRegularSize ? 20 : 0)`. `currentTime` is zero when no recording is in progress, so the view shows `00:00:00` in video mode before the first recording.
 
 ```swift file=AVCam/Views/CameraUI.swift remove
             LiveBadge()
@@ -1672,7 +1688,7 @@ In `CameraUI.swift`, change the top overlay: show the Live Photo badge in photo 
 ### Step
 In `FeatureToolbar.swift`, show the Live Photo button and the quality picker only in photo mode.
 
-The two controls have no function for a movie. The `EmptyView` for video mode is a placeholder. In chapter 9, you replace it with a button for HDR video.
+Replace the two lines with a `switch` on `camera.captureMode`. The `.photo` case keeps the two controls. The two controls have no function for a movie. The `.video` case has `EmptyView()`, a placeholder. In chapter 9, you replace it with a button for HDR video.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift remove
             livePhotoButton
@@ -1701,7 +1717,7 @@ Build and run the app. Select the video mode, and record a movie of some seconds
 
 In video mode, the two photo controls at the top go away, and the time view shows `00:00:00`. During the recording, the time view counts the seconds. After the second tap, it goes back to `00:00:00`.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch08-s10-4.jpg|During a recording: the time at the top, the red button as a square."
 Action: Product > Run (Command-R), select the video mode, then record a movie
 Result: The time view at the top counts during the recording.
 ```
@@ -1713,7 +1729,7 @@ In chapter 5, you gave the preview the shape of a photo, 3:4, and moved it up a 
 ### Step
 In `PreviewContainer.swift`, make the offset and the aspect ratio depend on the capture mode.
 
-`movieAspectRatio` is 9:16. You defined it in chapter 5 for the calculation of the toolbar position. In video mode, the preview has this ratio and no offset, so it fills more of the screen.
+Write `camera.captureMode == .photo ? photoModeOffset : 0` for the offset, and `camera.captureMode == .photo ? photoAspectRatio : movieAspectRatio` for the aspect ratio. `movieAspectRatio` is 9:16. You defined it in chapter 5 for the calculation of the toolbar position. In video mode, the preview has this ratio and no offset, so it fills more of the screen.
 
 ```swift file=AVCam/Views/PreviewContainer.swift remove
             .offset(y: photoModeOffset)
@@ -1761,7 +1777,7 @@ In `PreviewContainer.swift`, make the offset and the aspect ratio depend on the 
 ```
 
 ### Step
-In `previewView`, add a second `onChange` modifier, which blurs the preview while the mode changes.
+In `previewView`, add `.onChange(of: camera.isSwitchingModes, updateBlurRadius(_:_:))` above the existing `onChange` modifier.
 
 A change of the preset and of the outputs makes the session build its pipeline again, and the preview can stop for a moment. The blur hides this. The modifier uses the `updateBlurRadius(_:_:)` method that you wrote for the camera switch.
 
@@ -1792,7 +1808,7 @@ A change of the camera replaces the video input of the session. That ends a reco
 The mode picker already has this modifier. You wrote it in `CaptureModeView`.
 
 ### Step
-In `SwitchCameraButton.swift`, add a modifier that disables the button during a recording.
+In `SwitchCameraButton.swift`, add `.disabled(camera.captureActivity.isRecording)` between `frame` and `allowsHitTesting`.
 
 `isRecording` comes from the capture activity, which the capture service publishes. Thus the button follows the real state of the service, not the state of a different view.
 
@@ -1813,7 +1829,7 @@ In `SwitchCameraButton.swift`, add a modifier that disables the button during a 
 ```
 
 ### Step
-In `ThumbnailButton.swift`, add the same modifier to disable the button during a recording.
+In `ThumbnailButton.swift`, add the same `disabled` modifier below `cornerRadius`.
 
 The thumbnail button opens the photo picker, which covers the camera interface. With this modifier, the picker cannot open on top of a recording that is in progress.
 
@@ -1833,7 +1849,7 @@ Build and run the app. Select the video mode, start a recording, and look at the
 
 During the recording, the mode picker and the camera switch button are dim. These two controls and the thumbnail button do not react to a tap. After the recording, they are active again. In the Simulator with SimCam, a recording of some seconds gives a `.MOV` file of approximately 1 MB in the Photos library.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch08-s10-4.jpg|During a recording: the mode picker and the switch button are dimmed and do not react."
 Action: Product > Run (Command-R), select the video mode, then record a movie
 Result: The mode picker and the camera switch button are dim during the recording. The time view counts. After the second tap, the movie is in the Photos library.
 ```
