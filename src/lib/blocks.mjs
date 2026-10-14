@@ -68,7 +68,7 @@ function fullFileButton(fence, env) {
   const src = env.registerFile(fence);
   const marked = fence.highlight.length ? fence.highlight.map((n) => fence.map[n - 1]) : fence.map;
   const lines = formatRanges(marked.filter(Boolean)).replace(/\s/g, '');
-  return `<button type="button" class="tool" data-full-file data-file-key="${escapeHtml(fence.fileKey)}" data-file-src="${escapeHtml(src)}" data-lines="${lines}">${icon('expand')}<span class="tool-label">View full file</span></button>`;
+  return `<button type="button" class="tool" data-full-file data-file-key="${escapeHtml(fence.fileKey)}" data-file-src="${escapeHtml(src)}" data-lines="${lines}" title="View full file" aria-label="View full file">${icon('expand')}<span class="tool-label">View full file</span></button>`;
 }
 
 /** The code card of a tutorial step. */
@@ -97,7 +97,7 @@ export function renderStepCode(block, env) {
   return `<figure class="codecard${hidden ? ' has-excerpt' : ''}" data-code style="--digits:${digits(numbers)}">
 <figcaption class="codecard-head">
 <span class="codecard-file" title="${escapeHtml(file)}">${icon('file')}${pathHtml(file)}</span>${badges}
-<span class="codecard-tools">${fullFileButton(fence, env)}<button type="button" class="tool" data-copy-code="${partial ? 'hl' : 'all'}">${icon('copy')}<span class="tool-label">${partial ? 'Copy new lines' : 'Copy code'}</span></button></span>
+<span class="codecard-tools"><button type="button" class="tool tool-hide" data-hide title="Hide the solution again" aria-label="Hide the solution again">${icon('eyeOff')}<span class="tool-label">Hide</span></button>${fullFileButton(fence, env)}<button type="button" class="tool" data-copy-code="${partial ? 'hl' : 'all'}" title="${partial ? 'Copy new lines' : 'Copy code'}" aria-label="${partial ? 'Copy new lines' : 'Copy code'}">${icon('copy')}<span class="tool-label">${partial ? 'Copy new lines' : 'Copy code'}</span></button></span>
 </figcaption>
 <div class="code-scroll" tabindex="0" role="group" aria-label="Code: ${escapeHtml(file)}">${removed}<pre class="code" data-main><code>${body}</code></pre></div>
 ${hidden ? `<button type="button" class="code-more" data-expand aria-expanded="false" data-count="${fence.lines.length}">Show all ${fence.lines.length} lines</button>` : ''}

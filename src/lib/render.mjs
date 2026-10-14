@@ -325,7 +325,7 @@ function solutionCover(page, step) {
 <button type="button" class="btn btn-quiet" data-reveal-section>Show all solutions of this section</button>
 </div>
 ${compare ? `<p class="solution-compare">To compare your file with the finished chapter, run this in the folder of the app:</p><div class="cmd"><code>${e(compare)}</code><button type="button" class="tool tool-icon" data-copy-text="${e(compare)}" title="Copy">${icon('copy')}</button></div>` : ''}
-</div><div class="solution-hide"><button type="button" class="btn btn-quiet" data-hide>Hide solution again</button></div>`;
+</div>`;
 }
 
 function renderStepBlock(site, step, env) {
