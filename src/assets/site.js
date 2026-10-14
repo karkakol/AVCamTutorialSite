@@ -385,6 +385,9 @@
       var done = Boolean(doneSteps[id]);
       if (done) doneCount += 1;
       step.classList.toggle('is-done', done);
+      // A done step shows its code also in the "Try first" mode.
+      var block = $('[data-block-for="' + step.id + '"]');
+      if (block) block.classList.toggle('is-done', done);
       var check = $('[data-step-check]', step);
       if (check) {
         check.setAttribute('aria-pressed', String(done));

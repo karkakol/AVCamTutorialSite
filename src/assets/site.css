@@ -826,12 +826,16 @@ a.pagerow:hover .pagerow-title { color: var(--accent); }
 }
 
 .solution-cover { display: none; }
-html.try-first .step-block:not(.is-revealed) > .solution-cover {
+html.try-first .step-block:not(.is-revealed):not(.is-done) > .solution-cover {
   display: flex; flex-direction: column; gap: 12px;
   padding: 20px 22px; border: 1px dashed var(--accent); border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
-html.try-first .step-block:not(.is-revealed) > .codecard { display: none; }
+html.try-first .step-block:not(.is-revealed):not(.is-done) > .codecard { display: none; }
+.solution-cover .solution-place { margin: 0; max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--code-bg, var(--surface)); overflow: auto; }
+.solution-cover { min-width: 0; }
+.solution-place .ln.ph .tx { color: var(--accent); font-style: italic; }
+.solution-place .ln.ph .no { border-left-color: var(--accent); }
 .tool-hide { display: none; }
 /* The tools of a step code card show icons only, so that the row has room for the file path. */
 .step-block .codecard-head .tool { width: 32px; padding: 0; justify-content: center; }

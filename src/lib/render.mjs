@@ -6,7 +6,7 @@ import { escapeHtml, minutesLabel, hoursLabel, plural } from './util.mjs';
 import { icon } from './icons.mjs';
 import { asideOpen } from './markdown.mjs';
 import { QUIZ_TITLE } from './parse.mjs';
-import { renderStepCode, renderSettings, fileDataName } from './blocks.mjs';
+import { renderStepCode, renderSettings, fileDataName, codeLines } from './blocks.mjs';
 import { resolveImage, resolveLink } from './analyze.mjs';
 
 const e = escapeHtml;
@@ -312,14 +312,60 @@ function cmd(command) {
 
 // ---------------------------------------------------------------- tutorial page
 
+/**
+ * Where the learner writes the code of a step, without the code itself: the file, the lines
+ * around the new code, and a placeholder for the new lines.
+ */
+function solutionPlace(step, env) {
+  const fence = step.block.code;
+  const file = fence.file || 'Code';
+  const fileHtml = `<code>${e(file)}</code>`;
+  const removes = step.block.removes || [];
+  let out = '';
+  if (fence.isNew) {
+    out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml}. The solution has ${fence.lines.length} lines.</p>`;
+  } else {
+    const hl = new Set(fence.highlight);
+    const html = env.highlight(fence.lines.join('\n'), fence.lang || 'swift');
+    const numbers = fence.numbers || fence.lines.map((_, i) => i + 1);
+    let body = '';
+    let run = 0;
+    fence.lines.forEach((line, i) => {
+      if (hl.has(i + 1)) {
+        run += 1;
+        const last = !hl.has(i + 2);
+        if (last) {
+          const indent = (fence.lines[i - run + 1].match(/^\s*/) || [''])[0];
+          body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// write ${run === 1 ? 'one new line' : `${run} new lines`} here\n</span></span>`;
+          run = 0;
+        }
+      } else {
+        body += codeLines([html[i]], { numbers: [numbers[i]] });
+      }
+    });
+    const context = fence.lines.length - fence.highlight.length;
+    const where = context > 0
+      ? `in ${fileHtml}. The lines around the new code are already in your file; the line numbers are those of the finished chapter.`
+      : `in ${fileHtml}. The step text says where. All ${fence.lines.length} lines of this region are new.`;
+    out += `<p class="solution-text"><strong>Where:</strong> ${where}</p>`;
+    out += `<pre class="code solution-place"><code>${body}</code></pre>`;
+  }
+  for (const r of removes) {
+    const rmHtml = env.highlight(r.lines.join('\n'), r.lang || fence.lang || 'swift');
+    out += `<p class="solution-text"><strong>Also delete</strong> ${r.lines.length === 1 ? 'this line' : 'these lines'} in ${fileHtml}:</p><pre class="code solution-place"><code>${codeLines(rmHtml, { removed: true })}</code></pre>`;
+  }
+  return out;
+}
+
 /** The cover of a code panel in the "Try first" mode. */
-function solutionCover(page, step) {
+function solutionCover(page, step, env) {
   if (!step.block || step.block.type !== 'code') return '';
   const file = step.block.code.file;
   const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';
   return `<div class="solution-cover" data-cover>
 <p class="solution-title">${icon('pen')}<span>Write this step yourself first.</span></p>
 <p class="solution-text">Read the goal of the step, write the code in Xcode, and build. Then show the solution and compare.</p>
+${solutionPlace(step, env)}
 <div class="solution-actions">
 <button type="button" class="btn btn-primary" data-reveal>Show solution</button>
 <button type="button" class="btn btn-quiet" data-reveal-section>Show all solutions of this section</button>
@@ -354,7 +400,7 @@ function renderTutorial(site, page, env) {
 <div class="step-instruction">${render(item.instruction)}</div>
 ${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}
 </article>
-<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item)}${renderStepBlock(site, item, env)}</div>`;
+<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}</div>`;
           }
           if (item.type === 'aside') {
             return `<div class="between">${asideOpen(item.kind)}${render(item.tokens)}</aside></div>`;
