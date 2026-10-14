@@ -453,9 +453,9 @@ function renderTutorial(site, page, env) {
 <button type="button" class="check" data-step-check aria-pressed="false" aria-label="${label} of section ${section.number}: mark as done" title="Mark as done">${icon('check')}</button>
 </header>
 <div class="step-instruction">${render(item.instruction)}</div>
-${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}${swiftNotesHtml(site, page, item)}
+${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}
 </article>
-<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}</div>`;
+<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}${swiftNotesHtml(site, page, item)}</div>`;
           }
           if (item.type === 'aside') {
             return `<div class="between">${asideOpen(item.kind)}${render(item.tokens)}</aside></div>`;
