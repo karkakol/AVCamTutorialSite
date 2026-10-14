@@ -11,7 +11,7 @@ uncovered: AVCam.xcodeproj/project.pbxproj
 
 In this tutorial, the dual mode records a movie. The movie shows what the screen shows: one camera fills the frame, and the other camera is a small picture in a corner. A tap on the preview exchanges the two pictures on the screen and in the recording. The record button and the recording time of the video mode come back for the dual mode.
 
-You add four files to the `Capture` group: `MovieRecorder.swift`, which writes a movie file with an [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter); `PiPMixer.metal`, a compute kernel that draws the small picture into the full picture; `PiPVideoMixer.swift`, which runs the kernel; and `DualRecorder.swift`, which receives the frames of the outputs and connects the three parts. You also add approximately 150 lines to nine files that you know from the earlier chapters.
+You add four files to the `Capture` group: `MovieRecorder.swift`, which writes a movie file with an [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter); `PiPMixer.metal`, a compute kernel that draws the small picture into the full picture; `PiPVideoMixer.swift`, which runs the kernel; and `DualRecorder.swift`, which receives the frames of the outputs and connects the three parts. You also add approximately 170 lines to eight files that you know from the earlier chapters.
 
 This chapter is a part of "Beyond the sample". The code is not in the Apple sample. The design follows the Apple sample [AVMultiCamPiP](https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras), which has a mixer and a recorder of the same shape. Read [Concepts: record picture in picture](ch18-concepts.md) first if you want the background for each step.
 
@@ -80,7 +80,7 @@ final class MovieRecorder {
 ### Step
 Below the initializer, add the `append(videoSampleBuffer:)` method. The first video frame starts the file and sets its time zero.
 
-`startWriting()` opens the file one time, when the writer is still in the `unknown` state. Then [`startSession(atSourceTime:)`](https://developer.apple.com/documentation/avfoundation/avassetwriter/startsession(atsourcetime:)) takes the time stamp of the first frame as the time zero of the movie. With a time zero of 0, the movie would start with a long empty gap. Before the `append`, the code checks [`isReadyForMoreMediaData`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/isreadyformoremediadata): an `append` on an input that is not ready raises an exception, and in real time a dropped frame is the better choice.
+`startWriting()` opens the file one time, when the writer is still in the `unknown` state. Then [`startSession(atSourceTime:)`](https://developer.apple.com/documentation/avfoundation/avassetwriter/startsession(atsourcetime:)) takes the time stamp of the first frame as the time zero of the movie. With a time zero of 0, the movie would start with a long empty gap. Before the `append`, the code checks [`isReadyForMoreMediaData`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/isreadyformoremediadata): the SDK header permits an `append` only while the value is `true`, and for a live source a dropped frame is the better choice.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift highlight=3-12
     }
@@ -117,7 +117,7 @@ Audio samples that arrive before the first video frame are dropped, because the 
 ### Step
 Below the `append` methods, add the `finish()` method. It closes the inputs, waits for the writer, and returns the URL.
 
-`markAsFinished()` tells each input that no sample follows. [`finishWriting()`](https://developer.apple.com/documentation/avfoundation/avassetwriter/finishwriting()) writes the index of the file, and the `await` waits for it. When the writer failed at any point, its `error` property tells why, and the method throws it. A writer that never started has no file, so the guard throws before the inputs close.
+`markAsFinished()` tells each input that no sample follows. [`finishWriting()`](https://developer.apple.com/documentation/avfoundation/avassetwriter/finishwriting()) completes the file, and the `await` waits for it. When the writer failed at any point, its `error` property tells why, and the method throws it. A writer that never started has no file, so the guard throws before the inputs close.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift highlight=3-15
     }
@@ -493,7 +493,7 @@ final class DualRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 ### Step
 Below `isRecording`, add the `startRecording()` method. It creates a movie recorder with the settings that the outputs recommend.
 
-[`recommendedVideoSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettingsforassetwriter(writingto:)) returns compression settings that fit the format of the output and the file type. The audio settings have a trap: [`recommendedAudioSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput/recommendedaudiosettingsforassetwriter(writingto:)) is valid only after the microphone delivered samples. In the simulator, the sample rate is 0, and `AVAssetWriterInput` raises an exception for that value. The first version of this chapter crashed here. The guard records without sound in that case.
+[`recommendedVideoSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettingsforassetwriter(writingto:)) returns compression settings that fit the format of the output and the file type. The audio settings have a trap: in the simulator, [`recommendedAudioSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput/recommendedaudiosettingsforassetwriter(writingto:)) returned a sample rate of 0, probably because the microphone had delivered no samples, and `AVAssetWriterInput` raised an exception for that value. The first version of this chapter crashed here. The guard records without sound in that case.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-21
     var isRecording: Bool { recorder != nil }
@@ -759,7 +759,7 @@ Before the `return` statement of `addCamera`, add the video data output to the s
 ### Step
 Below the delegate line, connect the video port to the output, and give the connection its mirroring and its rotation angle.
 
-[`AVCaptureConnection(inputPorts:output:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:)) links the same port that feeds the preview layer to the output. A connection that you make has no automatic settings, so the code mirrors the front camera again. The angle is [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), not the preview angle: a recorded frame is turned like a photo. In the simulator, this angle is 0, so the movie is landscape, as the photos of chapter 3 are.
+[`AVCaptureConnection(inputPorts:output:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:)) links the same port that feeds the preview layer to the output. The app does not rely on automatic mirroring for a connection that it makes, so the code mirrors the front camera again. The angle is [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), not the preview angle: a recorded frame is turned like a photo. In the simulator, this angle is 0, so the movie is landscape, as the photos of chapter 3 are.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=3-13
         videoOutput.setSampleBufferDelegate(recorder, queue: recorder.dataOutputQueue)
@@ -783,7 +783,7 @@ Below the delegate line, connect the video port to the output, and give the conn
 ### Step
 Below `addCamera`, add the `addMicrophone(_:recorder:)` method. It adds the microphone input with no connections and finds its audio port.
 
-On an iPhone, the microphone input has an [`AVCaptureInput.Port`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/port) for each direction. The port with the back position gives the sound of the scene in front of the back camera. The simulator has one port with no position, so the fallback takes the first audio port from [`ports`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/ports). The method ends after the port for now.
+The SDK header says that the microphone input has a hidden [`AVCaptureInput.Port`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/port) for each direction, which only this method finds. The port with the back position gives the sound of the scene in front of the back camera. In the simulator, no port has the back position, so the fallback takes the first audio port from [`ports`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/ports). The method ends after the port for now.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-17
         return input
@@ -1224,7 +1224,7 @@ The dual mode now records what it shows. The app has reached the end of "Beyond 
 ### The video mode records with `AVCaptureMovieFileOutput`. Why does the dual mode need `MovieRecorder` with an `AVAssetWriter` instead?
 
 - [ ] A multi-camera session accepts no movie file output.
-  > A multi-camera session accepts the same outputs as a plain session. The reason is in the frames, not in the session.
+  > The type of the session is not the reason. The reason is in the frames.
 - [x] A movie file output records the frames of one connection, and the mixed frames of the dual mode exist in no connection. The app makes them, so the app must write them.
   > Correct. The data outputs give the app the frames of each camera, the mixer makes a new frame, and the asset writer writes it to a file. The video mode keeps its movie file output.
 - [ ] A movie file output cannot write a QuickTime file with an audio track.
@@ -1234,8 +1234,8 @@ The dual mode now records what it shows. The app has reached the end of "Beyond 
 
 - [ ] `let microphone = try? deviceLookup.defaultMic`. The simulator has no microphone, so `defaultMic` throws.
   > The simulator has a microphone input, and the session connects it. The audio output delivers nothing, but the input exists.
-- [x] `if (audioSettings?[AVSampleRateKey] as? Double ?? 0) <= 0 { audioSettings = nil }`. The recommended audio settings have a sample rate of 0 before the microphone delivered samples, and an `AVAssetWriterInput` with that value raises an exception.
-  > Correct. The first version of this chapter crashed at the start of each recording. The guard records without sound instead. On a real iPhone, the microphone delivers samples at once, so the settings are valid there, but nobody verified that.
+- [x] `if (audioSettings?[AVSampleRateKey] as? Double ?? 0) <= 0 { audioSettings = nil }`. In the simulator, the recommended audio settings had a sample rate of 0, and an `AVAssetWriterInput` with that value raised an exception.
+  > Correct. The first version of this chapter crashed at the start of each recording. The guard records without sound instead. On a real iPhone, the settings are probably valid, but nobody verified that.
 - [ ] `audioOutput.setSampleBufferDelegate(recorder, queue: recorder.dataOutputQueue)`. The audio output needs its own queue.
   > One serial queue for all outputs is correct. It is the reason why the recorder needs no lock.
 

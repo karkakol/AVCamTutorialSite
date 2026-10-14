@@ -11,7 +11,7 @@ uncovered: AVCam.xcodeproj/project.pbxproj
 
 In this tutorial, you add a third capture mode to the app. In the dual mode, the back camera fills the screen, and the front camera is a small picture in a corner. A tap exchanges the two pictures. The mode captures nothing yet. The next chapter adds the capture.
 
-You add two files: `MultiCamCapture.swift`, which owns an [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession), and `DualCameraPreview.swift`, which shows the two previews. You also add approximately 170 lines to twelve files that you know from the earlier chapters.
+You add two files: `MultiCamCapture.swift`, which owns an [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession), and `DualCameraPreview.swift`, which shows the two previews. You also add approximately 180 lines to 13 files that you know from the earlier chapters.
 
 This chapter is a part of "Beyond the sample". The code is not in the Apple sample. The connection code follows the Apple sample [AVMultiCamPiP](https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras), changed to fit this app. Read [Concepts: two cameras at once](ch17-concepts.md) first if you want the background for each step.
 
@@ -212,7 +212,7 @@ A new file in the `AVCam` group belongs only to the app target. That is enough f
 ### Step
 Create a new Swift file with the name `MultiCamCapture.swift` in the `Capture` group, and replace its contents.
 
-The static `isSupported` property reads [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported), which is `true` on a device with the A12 chip or a later one. The session is a stored property, like the single session of the capture service. The width limit keeps the hardware cost low: two large formats cost more than the hardware can give.
+The static `isSupported` property reads [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported), which is `true` on a device with enough hardware bandwidth, system memory, and thermal performance. The session is a stored property, like the single session of the capture service. The width limit keeps the hardware cost low: two large formats cost more than the hardware can give.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift new
 /*
@@ -334,7 +334,7 @@ An input has one port for each stream that it supplies. `ports(for:sourceDeviceT
 ### Step
 After `addConnection`, set the mirroring of the connection by the position of the camera, and give it the rotation angle of the preview.
 
-A connection that you make gets no automatic settings. Without this code, the front preview is not a mirror image, and both previews can be on their side. The order of the two mirroring assignments is the rule from chapter 16: [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception while [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) is `true`. The rotation coordinator is the class from chapter 2, now for a second camera and a second layer.
+In the test of this chapter, a connection that the app made did not mirror the front camera, and no connection gets a rotation angle by itself. Without this code, the front preview is not a mirror image, and both previews can be on their side. The order of the two mirroring assignments is the rule from chapter 16: [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception while [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) is `true`. The rotation coordinator is the class from chapter 2, now for a second camera and a second layer.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=3-10
         session.addConnection(connection)
@@ -386,7 +386,7 @@ A multi-camera session uses no preset, so each camera keeps its active format. O
 ### Step
 Below `selectMultiCamFormat`, add the two cost properties. They return the costs of the session.
 
-[`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the thermal and power load. Above 1.0, the session cannot run, or the device becomes hot soon. The capture service writes both to the log. In the simulator, both are 0.
+[`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the system pressure load. Above 1.0, the session cannot run, or it cannot run for a long time. The capture service writes both to the log. In the simulator, both are 0.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-14
         device.unlockForConfiguration()
@@ -662,7 +662,7 @@ Result: The build succeeds.
 
 ## Run the multi-camera session from the capture service
 
-The capture service decides which session runs. In this section, it gets a `MultiCamCapture` object and a place for the two preview layers. When the mode becomes dual, the service stops the single-camera session and starts the multi-camera session. When the mode leaves dual, it does the reverse. Two sessions never run at the same time.
+The capture service decides which session runs. In this section, it gets a `MultiCamCapture` object and a place for the two preview layers. When the mode becomes dual, the service stops the single-camera session and starts the multi-camera session. When the mode leaves dual, it does the reverse. Two sessions never run at the same time in this app.
 
 ### Step
 In `CaptureService.swift`, add the `multiCamCapture` and `dualPreviewLayers` properties below the `movieCapture` property.
@@ -759,7 +759,7 @@ Two events can come in either order: the mode becomes dual, and the preview view
 ### Step
 At the top of `setCaptureMode(_:)`, store the previous mode. For the dual mode, stop the single-camera session, start the dual capture, and return.
 
-The single-camera session must stop first, because two sessions cannot use the cameras at the same time. The `return` skips the configuration of the single-camera session, which the dual mode does not need. The call to `updateCaptureCapabilities()` gives the interface the unknown capabilities of the dual mode.
+The single-camera session must stop first, because two sessions probably cannot use the cameras at the same time. The `return` skips the configuration of the single-camera session, which the dual mode does not need. The call to `updateCaptureCapabilities()` gives the interface the unknown capabilities of the dual mode.
 
 ```swift file=AVCam/CaptureService.swift highlight=2,6-12
     func setCaptureMode(_ captureMode: CaptureMode) throws {
@@ -1129,14 +1129,14 @@ The app shows two cameras at the same time, but it captures nothing in the dual 
 - [ ] `previewLayer.setSessionWithNoConnection(session)`. The single preview sets `session` instead, which mirrors the front camera.
   > This call gives the layer its session. It sets no mirroring. The single preview gets its mirroring from its connection, not from the session.
 - [x] `connection.isVideoMirrored = device.position == .front`. The single preview has a connection that the session made, and such a connection mirrors the front position by itself.
-  > Correct. A connection that the app makes has no automatic settings. The app sets `automaticallyAdjustsVideoMirroring` to `false` first, then `isVideoMirrored` by the position, and it also sets the rotation angle.
+  > Correct. In the test, a connection that the app made did not mirror the front camera. The app sets `automaticallyAdjustsVideoMirroring` to `false` first, then `isVideoMirrored` by the position, and it also sets the rotation angle.
 - [ ] `preview.previewLayer.videoGravity = .resizeAspectFill`. The single preview uses `resizeAspect`.
   > The video gravity decides how the picture fills the layer. It does not mirror the picture.
 
 ### A person leaves the dual mode for the video mode. In which order do the sessions change?
 
 - [ ] The single-camera session starts first, so that the preview shows frames at once, and then the multi-camera session stops.
-  > Two sessions cannot run at the same time. The start would fail while the multi-camera session has the cameras.
+  > Two sessions probably cannot use the cameras at the same time. The app stops the multi-camera session first.
 - [x] The multi-camera session stops, the single-camera session gets its video configuration, and the `defer` block starts it after the commit.
   > Correct. `setCaptureMode(_:)` stops the multi-camera session before `beginConfiguration()`, and the `defer` block calls `startRunning()` after `commitConfiguration()`, when the preset and the movie output are in place.
 - [ ] The multi-camera session continues, and the single-camera session takes the back camera from it.

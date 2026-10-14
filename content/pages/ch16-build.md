@@ -10,7 +10,7 @@ branch: chapter-16
 
 In this tutorial, you prepare the app for iPhone Duo, a device with a display on each side. First, you move the interface to the center of the Duo display. Then you add a direction coordinator, which tells the app which way each camera faces. The capture service uses its reports to change the camera and to mirror the preview.
 
-You add no new files. You add approximately 160 lines to eight files that you know from the earlier chapters.
+You add no new files. You add approximately 170 lines to eight files that you know from the earlier chapters.
 
 This chapter is a part of "Beyond the sample". The code is not in the Apple sample. It follows an Apple article, changed to fit this app. Read [Concepts: iPhone Duo](ch16-concepts.md) first if you want the background for each step.
 
@@ -114,7 +114,7 @@ On the Duo display, the difference is 84 points, so each side gets 42 points. Th
 ### Step
 Build and run the app in the iPhone Duo simulator. Make sure that the preview and the controls are in the center of the display.
 
-In the test for this tutorial, the two side margins were 126 and 128 pixels on a display that is 1398 pixels wide. That is 42 points at each side. In the iPhone 18 Pro simulator, the layout was the same as before.
+In the test for this tutorial, the two side margins were 126 and 128 pixels on a display that is 1398 pixels wide. That is approximately 42 points at each side. In the iPhone 18 Pro simulator, the layout was the same as before.
 
 ```settings title="Checkpoint"
 Destination: the iPhone Duo simulator (iOS 27.1), with SimCam in operation

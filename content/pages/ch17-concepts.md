@@ -20,7 +20,7 @@ This chapter is a part of "Beyond the sample". The code is not in the Apple samp
 
 ### One session, one camera
 
-A plain `AVCaptureSession` accepts one camera input. When you add a second camera, `canAddInput(_:)` returns `false`. The reason is in the hardware: the sensors, the image signal processor, and the memory bandwidth are a shared budget. A plain session takes the full budget for one camera, so that a photo gets the best quality that the camera can give.
+A plain `AVCaptureSession` runs one camera at a time. It does not accept a second camera input. The SDK header gives the reason for the subclass: more than one camera needs enough hardware bandwidth, system memory, and thermal performance. A plain session probably uses the full budget for its one camera.
 
 In the earlier chapters, this rule was no problem. The app showed one camera, and a change of the camera was a change of the input. For two cameras at the same time, you need a different session.
 
@@ -28,7 +28,7 @@ In the earlier chapters, this rule was no problem. The app showed one camera, an
 
 [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) is a subclass of `AVCaptureSession`. It accepts more than one input of the same media type: two cameras, or two microphones. All methods of the plain session also work on it, because it is a subclass. Three things are different:
 
-- The class property [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported) tells you if the device can run it. The feature needs the A12 chip or a later one. The app reads this value one time and hides the dual mode when the value is `false`.
+- The class property [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported) tells you if the device can run it. The SDK header says that only devices with enough hardware bandwidth, system memory, and thermal performance support it. The app reads this value one time and hides the dual mode when the value is `false`.
 - Session presets do not apply. A multi-camera session always uses the `inputPriority` preset, so each camera keeps the format that you give it. In chapter 3, the preset selected a format for you. Here, you select it.
 - Not every format works. A format of a camera has the property [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported). The session accepts the input only when the active format of the camera has this property set to `true`. So the app sets the format before it adds the input.
 
@@ -54,23 +54,23 @@ For an output, the method is the same. You add the output with [`addOutputWithNo
 
 ### No mirroring and no rotation
 
-A connection that the session makes gets two automatic settings. It mirrors the preview of a camera with the front position, and it gives the preview the rotation angle of the device. A connection that you make gets nothing. In the first test of this chapter, the front preview was not mirrored, and the back preview was mirrored, because its layer kept an old setting.
+A connection that the session makes mirrors the preview of a camera with the front position. The SDK header says that the automatic adjustment is on by default. But in the first test of this chapter, the connections that the app made did not do this: the front preview was not mirrored, and the back preview was mirrored, because its layer kept an old setting. The rotation angle is never automatic. In chapter 2, the app set the angle of the single preview itself.
 
 So the app sets both values on each connection:
 
 - It sets [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) to `false`, and then [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) to `true` for the front camera only. The order matters: the second assignment raises an exception while the first value is `true`. Chapter 16 gave you this rule. Here, the rule uses the position of the camera, because the dual mode has no direction coordinator.
-- It creates an [`AVCaptureDevice.RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator) for the camera and the layer, and gives the connection the preview angle. The app sets the angle one time. It does not observe later changes of the angle in the dual mode.
+- It creates an [`AVCaptureDevice.RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator) for the camera and the layer, and gives the connection the preview angle, as chapter 2 did for the single preview. The app sets the angle one time. It does not observe later changes of the angle in the dual mode.
 
 ### Two costs
 
 Two cameras use more of the hardware than one camera. The session tells you how much, with two numbers:
 
-- [`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses: sensors, image signal processor, memory bandwidth. Above 1.0, the session cannot run.
-- [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the thermal and power load. Above 1.0, the device becomes hot soon, and the system can stop the session.
+- [`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. Above 1.0, the session cannot run.
+- [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the system pressure load. Above 1.0, the session cannot run for a long time, and the system stops it when the pressure becomes critical.
 
-The formats of the two cameras set the costs. A larger format, a higher frame rate, and more video ports all make a cost larger. This app keeps the costs low with its format selection: the largest multi-camera format up to 1920 pixels wide, with the highest frame rate at that width. Then it writes the two costs to the log and does nothing else with them.
+The formats of the two cameras set the costs. The SDK header names the contributors: a format that uses the full sensor, a high maximum frame rate, and a format that is not binned. The Apple sample also counts the video ports. This app keeps the costs low with its format selection: the largest multi-camera format up to 1920 pixels wide, with the highest frame rate at that width. Then it writes the two costs to the log and does nothing else with them.
 
-The Apple sample does more. After the configuration, it reads the two costs. When a cost is above 1.0, it reduces the resolution of the formats. When that is not enough, it reduces the frame rate. When that is still not enough, it removes video ports. It also observes the system pressure state while the session runs, and lowers the frame rate under pressure. This is the correct behavior for a shipping app.
+The Apple sample does more. After the configuration, it reads the two costs. When a cost is above 1.0, it reduces the resolution of a format, the number of video ports, or the frame rate, one step at a time, until each cost fits. It also observes the system pressure state while the session runs, and lowers the frame rate under pressure. This is the correct behavior for a shipping app.
 
 ### The start blocks
 
@@ -80,17 +80,17 @@ The Apple sample does more. After the configuration, it reads the two costs. Whe
 
 The multi-camera API offers more than this chapter uses:
 
-- **Device sets.** `supportedMultiCamDeviceSets` tells you which cameras can run together. On some devices, two back cameras can run at the same time, for example the wide camera and the ultra wide camera. The app uses the back camera and the front camera only.
+- **Device sets.** `supportedMultiCamDeviceSets` tells you which cameras can run together. On some devices, two back cameras can probably run at the same time. The app uses the back camera and the front camera only.
 - **Data outputs.** An [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) for each camera gives your code the frames. The Apple sample connects one to each camera, and a Metal shader draws the small picture into the large picture. This app has no data output. It shows the cameras, and it captures nothing in the dual mode.
-- **A movie from two cameras.** The Apple sample writes the mixed frames and the audio with an [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter), not with a movie file output, because a movie file output takes the frames of one connection only.
-- **Two microphones.** A multi-camera session accepts the microphone one time, with two [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) objects. The microphone input has one audio port for each position. The Apple sample connects the front audio port to the front camera and the back audio port to the back camera, so each half of the picture gets the sound from its side.
+- **A movie from two cameras.** The Apple sample writes the mixed frames and the audio with an [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter), not with a movie file output, because the mixed frames exist in no connection.
+- **Two microphones.** A multi-camera session accepts the microphone one time, with two [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) objects. The SDK header says that the microphone input has hidden ports, one for each direction, which `ports(for:sourceDeviceType:sourceDevicePosition:)` finds. The Apple sample connects the back port and the front port to one audio data output each. It records one audio track: the sound from the side of the camera in the small picture.
 - **Cost control.** The two cost properties, and the system pressure state of a camera, give an app the data to reduce the load before the system stops the session.
 
 Chapter 18 adds the data outputs, the Metal mixer, the asset writer, and the microphone to this app.
 
 ## Why this app does it this way
 
-**A second session, not a replacement.** The app could replace its `AVCaptureSession` with an `AVCaptureMultiCamSession` and run one session in all modes. It does not. The photo mode and the video mode keep their session, their presets, their deferred start, and their outputs, which chapters 3 to 15 built. The `MultiCamCapture` object owns a second session. Two sessions cannot run at the same time, so the capture service stops one session before it starts the other. The cost is a short black screen at each change of the mode.
+**A second session, not a replacement.** The app could replace its `AVCaptureSession` with an `AVCaptureMultiCamSession` and run one session in all modes. It does not. The photo mode and the video mode keep their session, their presets, their deferred start, and their outputs, which chapters 3 to 15 built. The `MultiCamCapture` object owns a second session. Two sessions probably cannot use the cameras at the same time, so the capture service stops one session before it starts the other. The cost is a short black screen at each change of the mode.
 
 **The single preview stays in place.** `CaptureService` connects the preview layer of `CameraPreview` during the setup, and later code reads this connection. So the view stays in the view tree in each mode. In the dual mode, `DualCameraPreview` covers it as an overlay.
 
@@ -105,14 +105,14 @@ Chapter 18 adds the data outputs, the Metal mixer, the asset writer, and the mic
 ## Common mistakes
 
 - **`addInput(_:)` on a multi-camera session.** The session connects the camera to each output and to the preview layer. The second camera then has no place to go, or both cameras go to the same output. Use `addInputWithNoConnections(_:)` and make the connections.
-- **A format that is not a multi-camera format.** `canAddInput(_:)` returns `false`, and the app sees only a failed input. Set a format with `isMultiCamSupported` before you add the input.
+- **A format that is not a multi-camera format.** The SDK header says that the active format must be one with `isMultiCamSupported`. Set such a format before you add the input.
 - **A session preset on a multi-camera session.** The session ignores it. Select the format of each camera yourself.
 - **A preview layer with `session` set.** The property makes a connection. Use `setSessionWithNoConnection(_:)`, and then add your own connection.
-- **No mirroring and no rotation.** A connection that you make has no automatic values. Set `automaticallyAdjustsVideoMirroring` to `false` first, then `isVideoMirrored`, and give the connection a rotation angle.
-- **Two sessions that run at the same time.** The second session cannot get the camera. Stop one session before you start the other.
+- **No mirroring and no rotation.** In the test, a connection that the app made did not mirror the front camera, and no connection gets a rotation angle by itself. Set `automaticallyAdjustsVideoMirroring` to `false` first, then `isVideoMirrored`, and give the connection a rotation angle.
+- **Two sessions that run at the same time.** The second session probably cannot get the camera. Stop one session before you start the other.
 - **`startRunning()` on the main actor.** The call blocks, and the interface stops. Call it on the actor that owns the session.
 - **A cost above 1.0 that nobody reads.** On a real device, two large formats can exceed the budget, and the session does not run. Read the two costs after the configuration, and reduce the formats when a cost is too high.
-- **A test in the simulator only.** The simulator reports a cost of 0 for each configuration and runs each pair of simulated cameras. Test the dual mode on a real iPhone before you ship it.
+- **A test in the simulator only.** The simulator reported a cost of 0 for the configuration of this app, and it ran the two simulated cameras together. Test the dual mode on a real iPhone before you ship it.
 
 ## Documentation
 

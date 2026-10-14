@@ -44,7 +44,7 @@ You do not always need the coordinator. For the front position, the system gives
 - It is a virtual device, so [`isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice) is `true`. Its [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) tells you which physical camera streams now. The value is `nil` until the session runs.
 - It can do only the things that the two physical cameras can both do.
 
-The front discovery session of this app asks for `.builtInWideAngleCamera`. Thus, from the documentation, the front camera of the app is the virtual front camera on iPhone Duo, and the selfie camera continues to work with no change. Nobody examined this on a device.
+The front discovery session of this app asks for `.builtInTrueDepthCamera` first, and then for `.builtInWideAngleCamera`. The article says nothing about the TrueDepth type. If iPhone Duo has no TrueDepth camera, the front camera of the app is probably the virtual front camera, and the selfie camera continues to work with no change. Nobody examined this on a device.
 
 So when is the coordinator necessary? In two situations:
 
