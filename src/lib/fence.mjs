@@ -6,7 +6,7 @@
 //   settings title="Target AVCam › Info"
 //   links
 
-const FLAGS = ['new', 'remove', 'transient'];
+const FLAGS = ['new', 'remove', 'transient', 'copy'];
 
 export function parseInfo(info) {
   const out = {
@@ -18,6 +18,7 @@ export function parseInfo(info) {
     isNew: false,
     remove: false,
     transient: false,
+    copy: false, // boilerplate: in the "Try first" mode the code is shown, with a note to copy it
     results: [], // [{ src, caption }] result images shown under the code
     badHighlight: false,
   };
@@ -38,7 +39,7 @@ export function parseInfo(info) {
   // file=path. The path can have spaces ("AVCam/Preview Content/X.swift"):
   // it ends at the next attribute or at the end of the line. Quotes also work.
   rest = rest.replace(
-    /(^|\s)file=(?:"([^"]*)"|(.+?))(?=\s+(?:highlight=|result=|new\b|remove\b|transient\b)|\s*$)/,
+    /(^|\s)file=(?:"([^"]*)"|(.+?))(?=\s+(?:highlight=|result=|new\b|remove\b|transient\b|copy\b)|\s*$)/,
     (m, lead, quoted, bare) => {
       out.file = (quoted !== undefined ? quoted : bare).trim();
       return ' ';

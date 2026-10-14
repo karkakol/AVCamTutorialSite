@@ -844,7 +844,11 @@ html.try-first .step-block:not(.is-revealed):not(.is-done) > .solution-cover {
   padding: 20px 22px; border: 1px dashed var(--accent); border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
-html.try-first .step-block:not(.is-revealed):not(.is-done) > .codecard { display: none; }
+html.try-first .step-block:not(.is-revealed):not(.is-done):not(.no-cover) > .codecard { display: none; }
+.solution-copy { display: none; }
+html.try-first .step-block.no-cover > .solution-copy { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--muted); font-size: 0.9375rem; }
+.solution-copy .icon { width: 16px; height: 16px; color: var(--accent); flex: none; }
+html.try-first .step-block.no-cover .tool-hide { display: none; }
 .solution-cover .solution-place { margin: 0; max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--code-bg, var(--surface)); overflow: auto; }
 .solution-cover { min-width: 0; }
 .solution-place .ln.ph .tx { color: var(--accent); font-style: italic; }

@@ -26,6 +26,8 @@ Select the AVCam target, open the Build Settings tab, find the Info.plist Values
 
 The key behind this name is [`NSPhotoLibraryUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsphotolibraryusagedescription). This is the value of the Apple sample.
 
+To find the row, select All (not Basic) at the top of the tab, and type `Photo Library` in the filter field. Enter the value in the row of the setting itself, not in the Debug or Release row below it. Then the two configurations get the value, as in the sample.
+
 > [!NOTE]
 > This key is for read-write access. The code that you write asks for add-only access, and Apple names a different key for it, [`NSPhotoLibraryAddUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsphotolibraryaddusagedescription). The research for this tutorial did not test this combination on an iPhone. The tutorial keeps the setting of the sample. The concepts page tells you more.
 
@@ -51,7 +53,9 @@ Create a new Swift file with the name `MediaLibrary.swift` in the `Model` group,
 
 `MediaLibrary` is an actor. A save waits for a location, can show a permission alert, and writes to a database. This work must not run on the main actor, where it stops the interface. This actor does not use the session queue, so a slow save does not stop the camera.
 
-The actor has its own `Error` type. Inside the actor, the name `Error` now means this enumeration. Thus the code writes `Swift.Error` for the protocol of the standard library. The file imports `UIKit` because the thumbnail arrives as a `UIImage` object.
+The actor has its own `Error` type: an enumeration `Error` that conforms to `Swift.Error`, with the two cases `unauthorized` and `saveFailed`. Inside the actor, the name `Error` now means this enumeration. Thus the code writes `Swift.Error` for the protocol of the standard library.
+
+The file imports `Foundation`, `Photos`, and `UIKit`. It imports `UIKit` because the thumbnail arrives as a `UIImage` object. In this step, the actor contains only the enumeration.
 
 ```swift file=AVCam/Model/MediaLibrary.swift new
 /*
@@ -82,7 +86,9 @@ Below the `Error` enumeration, add the `thumbnails` stream, its continuation, an
 
 The library makes a thumbnail some time after a save, and it can deliver more than one image for one photo. A return value of the save method can carry only one image. An [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) carries each image when it is ready. The actor writes to the continuation. The model reads the stream.
 
-The element type is `CGImage?`, because the conversion from a `UIImage` object to a `CGImage` can fail. The sample declares the continuation as an optional value, but the initializer always sets it.
+The element type is `CGImage?`, because the conversion from a `UIImage` object to a `CGImage` can fail. The stream is the constant `thumbnails` of type `AsyncStream<CGImage?>`. The continuation is the private constant `continuation` of type `AsyncStream<CGImage?>.Continuation?`. The sample declares the continuation as an optional value, but the initializer always sets it.
+
+In `init()`, the static method [`AsyncStream.makeStream(of:)`](https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:)) returns a tuple with the stream and its continuation. Give it `CGImage?.self` as the element type, and store the two values.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=7-9,11-16
     // Errors that media library can throw.
@@ -106,7 +112,9 @@ The element type is `CGImage?`, because the conversion from a `UIImage` object t
 ```
 
 ### Step
-Below the initializer, add the `isAuthorized` property, which reads the authorization status for add-only access.
+Below the initializer, add the private `Bool` property `isAuthorized` with an `async` getter (`get async`), which reads the authorization status for add-only access.
+
+Put a mark comment, `// MARK: - Authorization`, above the property. The getter calls `PHPhotoLibrary.authorizationStatus(for: .addOnly)` and keeps the result of the comparison with `.authorized` in a local variable `isAuthorized`, which it returns. The next step changes this variable, so declare it with `var`.
 
 [`authorizationStatus(for:)`](https://developer.apple.com/documentation/photos/phphotolibrary/authorizationstatus(for:)) shows no alert. It only reports the decision that the person made before. The [`.addOnly`](https://developer.apple.com/documentation/photos/phaccesslevel/addonly) level is sufficient for a camera: the app adds photos and does not read the library. A small permission is easier for the person to give than access to all photos.
 
@@ -172,9 +180,11 @@ You cannot write a file into the Photos library. You describe a change, and the 
 ![The path of one photo through the media library actor, and the path of the thumbnail back to the interface](../images/ch04-save-flow.svg)
 
 ### Step
-Below `isAuthorized`, add the `performChange(_:)` method, which first makes sure that the app has access.
+Below `isAuthorized`, add the private method `performChange(_:)`, which is `async throws` and first makes sure that the app has access.
 
-This is a template method. It contains the steps that are the same for each save. The `change` parameter is a closure that describes one change and returns a placeholder for the new asset. In chapter 8, the method that saves a movie uses `performChange(_:)` again with a different closure.
+This is a template method. It contains the steps that are the same for each save. The `change` parameter is a closure that describes one change and returns a placeholder for the new asset. Its type is `@Sendable @escaping () -> PHObjectPlaceholder?`. The closure is `@escaping` because the library runs it later, in its own change block. It is `@Sendable` because that block can run on a different thread. In chapter 8, the method that saves a movie uses `performChange(_:)` again with a different closure.
+
+In this step, the method only reads `isAuthorized` with `await` and throws `Error.unauthorized` when the value is `false`.
 
 The app asks for permission here, at the first save, and not at launch. At this moment, the person knows why the app asks.
 
@@ -196,7 +206,7 @@ The app asks for permission here, at the first save, and not at launch. At this 
 ### Step
 Run the `change` closure in a change block of the shared library, and throw `saveFailed` if the change fails.
 
-The closure that you give to [`performChanges`](https://developer.apple.com/documentation/photos/phphotolibrary/performchanges(_:completionhandler:)) is the change block. The system runs it, and then applies the requests that the block created. The `async` form of the method returns when the change is complete, or it throws an error. The code keeps the placeholder in a local variable, because the change block cannot return a value.
+The shared library is `PHPhotoLibrary.shared()`. The closure that you give to its [`performChanges`](https://developer.apple.com/documentation/photos/phphotolibrary/performchanges(_:completionhandler:)) method is the change block. The system runs it, and then applies the requests that the block created. The `async` form of the method returns when the change is complete, or it throws an error. The code keeps the placeholder in a local variable, because the change block cannot return a value.
 
 The `catch` block replaces each error with `saveFailed`. This is simple, but the caller cannot see the real cause, for example a full disk.
 
@@ -219,7 +229,9 @@ The `catch` block replaces each error with `saveFailed`. This is simple, but the
 ```
 
 ### Step
-Above `performChange(_:)`, add the `save(photo:)` method. In its closure, create an asset creation request and return its placeholder.
+Above `performChange(_:)`, add the method `save(photo: Photo) async throws`. It calls `performChange(_:)` with a closure. In the closure, create an asset creation request and return its placeholder.
+
+The method is not private: the model calls it in a later section. `Photo` is the value type from chapter 3. Put a mark comment, `// MARK: - Saving media`, above the method.
 
 [`PHAssetCreationRequest.forAsset()`](https://developer.apple.com/documentation/photos/phassetcreationrequest/forasset()) makes a request for a new asset. A request is valid only in a change block, and this closure runs in the change block of `performChange(_:)`.
 
@@ -247,7 +259,7 @@ The asset does not exist until the system applies the change. The [`placeholderF
 ### Step
 Add the photo data to the request as a resource of type `.photo`.
 
-An asset is made of resources, and each resource is one file. [`addResource(with:data:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:data:options:)) takes the complete file from memory. The data from chapter 3 is already a complete HEIF or JPEG file, so no conversion is necessary. The options object is empty here. Chapter 7 adds a second resource to the same request, the movie of a Live Photo.
+An asset is made of resources, and each resource is one file. [`addResource(with:data:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:data:options:)) takes the complete file from memory. The data from chapter 3 is already a complete HEIF or JPEG file, so no conversion is necessary. Give `photo.data` as the data. The options object is a new `PHAssetResourceCreationOptions` with no changes. Chapter 7 adds a second resource to the same request, the movie of a Live Photo.
 
 This call does not report bad data. The system examines the request later, and an error comes from `performChanges`.
 
@@ -280,11 +292,15 @@ Result: The build succeeds with no errors and one warning.
 A camera shows a small image of the last photo. The Apple sample gets this image from the Photos library: it finds the new asset and asks for a small version of it. In this section, you write this code.
 
 ### Step
-Below `performChange(_:)`, add the `createThumbnail(for:)` method, which asks the image manager for a small image of the asset.
+Below `performChange(_:)`, add the private method `createThumbnail(for asset: PHAsset) async`, which asks the image manager for a small image of the asset. In this step, leave the closure of the request empty. The next step fills it.
 
-[`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image at the size that you name. A size of 256 x 256 pixels is sufficient for a button of 64 points on a screen with three pixels for each point. The app gets a small image, not the full photo.
+The method is `async` as in the sample, although nothing inside it waits. Thus the caller writes `await`. Put a mark comment, `// MARK: - Thumbnail handling`, above the method.
 
-[`requestImage`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)) does not wait for the final image. The image arrives in the closure, which is the last argument. The closure usually runs later. If an image is available immediately, the first call of the closure can occur before the method returns.
+[`PHImageManager`](https://developer.apple.com/documentation/photos/phimagemanager) makes an image at the size that you name. Use `PHImageManager.default()`, a `targetSize` of `CGSize(width: 256, height: 256)`, the `contentMode` `.default`, and `nil` for the options. A size of 256 x 256 pixels is sufficient for a button of 64 points on a screen with three pixels for each point. The app gets a small image, not the full photo.
+
+[`requestImage`](https://developer.apple.com/documentation/photos/phimagemanager/requestimage(for:targetsize:contentmode:options:resulthandler:)) does not wait for the final image. The image arrives in the closure, which is the last argument. The closure gets two parameters: the optional `UIImage` and an info dictionary, which the code ignores. The closure captures `[weak self]`, because the library can hold it after the actor is gone. The closure usually runs later. If an image is available immediately, the first call of the closure can occur before the method returns.
+
+In Try first mode, the place card shows the three lines of the closure body. They are not in your file yet. They are the code of the next step.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=6,8-13,17-18
         } catch {
@@ -314,7 +330,7 @@ In the closure, send the image into the `thumbnails` stream.
 
 With the default options, the image manager can call the closure two times: first with a fast image of low quality, then with the final image. This is the reason for a stream. The code yields each image, and the reader of the stream shows the newest one. A continuation that you must resume exactly one time is the wrong tool for this closure.
 
-The image manager gives a `UIImage` object. The stream carries the `CGImage` of it, which is an optional value.
+The image manager gives a `UIImage` object. The stream carries the `cgImage` property of it, which is an optional value. First unwrap `self` and the image with `guard let`. Then call `yield(_:)` on `continuation`, which is optional, so write `continuation?.yield(image.cgImage)`.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=7-9
     private func createThumbnail(for asset: PHAsset) async {
@@ -333,9 +349,9 @@ The image manager gives a `UIImage` object. The stream carries the `CGImage` of 
 ### Step
 In `performChange(_:)`, use the placeholder to fetch the new asset after the change, and make its thumbnail.
 
-[`fetchAssets(withLocalIdentifiers:options:)`](https://developer.apple.com/documentation/photos/phasset/fetchassets(withlocalidentifiers:options:)) finds assets by their identifiers. The placeholder has the identifier of the new asset, so the fetch returns exactly the photo that the app saved.
+[`fetchAssets(withLocalIdentifiers:options:)`](https://developer.apple.com/documentation/photos/phasset/fetchassets(withlocalidentifiers:options:)) finds assets by their identifiers. The `localIdentifier` of the placeholder is the identifier of the new asset, so the fetch returns exactly the photo that the app saved. Write this code after the `performChanges` call, inside the `do` block. Unwrap the placeholder with `if let`, and take the `firstObject` of the fetch result.
 
-If the fetch finds nothing, the method returns with no error. The photo is in the library, but no thumbnail appears.
+If the fetch finds nothing, the method returns with no error (`guard ... else { return }`). The photo is in the library, but no thumbnail appears.
 
 > [!NOTE]
 > A fetch is a read operation, and the app has add-only access. In the test for this tutorial, the thumbnail appeared in the Simulator, where a command-line tool granted the permissions. Nobody verified the result on an iPhone with the permission alert.
@@ -372,9 +388,9 @@ Result: The build succeeds with no errors.
 The Photos app can show where a photo was made. In this section, you get the position of the device from Core Location and add it to the creation request.
 
 ### Step
-At the end of the actor, add a mark and a location manager.
+At the end of the actor, add a mark comment, `// MARK: - Location management`, and the private constant `locationManager`, a new `CLLocationManager`.
 
-The app needs the `CLLocationManager` object for one task only: to ask the person for location access.
+The app needs the `CLLocationManager` object for one task only: to ask the person for location access. The file needs no `import CoreLocation`: the `Photos` module imports Core Location, because an asset has a location.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=6,8
             guard let self, let image = image else { return }
@@ -390,9 +406,9 @@ The app needs the `CLLocationManager` object for one task only: to ask the perso
 ```
 
 ### Step
-Below the location manager, add the `currentLocation` property, which asks for access and then returns the location of the first update.
+Below the location manager, add the private property `currentLocation` of type `CLLocation?` with a getter that is `async throws` (`get async throws`). The getter asks for access and then returns the location of the first update.
 
-`requestWhenInUseAuthorization()` does not wait for the answer of the person. It returns immediately. `CLLocationUpdate.liveUpdates()` is an asynchronous sequence of location updates. The call to `first(where:)` with a closure that always returns `true` takes one update and then stops the sequence.
+When the `authorizationStatus` of the location manager is `.notDetermined`, call its `requestWhenInUseAuthorization()`. This method does not wait for the answer of the person. It returns immediately. `CLLocationUpdate.liveUpdates()` is an asynchronous sequence of location updates, and it can throw, so the code writes `try await`. The call to `first(where:)` with a closure that always returns `true` takes one update and then stops the sequence.
 
 The `location` of an update is an optional value. If the update has no location, the property returns `nil`, and the photo gets no location.
 
@@ -480,7 +496,7 @@ The views use the protocol, so the thumbnail button can read the image only if t
 The project does not compile at this time, because `CameraModel` and `PreviewCameraModel` do not have the new property. You add it in the next steps.
 
 ### Step
-In `CameraModel.swift`, add the `thumbnail` property and the `mediaLibrary` property.
+In `CameraModel.swift`, add the `private(set)` property `thumbnail` of type `CGImage?` below `shouldFlashScreen`, and the private constant `mediaLibrary`, a new `MediaLibrary`, above `captureService`.
 
 The model owns the media library and the capture service side by side. Each one is an actor with its own work. The model is the only object that talks to the two.
 
@@ -586,7 +602,7 @@ The model has the thumbnail of the last photo. In this last section, you show it
 ### Step
 In `ViewExtensions.swift`, add an `Image` initializer that takes a `CGImage` at the end of the file.
 
-SwiftUI can make an `Image` from a `CGImage`, but its initializers need more arguments. This extension gives a short form through `UIImage`.
+SwiftUI can make an `Image` from a `CGImage`, but its initializers need more arguments. This extension gives a short form through `UIImage`: the initializer `init(_ image: CGImage)` makes a `UIImage(cgImage:)` and gives it to `Image(uiImage:)`.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=6-10
     var isRegularSize: Bool {
@@ -604,11 +620,15 @@ extension Image {
 ### Step
 Create a new Swift file with the name `ThumbnailButton.swift` in the `MainToolbar` group, and replace its contents.
 
-The `thumbnail` property shows the image of the model, or a system icon when there is no image yet. The `value` of the animation is the image, so the animation runs when a new thumbnail arrives.
+The view `ThumbnailButton` follows the pattern of the other toolbar views: it is generic over `Camera` and holds the model in `@State var camera`. The file imports `SwiftUI` and `PhotosUI`.
 
-The button itself is a [`PhotosPicker`](https://developer.apple.com/documentation/photosui/photospicker) view. A tap opens the system photo picker. The picker runs in a different process, so the app needs no permission to read the library. The picker needs a binding for the selection, which is the purpose of `selectedItems`. No code reads this property: the app uses the picker only to let the person look at the photos.
+The `@ViewBuilder` property `thumbnail` shows the image of the model, or a system icon when there is no image yet. With an image, it shows `Image(thumbnail)` from the extension of the step before, `resizable`, with `aspectRatio(contentMode: .fill)`, and with the animation `.easeInOut(duration: 0.3)`. The `value` of the animation is the image, so the animation runs when a new thumbnail arrives. Without an image, it shows the symbol `photo.on.rectangle`.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/ThumbnailButton.swift new
+The button itself is a [`PhotosPicker`](https://developer.apple.com/documentation/photosui/photospicker) view with the arguments `selection`, `matching: .images`, and `photoLibrary: .shared()`. The `thumbnail` property is its label. The picker gets a frame of 64 x 64 points and a corner radius of 8. A tap opens the system photo picker. The picker runs in a different process, so the app needs no permission to read the library. The picker needs a binding for the selection, which is the purpose of the private `@State` array `selectedItems` of type `[PhotosPickerItem]`. No code reads this property: the app uses the picker only to let the person look at the photos.
+
+The preview wraps the view in `PreviewBackground` with a `PreviewCameraModel()`. If you work in Try first mode, it is fine to press Show solution and copy the file. The sample file has tab characters on four lines; a white space difference in `git diff` means nothing.
+
+```swift file=AVCam/Views/Toolbars/MainToolbar/ThumbnailButton.swift new copy result="../images/ch04-s7-2.jpg|The thumbnail button in the Xcode preview canvas. Without a thumbnail, it shows the symbol photo.on.rectangle."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -667,7 +687,7 @@ The button has the same size as the placeholder, 64 x 64 points. Thus the captur
                 .frame(width: largeButtonSize.width, height: largeButtonSize.height)
 ```
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=3
+```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=3 result="../images/ch04-s7-3.jpg|The main toolbar in the Xcode preview canvas: the thumbnail button takes the place of the placeholder at the leading side."
     var body: some View {
         HStack {
             ThumbnailButton(camera: camera)
@@ -686,7 +706,7 @@ Before the first photo, the left side of the toolbar shows a photo icon. After t
 > [!NOTE]
 > In the Simulator with SimCam, the saved photo is 640 x 480 pixels in landscape and has no orientation data. Thus the thumbnail can look turned by 90 degrees while the phone is in portrait. Examine the orientation on a real iPhone.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch04-s7-4.jpg|After a capture: the thumbnail of the new photo at the leading side of the toolbar."
 Action: Product > Run (Command-R), then tap the capture button
 Result: A thumbnail of the photo appears on the left side of the toolbar.
 ```

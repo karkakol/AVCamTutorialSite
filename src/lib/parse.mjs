@@ -212,6 +212,7 @@ function makeFence(page, token, where) {
     isNew: info.isNew,
     remove: info.remove,
     transient: info.transient,
+    copy: Boolean(info.copy),
     results: info.results || [],
     where,
     // Filled by the analysis (analyze.mjs):

@@ -392,10 +392,12 @@ function solutionPlace(step, env) {
     const numbers = fence.numbers || fence.lines.map((_, i) => i + 1);
     let body = '';
     let run = 0;
+    // A blank line between two runs of new lines belongs to the run.
+    const isNew = (n) => hl.has(n) || (n > 1 && n < fence.lines.length && !fence.lines[n - 1].trim() && hl.has(n - 1) && hl.has(n + 1));
     fence.lines.forEach((line, i) => {
-      if (hl.has(i + 1)) {
+      if (isNew(i + 1)) {
         run += 1;
-        const last = !hl.has(i + 2);
+        const last = !isNew(i + 2);
         if (last) {
           const firstText = fence.lines.slice(i - run + 1, i + 1).find((l) => l.trim()) || '';
           const indent = (firstText.match(/^\s*/) || [''])[0];
@@ -423,8 +425,18 @@ function solutionPlace(step, env) {
 }
 
 /** The cover of a code panel in the "Try first" mode. */
+/** A step whose code is not covered in the "Try first" mode: boilerplate to copy, or a review step that adds nothing. */
+function isUncovered(step) {
+  if (!step.block || step.block.type !== 'code') return false;
+  const fence = step.block.code;
+  return fence.copy || (!fence.isNew && !fence.createsFile && fence.highlight.length === 0);
+}
+
 function solutionCover(page, step, env) {
   if (!step.block || step.block.type !== 'code') return '';
+  if (isUncovered(step)) {
+    return step.block.code.copy ? `<p class="solution-copy">${icon('pen')}<span>Boilerplate. Copy this file as it is; the caption says what it contains.</span></p>` : '';
+  }
   const file = step.block.code.file;
   const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';
   const results = step.block.code.results && step.block.code.results.length > 0;
@@ -467,7 +479,7 @@ function renderTutorial(site, page, env) {
 <div class="step-instruction">${render(item.instruction)}</div>
 ${item.caption.length ? `<div class="step-caption">${render(item.caption)}</div>` : ''}
 </article>
-<div class="step-block" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}${swiftNotesHtml(site, page, item)}</div>`;
+<div class="step-block${isUncovered(item) ? ' no-cover' : ''}" data-block-for="${item.id}">${solutionCover(page, item, env)}${renderStepBlock(site, item, env)}${swiftNotesHtml(site, page, item)}</div>`;
           }
           if (item.type === 'aside') {
             return `<div class="between">${asideOpen(item.kind)}${render(item.tokens)}</aside></div>`;

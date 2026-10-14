@@ -23,7 +23,7 @@ You also define the `OutputService` protocol. It is the common interface of each
 ### Step
 In `DataTypes.swift`, add the `CaptureActivity` enumeration with its two cases below the `CameraStatus` enumeration.
 
-The capture service uses this type to tell the interface what it does at this time. The `willCapture` value marks the moment when the camera starts the exposure. Chapter 7 adds a Live Photo value to the case, and chapter 8 adds a case for movies.
+The two cases are `idle` and `photoCapture(willCapture: Bool = false)`. The capture service uses this type to tell the interface what it does at this time. The `willCapture` value marks the moment when the camera starts the exposure. Chapter 7 adds a Live Photo value to the case, and chapter 8 adds a case for movies.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=5-12
     /// A status that indicates the camera is successfully running.
@@ -41,9 +41,9 @@ enum CaptureActivity {
 ```
 
 ### Step
-Add the `willCapture` computed property to the `CaptureActivity` enumeration, below its two cases.
+Add the `willCapture` computed property of type `Bool` to the `CaptureActivity` enumeration, below its two cases.
 
-With this property, the caller reads the value without a `switch` statement. The property returns `false` for each case that is not a photo capture.
+The property reads the associated value with `if case .photoCapture(let willCapture) = self`. With this property, the caller reads the value without a `switch` statement. The property returns `false` for each case that is not a photo capture.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-11
 enum CaptureActivity {
@@ -63,7 +63,7 @@ enum CaptureActivity {
 ### Step
 Below `CaptureActivity`, add the `Photo` structure. Then add the `addOutputFailed` case to `CameraError`.
 
-`Photo` holds the complete photo file as `Data`. The value goes from the capture actor to the main actor, so the type must be `Sendable`. `Data` is `Sendable`, but the [`AVCapturePhoto`](https://developer.apple.com/documentation/avfoundation/avcapturephoto) object from the camera is not.
+`Photo` has one constant property, `data`, of type `Data`. It holds the complete photo file. The value goes from the capture actor to the main actor, so the type must be `Sendable`. `Data` is `Sendable`, but the [`AVCapturePhoto`](https://developer.apple.com/documentation/avfoundation/avcapturephoto) object from the camera is not.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=3-6,11
 }
@@ -83,6 +83,8 @@ enum CameraError: Error {
 
 ### Step
 At the end of the file, add the `OutputService` protocol.
+
+The protocol has five members: the associated type `Output`, which must be a subclass of `AVCaptureOutput`; the read-only property `output` of type `Output`; the read-only property `captureActivity` of type `CaptureActivity`; the method `updateConfiguration(for device: AVCaptureDevice)`; and the method `setVideoRotationAngle(_ angle: CGFloat)`.
 
 The associated type lets each service name its own output class, for example `AVCapturePhotoOutput`. The capture service can then keep all its output services in one array and send the same message to each of them.
 
@@ -106,7 +108,7 @@ protocol OutputService {
 ### Step
 Below the protocol, add an extension with a default implementation of the two methods.
 
-Each capture output has a connection that carries the video from the camera. The rotation angle of this connection decides the orientation of the result. This code is the same for each output, so it is in the extension. You use it later, when you set the orientation of the photo.
+Each capture output has a connection that carries the video from the camera. `setVideoRotationAngle(_:)` reads this connection with `output.connection(with: .video)` and sets its `videoRotationAngle`. The connection is optional, so use `?.`. The default `updateConfiguration(for:)` has an empty body. The rotation code is the same for each output, so it is in the extension. You use it later, when you set the orientation of the photo.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=9-15
 protocol OutputService {
@@ -145,9 +147,9 @@ Photo capture has two levels of configuration. You set limits on the output one 
 ### Step
 Create a new Swift file with the name `CaptureExtensions.swift` in the `Support` group, and replace its contents.
 
-`CMVideoDimensions` is a C structure with a width and a height. It cannot be compared, and it has no zero value. This extension adds these two things. The `@retroactive` attribute tells the compiler that you add the conformance to a type from a different module on purpose.
+`CMVideoDimensions` is a C structure with a width and a height. It cannot be compared, and it has no zero value. This extension adds these two things: `static let zero = CMVideoDimensions()`, a `==` that compares `width` and `height`, and a `<` that is `true` when both the width and the height are smaller. Both operators are `public static func`. If you work in Try first mode, press Show solution and copy the file. The `@retroactive` attribute tells the compiler that you add the conformance to a type from a different module on purpose.
 
-```swift file=AVCam/Support/CaptureExtensions.swift new
+```swift file=AVCam/Support/CaptureExtensions.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -174,9 +176,11 @@ extension CMVideoDimensions: @retroactive Equatable, @retroactive Comparable {
 ### Step
 Create a new Swift file with the name `PhotoCapture.swift` in the `Capture` group, and replace its contents.
 
-`PhotoCapture` is a normal class, not an actor. The capture service owns it and calls it. The `output` property and the `captureActivity` property satisfy the `OutputService` protocol. `@Published` gives the class a Combine publisher, `$captureActivity`, which the capture service reads later.
+The file has two types. `PhotoCaptureError` is an enumeration of `Error` with one case, `noPhotoData`. `PhotoCapture` is a `final class` that adopts `OutputService`. It is a normal class, not an actor. The capture service owns it and calls it.
 
-```swift file=AVCam/Capture/PhotoCapture.swift new
+The class has three properties: `@Published private(set) var captureActivity: CaptureActivity = .idle`, `let output = AVCapturePhotoOutput()`, and a private computed alias `photoOutput` of type `AVCapturePhotoOutput` that returns `output`. The `output` property and the `captureActivity` property satisfy the `OutputService` protocol. `@Published` gives the class a Combine publisher, `$captureActivity`, which the capture service reads later. The file imports `AVFoundation` and `CoreImage`. If you work in Try first mode, press Show solution and copy the file.
+
+```swift file=AVCam/Capture/PhotoCapture.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -207,9 +211,9 @@ final class PhotoCapture: OutputService {
 ```
 
 ### Step
-At the end of the `PhotoCapture` class, add the `updateConfiguration(for:)` method, which sets the largest photo size.
+At the end of the `PhotoCapture` class, add the `updateConfiguration(for:)` method, which sets the largest photo size, below a `// MARK: - Update the photo output configuration` comment.
 
-The active format of a camera has a list of photo sizes that it supports. The [`maxPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/maxphotodimensions) property of the output is the upper limit for all photos. The output prepares its resources for this size. The code takes the last size in the list and assumes that the last size is the largest one.
+The active format of a camera has a list of photo sizes that it supports: `device.activeFormat.supportedMaxPhotoDimensions`. The [`maxPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/maxphotodimensions) property of the output is the upper limit for all photos. The output prepares its resources for this size. The code takes the last size in the list and assumes that the last size is the largest one. When the list is empty, it uses `.zero` from `CaptureExtensions.swift`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4,6-13
     // An internal alias for the output.
@@ -229,9 +233,9 @@ The active format of a camera has a list of photo sizes that it supports. The [`
 ```
 
 ### Step
-Above the `// MARK: - Update the photo output configuration` line, add the `createPhotoSettings()` method.
+Above the `// MARK: - Update the photo output configuration` line, add the private `createPhotoSettings()` method, which returns an `AVCapturePhotoSettings` object.
 
-A settings object describes one photo. You must make a new settings object for each capture, because the output accepts each object only one time. If you use an object again, the output raises an exception, and the app stops.
+The method makes `var photoSettings = AVCapturePhotoSettings()` and returns it. Put a `// MARK: - Create a photo settings object.` comment above the method. A settings object describes one photo. You must make a new settings object for each capture, because the output accepts each object only one time. If you use an object again, the output raises an exception, and the app stops.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4,6-7,9-12
     // An internal alias for the output.
@@ -253,7 +257,7 @@ A settings object describes one photo. You must make a new settings object for e
 ### Step
 Ask for the HEVC codec when the photo output supports it.
 
-Settings with no format give a JPEG file. Settings with the HEVC codec give a HEIF file, which is smaller at the same quality. The list of available codecs depends on the camera and the session, so the code tests it for each photo.
+Settings with no format give a JPEG file. Settings with the HEVC codec give a HEIF file, which is smaller at the same quality. When `photoOutput.availablePhotoCodecTypes` contains `.hevc`, replace `photoSettings` with `AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])`. The list of available codecs depends on the camera and the session, so the code tests it for each photo.
 
 > [!NOTE]
 > In the Simulator with SimCam, the photo is a JPEG file.
@@ -277,7 +281,7 @@ Settings with no format give a JPEG file. Settings with the HEVC codec give a HE
 ### Step
 Request a preview image in the first pixel format that the settings object offers.
 
-A preview image is a small image without compression that arrives together with the photo. An app can show it immediately. The Apple sample requests it but does not read it. You keep the lines so that your code stays equal to the sample.
+A preview image is a small image without compression that arrives together with the photo. An app can show it immediately. Take the first value of `photoSettings.availablePreviewPhotoPixelFormatTypes`. If there is one, set `photoSettings.previewPhotoFormat` to the dictionary `[kCVPixelBufferPixelFormatTypeKey as String: type]`. The Apple sample requests it but does not read it. You keep the lines so that your code stays equal to the sample.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=6-10
         // Capture photos in HEIF format when the device supports it.
@@ -335,9 +339,9 @@ The delegate has two jobs. It reports the progress of the capture, and it delive
 ![The delegate callbacks of one capture in order, and what AVCam does in each callback](../images/ch03-capture-timeline.svg)
 
 ### Step
-In `PhotoCapture.swift`, add the `PhotoContinuation` type alias and the `PhotoCaptureDelegate` class below the `PhotoCapture` class.
+In `PhotoCapture.swift`, add the `PhotoContinuation` type alias and the private `PhotoCaptureDelegate` class below the `PhotoCapture` class.
 
-A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) stands for a caller that waits in an `async` method. The delegate keeps it and uses it at the end to give the photo to that caller. The class inherits from `NSObject` because [`AVCapturePhotoCaptureDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate) is an Objective-C protocol.
+`PhotoContinuation` is `CheckedContinuation<Photo, Error>`. A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) stands for a caller that waits in an `async` method. The delegate keeps it in the private constant `continuation` and uses it at the end to give the photo to that caller. The class inherits from `NSObject` because [`AVCapturePhotoCaptureDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate) is an Objective-C protocol.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=7,9,11-14,16,18
     func updateConfiguration(for device: AVCaptureDevice) {
@@ -361,9 +365,9 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 ```
 
 ### Step
-Add a property for the photo data, and two properties for a stream of activity values.
+Add the private property `photoData` of type `Data?`, and two properties for a stream of activity values: `activityStream` and `activityContinuation`.
 
-A continuation can deliver only one value. The interface also needs progress values during the capture, for example to flash the screen. An [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) can deliver many values, so the delegate uses a stream for the progress.
+`activityStream` is a constant of type `AsyncStream<CaptureActivity>`. The private constant `activityContinuation` has the type `AsyncStream<CaptureActivity>.Continuation`. A continuation can deliver only one value. The interface also needs progress values during the capture, for example to flash the screen. An [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) can deliver many values, so the delegate uses a stream for the progress.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=5,7-9
 private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
@@ -380,9 +384,9 @@ private class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 ```
 
 ### Step
-Add the initializer, which keeps the continuation and makes the stream.
+Add the initializer `init(continuation: PhotoContinuation)`, which keeps the continuation and makes the stream.
 
-The `makeStream(of:)` method returns two parts. Other code reads values from the stream. The delegate writes values through the continuation of the stream.
+The `AsyncStream.makeStream(of: CaptureActivity.self)` method returns two parts, as a tuple. Other code reads values from the stream. The delegate writes values through the continuation of the stream.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-7,9-12
     /// A stream of capture activity values that indicate the current state of progress.
@@ -402,9 +406,9 @@ The `makeStream(of:)` method returns two parts. Other code reads values from the
 ```
 
 ### Step
-Add the two delegate methods that the photo output calls before the capture.
+Below the initializer, add the two delegate methods that the photo output calls before the capture.
 
-`willBeginCaptureFor` is always the first callback. `willCapturePhotoFor` arrives when the exposure starts, immediately after the shutter sound. This is the correct moment for the screen flash, so the delegate sends a value with `willCapture: true`. The moment of the tap is too early.
+The methods are `photoOutput(_:willBeginCaptureFor:)` and `photoOutput(_:willCapturePhotoFor:)`. Xcode completes the full signatures when you type their names. Each method sends one value with `activityContinuation.yield(_:)`. `willBeginCaptureFor` is always the first callback; it sends `.photoCapture()`. `willCapturePhotoFor` arrives when the exposure starts, immediately after the shutter sound. This is the correct moment for the screen flash, so the delegate sends `.photoCapture(willCapture: true)`. The moment of the tap is too early.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=3-6,8-11
     }
@@ -423,9 +427,9 @@ Add the two delegate methods that the photo output calls before the capture.
 ```
 
 ### Step
-Add the `didFinishProcessingPhoto` method, which keeps the photo as file data.
+Add the `photoOutput(_:didFinishProcessingPhoto:error:)` method, which keeps the photo as file data in `photoData`.
 
-The [`fileDataRepresentation()`](https://developer.apple.com/documentation/avfoundation/avcapturephoto/filedatarepresentation()) method makes the complete file in memory. The delegate does not resume the continuation here. This callback is not the last one, and with other settings the output can call it more than one time.
+If the method gets an error, write it to the log with `logger.debug` and return. The [`fileDataRepresentation()`](https://developer.apple.com/documentation/avfoundation/avcapturephoto/filedatarepresentation()) method of the photo makes the complete file in memory. The delegate does not resume the continuation here. This callback is not the last one, and with other settings the output can call it more than one time.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=6-12
     func photoOutput(_ output: AVCapturePhotoOutput, willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
@@ -445,9 +449,9 @@ The [`fileDataRepresentation()`](https://developer.apple.com/documentation/avfou
 ```
 
 ### Step
-Add the `didFinishCaptureFor` method. If it gets an error, resume the continuation with that error.
+Add the `photoOutput(_:didFinishCaptureFor:error:)` method. If it gets an error, resume the continuation with that error and return.
 
-The photo output always calls this method last, and one time for each capture, also when the capture fails. Thus it is the one safe place to resume the continuation.
+Use `continuation.resume(throwing:)`. The photo output always calls this method last, and one time for each capture, also when the capture fails. Thus it is the one safe place to resume the continuation.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=9,11-16
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
@@ -470,9 +474,9 @@ The photo output always calls this method last, and one time for each capture, a
 ```
 
 ### Step
-Resume the continuation with a `noPhotoData` error when the delegate has no photo data.
+Resume the continuation with a `PhotoCaptureError.noPhotoData` error when `photoData` is `nil`.
 
-You must resume a continuation exactly one time. A second resume stops the app. A continuation that nobody resumes keeps its caller waiting and never releases it. Thus each path in this method resumes one time and then returns.
+Use a `guard let photoData else` statement. You must resume a continuation exactly one time. A second resume stops the app. A continuation that nobody resumes keeps its caller waiting and never releases it. Thus each path in this method resumes one time and then returns.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=9-13
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings, error: Error?) {
@@ -494,7 +498,7 @@ You must resume a continuation exactly one time. A second resume stops the app. 
 ### Step
 Resume the continuation with a `Photo` value when the capture is successful.
 
-This line ends the wait of the caller. The `capturePhoto()` method that you write in the next section returns this value.
+Make a `Photo` with `photoData` and call `continuation.resume(returning:)`. This line ends the wait of the caller. The `capturePhoto()` method that you write in the next section returns this value.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=13-16
         // If an error occurs, resume the continuation by throwing an error, and return.
@@ -555,7 +559,7 @@ The rest of the app wants one simple call: `let photo = try await capturePhoto()
 ### Step
 In the `PhotoCapture` class, add the `monitorProgress(of:isolation:)` method with an empty task.
 
-The `isolation` parameter is from the Apple sample. The default value `#isolation` has the purpose to give the method the actor of its caller, so that the task can run on that actor. The concepts page tells you what a test found about this parameter.
+The method is private and has no return value. Its signature is `monitorProgress(of delegate: PhotoCaptureDelegate, isolation: isolated (any Actor)? = #isolation)`. The body starts a `Task` with an empty closure. The `isolation` parameter is from the Apple sample. The default value `#isolation` has the purpose to give the method the actor of its caller, so that the task can run on that actor. The concepts page tells you what a test found about this parameter.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-11
         return photoSettings
@@ -591,9 +595,9 @@ The closure of the task uses `delegate`, so the task keeps a strong reference to
 ```
 
 ### Step
-Above `createPhotoSettings()`, add the `capturePhoto()` method with a checked continuation.
+Above `createPhotoSettings()`, add the `capturePhoto()` method with a checked continuation, below a `// MARK: - Capture a photo.` comment.
 
-[`withCheckedThrowingContinuation`](https://developer.apple.com/documentation/swift/withcheckedthrowingcontinuation(isolation:function:_:)) runs its closure immediately and then suspends the method. The method continues when some code resumes the continuation. It then returns the photo or throws the error.
+The method is `async throws` and returns a `Photo`. Its body is `try await withCheckedThrowingContinuation { continuation in }` with an empty closure. [`withCheckedThrowingContinuation`](https://developer.apple.com/documentation/swift/withcheckedthrowingcontinuation(isolation:function:_:)) runs its closure immediately and then suspends the method. The method continues when some code resumes the continuation. It then returns the photo or throws the error.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4,6-11
     // An internal alias for the output.
@@ -651,9 +655,9 @@ The capture service owns the session. In this section, you give it a `PhotoCaptu
 You also send the capture activity one level up. The service publishes it, so that the model can observe it in the last section.
 
 ### Step
-In `CaptureService.swift`, add the `photoCapture` property and the `outputServices` property.
+In `CaptureService.swift`, add the `photoCapture` property and the `outputServices` property below `captureSession`.
 
-The array has one element now. Chapter 8 adds the movie service to it. Code that must reach each output, such as the rotation code, then needs no change.
+`photoCapture` is a private constant with a new `PhotoCapture` object. `outputServices` is a private computed property of type `[any OutputService]` that returns `[photoCapture]`. The array has one element now. Chapter 8 adds the movie service to it. Code that must reach each output, such as the rotation code, then needs no change.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5,7-8
     // The app's capture session.
@@ -672,7 +676,7 @@ The array has one element now. Chapter 8 adds the movie service to it. Code that
 ### Step
 Below `addInput(for:)`, add the `addOutput(_:)` method, which adds an output only if the session accepts it.
 
-The session does not accept each output in each configuration. If you add an output that the session cannot accept, the session raises an exception. Thus the code first calls [`canAddOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddoutput(_:)) and throws a Swift error when the answer is `false`.
+The session does not accept each output in each configuration. If you add an output that the session cannot accept, the session raises an exception. Thus the code first calls [`canAddOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddoutput(_:)), then `addOutput(_:)` of the session, and throws `CameraError.addOutputFailed` when the answer is `false`. The method is private and `throws`.
 
 ```swift file=AVCam/CaptureService.swift highlight=13-20
     // Adds an input to the capture session to connect the specified capture device.
@@ -700,9 +704,9 @@ The session does not accept each output in each configuration. If you add an out
 ```
 
 ### Step
-In `setUpSession()`, set the `.photo` preset and add the photo output.
+In `setUpSession()`, set the `.photo` preset and add the photo output, after the service adds the input.
 
-A preset tells the session which quality you want, and the session selects a camera format for it. The default preset, `.high`, is for video. The [`.photo`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/photo) preset selects a format that supports photos at the full resolution of the camera.
+Set `captureSession.sessionPreset` and call `try addOutput(photoCapture.output)`. A preset tells the session which quality you want, and the session selects a camera format for it. The default preset, `.high`, is for video. The [`.photo`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/photo) preset selects a format that supports photos at the full resolution of the camera.
 
 ```swift file=AVCam/CaptureService.swift highlight=10-11,13-14
     // Performs the initial capture session configuration.
@@ -731,9 +735,9 @@ A preset tells the session which quality you want, and the session selects a cam
 ```
 
 ### Step
-At the end of the actor, add the `updateCaptureCapabilities()` method.
+At the end of the actor, add the private `updateCaptureCapabilities()` method, below a `// MARK: - Internal state management` comment.
 
-This method calls `updateConfiguration(for:)` on each output service with the current camera. For the photo service, this sets the largest photo size. The name tells you what comes later: in chapter 7, the method also reads which features the camera supports.
+This method calls `updateConfiguration(for:)` on each output service in `outputServices` with `currentDevice`. For the photo service, this sets the largest photo size. The name tells you what comes later: in chapter 7, the method also reads which features the camera supports.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-13
         return previewLayer
@@ -772,9 +776,9 @@ The front camera and the back camera support different photo sizes. A limit that
 ```
 
 ### Step
-At the top of the file, import Combine. Then add a published `captureActivity` property to the actor.
+At the top of the file, import Combine. Then add a published `captureActivity` property to the actor, above `previewSource`.
 
-Code outside an actor can read an actor property only one value at a time, with `await`. A publisher gives a sequence of all future values. The `@Observable` macro does not support actors, so the sample uses `@Published` from Combine.
+The property is `@Published private(set) var captureActivity: CaptureActivity = .idle`, as in `PhotoCapture`. Code outside an actor can read an actor property only one value at a time, with `await`. A publisher gives a sequence of all future values. The `@Observable` macro does not support actors, so the sample uses `@Published` from Combine.
 
 ```swift file=AVCam/CaptureService.swift highlight=3,9-10
 import Foundation
@@ -795,7 +799,7 @@ actor CaptureService {
 ### Step
 Below `updateCaptureCapabilities()`, add the `observeOutputServices()` method, which publishes the activity of the photo service again.
 
-`assign(to:)` sends each value from the publisher of the photo service to the property of the actor. The subscription lives as long as the property, so there is no cancellable object to store. Chapter 8 merges a second publisher, from the movie service, into this line.
+The method is private. `photoCapture.$captureActivity.assign(to: &$captureActivity)` sends each value from the publisher of the photo service to the property of the actor. The subscription lives as long as the property, so there is no cancellable object to store. Chapter 8 merges a second publisher, from the movie service, into this line.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-11
     private func updateCaptureCapabilities() {
@@ -849,9 +853,9 @@ The service starts the observation first. It configures the output last, when th
 ```
 
 ### Step
-Below `videoPreviewLayer`, add the `capturePhoto()` method, which the model calls.
+Below `videoPreviewLayer`, add the `capturePhoto()` method, which the model calls, below a `// MARK: - Photo capture` comment.
 
-The method only sends the call to the photo service. It is a method of the actor, so the model calls it with `await` from the main actor.
+The method is `async throws` and returns a `Photo`. It only sends the call to `photoCapture.capturePhoto()`. It is a method of the actor, so the model calls it with `await` from the main actor.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-12
     private var videoPreviewLayer: AVCaptureVideoPreviewLayer {
@@ -912,7 +916,7 @@ extension OutputService {
 ### Step
 In `CaptureService.swift`, add the `updateCaptureRotation(_:)` method below the `updatePreviewRotation(_:)` method from chapter 2.
 
-The method sends the angle to each output service. When chapter 8 adds the movie service to the array, movies get the correct orientation with no new code here.
+The method is private and takes a `CGFloat`. It calls `setVideoRotationAngle(_:)` on each output service in `outputServices`. When chapter 8 adds the movie service to the array, movies get the correct orientation with no new code here.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-12
     private func updatePreviewRotation(_ angle: CGFloat) {
@@ -934,7 +938,7 @@ The method sends the angle to each output service. When chapter 8 adds the movie
 ### Step
 In `createRotationCoordinator(for:)`, change the comment and apply the capture angle immediately.
 
-An observer reports only later changes, so the code sets the first value itself. A new connection starts with a default angle. `setUpSession()` adds the photo output before it calls this method, so the connection exists at this point.
+Call `updateCaptureRotation(_:)` with `rotationCoordinator.videoRotationAngleForHorizonLevelCapture`, below the call for the preview. The new comment says `preview and output connections`. An observer reports only later changes, so the code sets the first value itself. A new connection starts with a default angle. `setUpSession()` adds the photo output before it calls this method, so the connection exists at this point.
 
 ```swift file=AVCam/CaptureService.swift remove
         // Set initial rotation state on the preview connection.
@@ -958,7 +962,7 @@ An observer reports only later changes, so the code sets the first value itself.
 ### Step
 Add a second observer, which updates the capture angle each time the person turns the device.
 
-The coordinator reports changes on the main queue. The closure starts a task that goes back to the actor, where the outputs are. The comment in the closure is a copy of the comment in the first observer, as in the Apple sample.
+Observe the key path `\.videoRotationAngleForHorizonLevelCapture` in the same form as the first observer, and call `updateCaptureRotation(_:)` in the task. The coordinator reports changes on the main queue. The closure starts a task that goes back to the actor, where the outputs are. The comment in the closure is a copy of the comment in the first observer, as in the Apple sample.
 
 ```swift file=AVCam/CaptureService.swift highlight=10-16
         // Add observers to monitor future changes.
@@ -999,7 +1003,7 @@ The capture service can take a photo now. In this last section, you connect it t
 ### Step
 In `CameraModel.swift`, add the `captureActivity`, `shouldFlashScreen`, and `error` properties.
 
-The views read these properties. The setters are private, because only the model changes the state of the camera.
+The types are `CaptureActivity` with the value `.idle`, `Bool` with the value `false`, and `Error?`. The views read these properties. The setters are private, because only the model changes the state of the camera.
 
 ```swift file=AVCam/CameraModel.swift highlight=6-7,12-13,15-16
 final class CameraModel: Camera {
@@ -1063,7 +1067,7 @@ The `logger.info` line is temporary. In this chapter it shows you that the photo
 ### Step
 Below `capturePhoto()`, add the `flashScreen()` method, which gives a short visual signal.
 
-The first line sets the property to `true` with no animation. The animation block then sets it back to `false`. A view that depends on the property changes for a moment and then returns to its normal state.
+The method is private. The first line sets `shouldFlashScreen` to `true` with no animation. A `withAnimation(.linear(duration: 0.01))` block then sets it back to `false`. A view that depends on the property changes for a moment and then returns to its normal state.
 
 ```swift file=AVCam/CameraModel.swift highlight=5-11
             self.error = error
@@ -1081,9 +1085,9 @@ The first line sets the property to `true` with no animation. The animation bloc
 ```
 
 ### Step
-Add the `observeState()` method with a task that reads the activity values of the capture service.
+Below `flashScreen()`, add the private `observeState()` method with a task that reads the activity values of the capture service, below a `// MARK: - Internal state observations` comment.
 
-The `values` property turns a publisher into an asynchronous sequence. The task runs on the main actor, because `CameraModel` is a main actor type. Thus the code in the loop can change the properties that the views read.
+The loop is `for await activity in await captureService.$captureActivity.values`. The `values` property turns a publisher into an asynchronous sequence. The `await` before the publisher is necessary, because the publisher is a property of the actor. The task runs on the main actor, because `CameraModel` is a main actor type. Thus the code in the loop can change the properties that the views read.
 
 ```swift file=AVCam/CameraModel.swift highlight=9,11-18
     /// Sets the `showCaptureFeedback` state to indicate that capture is underway.
@@ -1154,9 +1158,9 @@ In `start()`, call `observeState()` after the capture service starts.
 ```
 
 ### Step
-In `Camera.swift`, add the new members to the `Camera` protocol.
+In `Camera.swift`, add the new members to the `Camera` protocol: `captureActivity`, `capturePhoto()`, `shouldFlashScreen`, and `error`.
 
-The views use the protocol, not the `CameraModel` class. Each member that a view needs must be in the protocol.
+`captureActivity` goes below `status`. The other three go at the end, in this order. The properties are read-only, and `capturePhoto()` is `async`. The views use the protocol, not the `CameraModel` class. Each member that a view needs must be in the protocol.
 
 ```swift file=AVCam/Model/Camera.swift highlight=7-8,22-23,25-26,28-29
 @MainActor
@@ -1241,9 +1245,9 @@ class PreviewCameraModel: Camera {
 ### Step
 Create a new Swift file with the name `CaptureButton.swift` in the `MainToolbar` group, and replace its contents.
 
-`CaptureButton` starts a task that calls `capturePhoto()` on the model. `PhotoCaptureButton` draws a white ring with a white disc in it, and the button style makes the disc smaller while the person presses it. This file has only the photo button. Chapter 8 adds a button for movies.
+`CaptureButton` is generic over `Camera` and holds the model in `@State var camera`, like `MainToolbar`. It is 68 points wide, with an aspect ratio of 1. It starts a task that calls `capturePhoto()` on the model. The private view `PhotoCaptureButton` takes an `action` closure. It draws a white ring with a line width of 4 and, in a `Button`, a white disc inset by 1.2 times the line width. Its `PhotoButtonStyle` scales the label to 0.85 while the person presses it, with an `easeInOut` animation of 0.15 seconds. The `#Preview` uses `PreviewBackground` and `PreviewCameraModel`. This file has only the photo button. Chapter 8 adds a button for movies. If you work in Try first mode, press Show solution and copy the file.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift new
+```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift new copy result="../images/ch03-s7-10.jpg|The capture button in the Xcode preview canvas: a white circle with a ring, on the preview background."
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -1320,9 +1324,9 @@ private struct PhotoCaptureButton: View {
 ### Step
 In `MainToolbar.swift`, add a placeholder, a spacer, and the capture button before the button that changes the camera.
 
-The `Color.clear` placeholder is temporary. It has the size of a large button, so the capture button stays in the center of the toolbar. In chapter 4, you replace the placeholder with the thumbnail of the last photo.
+The `Color.clear` placeholder is temporary. Its frame is `largeButtonSize.width` by `largeButtonSize.height`, the size of a large button, so the capture button stays in the center of the toolbar. The order in the `HStack` is: placeholder, `Spacer`, `CaptureButton(camera: camera)`, `Spacer`, switch button. In chapter 4, you replace the placeholder with the thumbnail of the last photo.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=7-11
+```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=7-11 result="../images/ch03-s7-11.jpg|The main toolbar in the Xcode preview canvas: the placeholder at the leading side, the capture button in the center, the switch button at the trailing side."
 struct MainToolbar<CameraModel: Camera>: View {
 
     @State var camera: CameraModel
@@ -1347,7 +1351,7 @@ struct MainToolbar<CameraModel: Camera>: View {
 ### Step
 In `CameraView.swift`, hide the preview while `shouldFlashScreen` is `true`.
 
-The opacity of the preview goes to zero for a moment at the start of the exposure. This is the visual signal that the camera took a photo.
+Add the `.opacity` modifier to `CameraPreview`, with `0` when the property is `true` and `1` when it is `false`. The opacity of the preview goes to zero for a moment at the start of the exposure. This is the visual signal that the camera took a photo.
 
 ```swift file=AVCam/CameraView.swift highlight=11-14
 struct CameraView<CameraModel: Camera>: View {
@@ -1377,7 +1381,7 @@ Build and run the app. Open the debug console in Xcode, and tap the capture butt
 
 The preview flashes for a moment. The flash is very short, so it is easy to miss. The console shows the size of the photo data. In the Simulator with SimCam, the photo is a 640 x 480 JPEG file of approximately 50,000 bytes. On a real iPhone, the app asks for a HEIF file at the largest size that the camera supports, so the number is much larger. This tutorial did not verify the result on a real iPhone.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch03-s7-13-a.jpg|The app after the start: the preview with the capture button in the center of the toolbar. A tap flashes the screen and prints the size of the photo in the console."
 Action: Product > Run (Command-R), then tap the capture button
 Console: Captured a photo with 51427 bytes of data.
 Note: The number of bytes is different for each photo.

@@ -478,7 +478,7 @@ This file is boilerplate. If you work in "Try first" mode, press "Show solution"
 
 SwiftUI has a type with the same name. In your app, the name refers to your type, because a type of your module has priority over a type of an imported module.
 
-```swift file=AVCam/Support/ViewExtensions.swift new
+```swift file=AVCam/Support/ViewExtensions.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 

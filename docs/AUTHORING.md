@@ -117,6 +117,7 @@ private func setUpSession() throws {
 - `highlight=` — line numbers inside this fence (1-based) that the learner adds or changes in this step. List or ranges.
 - `new` — the step creates this file. All lines are highlighted. Show the complete file.
 - `transient` — this code changes again later in the same chapter. The validator skips it. Avoid it when you can.
+- `copy` — boilerplate that a learner copies as it is (for example a helper file with many constants). In the "Try first" mode the code is not covered; a note says to copy it. Give the spec in the caption anyway. A fence without `highlight=` (a review step) is not covered either.
 - `result="path|caption; path|caption"` — screenshots of the app after the step. The code card gets a "What you see" button that opens them in a dialog (also allowed on a settings fence). Add them only for a step with a visible change. The paths are relative to the page file, like images. Make the screenshots with `tools/capture.py` (see its header) with SimCam set to still images, so that no private video is in the pictures.
 - A fence shows a region, not always the whole file. Include enough unchanged lines around the new lines (the enclosing type or method signature) that the learner knows where to type. Do not use `...` or other placeholders inside a fence: each line must be real code from the file.
 - To show code that the learner must delete, put a second fence with `remove` BEFORE the main fence:
