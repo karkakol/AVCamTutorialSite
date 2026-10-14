@@ -26,9 +26,9 @@ In this section, you write the private method `focusAndExpose(at:isUserInitiated
 ![The two states of the camera: continuous modes at the center, and a lock on the tapped point until the subject area changes](../images/ch06-tap-cycle.svg)
 
 ### Step
-In `CaptureService.swift`, below the `videoPreviewLayer` property, add a `MARK` comment and the `focusAndExpose(at:isUserInitiated:)` method. Read `currentDevice` into a constant.
+In `CaptureService.swift`, below the `videoPreviewLayer` property, add a `MARK` comment and the private method `focusAndExpose(at:isUserInitiated:)`. Read `currentDevice` into a constant `device`.
 
-The method reads `currentDevice` one time and uses the constant for all later lines. Thus all operations of the method, from the lock to the unlock, go to the same device object. The method is `throws`, because the lock in the next step can fail.
+The comment is `// MARK: - Automatic focus and exposure`. The signature is `private func focusAndExpose(at devicePoint: CGPoint, isUserInitiated: Bool) throws`. The method reads `currentDevice` one time and uses the constant `device` for all later lines. Thus all operations of the method, from the lock to the unlock, go to the same device object. The method is `throws`, because the lock in the next step can fail.
 
 ```swift file=AVCam/CaptureService.swift highlight=4,6-9
         return previewLayer
@@ -66,9 +66,9 @@ Lock the device for configuration, and unlock it at the end of the method.
 ```
 
 ### Step
-Between the lock and the unlock, select the focus mode: `.autoFocus` for a tap, and `.continuousAutoFocus` in the other case.
+Between the lock and the unlock, select the focus mode into a constant `focusMode`: `.autoFocus` for a tap, and `.continuousAutoFocus` in the other case.
 
-With [`.autoFocus`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focusmode-swift.enum), the camera focuses one time and then locks the lens. So the focus stays on the place that the person selected. With `.continuousAutoFocus`, the camera focuses again each time the scene makes it necessary. The first value has its full type name, so that Swift knows the type of the constant.
+With [`.autoFocus`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focusmode-swift.enum), the camera focuses one time and then locks the lens. So the focus stays on the place that the person selected. With `.continuousAutoFocus`, the camera focuses again each time the scene makes it necessary. The first value has its full type name, `AVCaptureDevice.FocusMode.autoFocus`, so that Swift knows the type of the constant.
 
 ```swift file=AVCam/CaptureService.swift highlight=4
         // The following mode and point of interest configuration requires obtaining an exclusive lock on the device.
@@ -84,7 +84,7 @@ With [`.autoFocus`](https://developer.apple.com/documentation/avfoundation/avcap
 ### Step
 Ask the device if it supports a focus point of interest and the focus mode. If it does, set the point, then the mode.
 
-- The two tests are necessary. A camera with a fixed focus does not support them, and a value that the device does not support raises an Objective-C exception. With the tests, the method skips the focus on such a camera.
+- The two tests are [`isFocusPointOfInterestSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isfocuspointofinterestsupported) and [`isFocusModeSupported(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isfocusmodesupported(_:)). They are necessary. A camera with a fixed focus does not support them, and a value that the device does not support raises an Objective-C exception. With the tests, the method skips the focus on such a camera.
 - The order is necessary too. A new [`focusPointOfInterest`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focuspointofinterest) by itself starts nothing. The camera starts the focus operation when you set [`focusMode`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focusmode-swift.property), and it uses the point that the device has at that time.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7
@@ -102,9 +102,9 @@ Ask the device if it supports a focus point of interest and the focus mode. If i
 ```
 
 ### Step
-Do the same for the exposure: select the mode, ask the device, set the point, and then set the mode.
+Do the same for the exposure: select the mode into a constant `exposureMode`, ask the device, set the point, and then set the mode.
 
-The exposure has its own modes in [`AVCaptureDevice.ExposureMode`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposuremode-swift.enum), its own [`exposurePointOfInterest`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposurepointofinterest), and its own support tests. The exposure block does not depend on the focus block. On a camera with a fixed focus, the method skips the focus and still sets the exposure for the tapped point.
+The exposure has its own modes in [`AVCaptureDevice.ExposureMode`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposuremode-swift.enum): `.autoExpose` for a tap, and `.continuousAutoExposure` in the other case. It has its own [`exposurePointOfInterest`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposurepointofinterest) and [`exposureMode`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposuremode-swift.property) properties, and its own support tests, `isExposurePointOfInterestSupported` and `isExposureModeSupported(_:)`. The exposure block does not depend on the focus block. On a camera with a fixed focus, the method skips the focus and still sets the exposure for the tapped point.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-11
         let focusMode = isUserInitiated ? AVCaptureDevice.FocusMode.autoFocus : .continuousAutoFocus
@@ -166,9 +166,9 @@ In this section, you write the method that the camera model calls. It converts t
 ![A tap at a view point in a portrait preview, and the same place as a device point in the landscape image from the sensor](../images/ch06-point-of-interest.svg)
 
 ### Step
-Between the `MARK` comment and the private method, add a second method with the name `focusAndExpose(at:)`, which takes a point in view coordinates.
+Between the `MARK` comment and the private method, add a second method, `func focusAndExpose(at point: CGPoint)`, which takes a point in view coordinates.
 
-This method is not `private`, because the camera model calls it. It has no `throws` keyword: a caller in the interface can do nothing useful with an error of a focus operation. The two methods have the same base name. Swift selects the correct one from the argument labels.
+This method is not `private`, because the camera model calls it. It is not `async` either: the actor runs it on the session queue when a caller awaits it. It has no `throws` keyword: a caller in the interface can do nothing useful with an error of a focus operation. The two methods have the same base name. Swift selects the correct one from the argument labels.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-7
     // MARK: - Automatic focus and exposure
@@ -183,7 +183,7 @@ This method is not `private`, because the camera model calls it. It has no `thro
 ```
 
 ### Step
-In the new method, convert the view point to a device point with the preview layer.
+In the new method, convert the view point to a device point with the preview layer. Keep the result in a constant `devicePoint`.
 
 The preview layer shows the video, so it has the data for the conversion. The SDK header says that [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) uses the frame size and the video gravity of the layer, and that the result is a point of the image that is not rotated. This tutorial did not test the result with a mirrored front camera. The preview layer is the backing layer of the preview view, so a point of the view is also a point of the layer. The service finds the layer with the `videoPreviewLayer` property from chapter 2.
 
@@ -204,7 +204,7 @@ The preview layer shows the video, so it has the data for the conversion. The SD
 ### Step
 Call the private method with the device point and with `isUserInitiated` set to `true`. Catch an error, and write it to the log.
 
-The only Swift error that can arrive here is a failure of the device lock. A focus operation that fails is not a reason to show an alert, so the method only writes a log message.
+The call goes in a `do` block, and the `catch` block calls `logger.debug(_:)` with the message "Unable to perform focus and exposure operation." and the error. The only Swift error that can arrive here is a failure of the device lock. A focus operation that fails is not a reason to show an alert, so the method only writes a log message. The checkpoint at the end of this chapter looks for this message in the console.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-9
     func focusAndExpose(at point: CGPoint) {
@@ -219,6 +219,16 @@ The only Swift error that can arrive here is a failure of the device lock. A foc
     }
 ```
 
+### Step
+Build the project to make sure that both methods compile.
+
+Swift accepts the two methods with the same base name, because their argument labels differ. The service still has no caller for the new method.
+
+```settings title="Checkpoint"
+Action: Product > Build (Command-B)
+Result: Build Succeeded, with no errors
+```
+
 ## Return to the continuous modes
 
 After a tap, the focus and the exposure are locked. If the person then points the camera at a different scene, the picture stays wrong until the next tap. The device can tell the app about such a change with the [`subjectAreaDidChangeNotification`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/subjectareadidchangenotification).
@@ -226,9 +236,9 @@ After a tap, the focus and the exposure are locked. If the person then points th
 In this section, you observe that notification for the camera in use. Each time it arrives, the service sets the continuous modes again, with the point of interest at the center.
 
 ### Step
-Below `focusAndExpose(at:)`, add the `observeSubjectAreaChanges(of:)` method and a property for its task. In the method, cancel the task of the previous device.
+Below `focusAndExpose(at:)`, add the private method `observeSubjectAreaChanges(of:)` and, below it, a private property `subjectAreaChangeTask` for its task. In the method, cancel the previous task.
 
-The notification comes from one device object. When the camera changes, the old observation has no more use, so the method cancels its task. The property is optional, because no task exists before the first call. The type `Task<Void, Never>` is a task that returns no value and throws no error.
+The parameter is `of device: AVCaptureDevice`. The notification comes from one device object. When the camera changes, the old observation has no more use, so the method cancels its task with `cancel()`. The property is an optional `Task<Void, Never>?`, because no task exists before the first call. The type `Task<Void, Never>` is a task that returns no value and throws no error.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-10
             logger.debug("Unable to perform focus and exposure operation. \(error)")
@@ -248,8 +258,8 @@ The notification comes from one device object. When the camera changes, the old 
 ### Step
 Start a new task, and keep it in the property. In the task, read the notifications of the device as an asynchronous sequence.
 
-- [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) returns the notifications as a sequence for a `for await` loop. The `object` argument is a filter: the loop gets only the notifications that this device posts.
-- The loop does not use the notification. The `compactMap` call replaces each notification with the value `true`. A `Bool` value is `Sendable`, and a `Notification` object is not.
+- [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) of `NotificationCenter.default` returns the notifications as a sequence for a `for await` loop. The name is `AVCaptureDevice.subjectAreaDidChangeNotification`. The `object` argument is a filter: the loop gets only the notifications that this device posts.
+- The loop does not use the notification, so it is `for await _ in`. The `compactMap` call on the sequence replaces each notification with the value `true`. A `Bool` value is `Sendable`, and a `Notification` object is not.
 - The task starts inside the actor, so the loop runs on the session queue. When the method cancels the task, the loop ends.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-8
@@ -338,9 +348,9 @@ Result: Build Succeeded, with no errors
 The views do not use the capture service directly. They use the `Camera` protocol. In this section, you add the new method to the protocol and to its two model classes. Then you add a tap gesture to the preview.
 
 ### Step
-In `Camera.swift`, add the `focusAndExpose(at:)` method to the protocol, below the `isSwitchingVideoDevices` property.
+In `Camera.swift`, add the `async` method `focusAndExpose(at point: CGPoint)` to the protocol, below the `isSwitchingVideoDevices` property.
 
-The project does not compile until you add the method to `CameraModel` and to `PreviewCameraModel`.
+The method is `async`, because the model must await the actor. The project does not compile until you add the method to `CameraModel` and to `PreviewCameraModel`.
 
 ```swift file=AVCam/Model/Camera.swift highlight=4-5
     /// A Boolean value that indicates whether the camera is currently switching video devices.
@@ -354,7 +364,7 @@ The project does not compile until you add the method to `CameraModel` and to `P
 ```
 
 ### Step
-In `CameraModel.swift`, add the `focusAndExpose(at:)` method below the `capturePhoto()` method.
+In `CameraModel.swift`, add the `async` method `focusAndExpose(at:)` below the `capturePhoto()` method. Await the same method of `captureService`.
 
 The model sends the point to the capture service and adds nothing. The `await` keyword moves the work from the main actor to the session queue of the service. The point is still in view coordinates here.
 
