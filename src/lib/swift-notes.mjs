@@ -66,6 +66,8 @@ export const SWIFT_NOTES = [
     text: 'Unwraps an optional, or gives the value on the right when the optional is nil.' },
   { id: 'condition-list', common: true, test: /\bif\s+[^{\n]*,\s*let\s+\w+\s*=/, title: 'if with a condition list', link: `${S}thebasics#Optional-Binding`,
     text: 'An if can test several conditions, separated by commas, and bind optionals in the same list. The body runs only when every condition is true and every binding succeeds.' },
+  { id: 'ternary', common: true, test: /\?\s*$\n\s*[^:\n]+:\s/m, title: 'Conditional operator over two lines', link: `${S}basicoperators#Ternary-Conditional-Operator`,
+    text: 'condition ? a : b picks one of two values. When the line gets long, the question mark ends the first line and the two values follow on the next line.' },
   { id: 'task', common: true, test: /\bTask(\.detached)?\s*(\(|\{)/, title: 'Task', link: `${S}concurrency#Tasks-and-Task-Groups`,
     text: 'A task is a unit of asynchronous work. Task { } starts async code from a place that is not async, for example a button action. The task inherits the actor of the place where it starts.' },
   { id: 'async-let', test: /\basync\s+let\b/, title: 'async let', link: `${S}concurrency#Calling-Asynchronous-Functions-in-Parallel`,

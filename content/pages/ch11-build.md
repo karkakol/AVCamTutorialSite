@@ -43,6 +43,7 @@ struct CameraView<CameraModel: Camera>: PlatformView {
 Add the `onCameraCaptureEvent` modifier to `CameraPreview`, as its first modifier, with `defaultSoundDisabled` set to `true` and an empty closure.
 
 - The modifier is on the preview, because capture events belong to a view that shows the camera. The system sends events only while the app is in the foreground and its capture session runs.
+- Name the parameter of the closure `event`. The next steps read its properties.
 - With one `action` closure, the closure gets the primary events and the secondary events. So the two volume buttons do the same thing, as in the Camera app.
 - For an AirPods stem click, the system plays a default tone in the AirPods. [`defaultSoundDisabled: true`](https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:action:)) stops that tone. Your code now has the responsibility for the sound. You write that part at the end of this section.
 
@@ -75,7 +76,7 @@ One press calls the closure more than one time. The [`phase`](https://developer.
 ### Step
 Declare a constant for the sound, and start a `switch` statement on the capture mode. In the `.photo` case, select the shutter sound.
 
-[`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound) is a sound that an event can play through AirPods. The system supplies three sounds, and `.cameraShutter` is the sound for a photo. The constant has no value at its declaration. Each case of the `switch` statement gives it one value, and the Swift compiler makes sure that no case forgets it.
+Write `let sound: AVCaptureEventSound` without a value. [`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound) is a sound that an event can play through AirPods. The system supplies three sounds, and `.cameraShutter` is the sound for a photo. The constant has no value at its declaration. Each case of the `switch` statement gives it one value, and the Swift compiler makes sure that no case forgets it. Write `switch camera.captureMode {`, then `case .photo:` with the line `sound = .cameraShutter`.
 
 The file does not compile until you add the `.video` case, because a `switch` statement must have a case for each value.
 
@@ -107,7 +108,9 @@ This is the method that the capture button on the screen calls. A hardware contr
 ### Step
 Add the `.video` case. Select the end sound when a recording is in progress, and the begin sound when it is not.
 
-In video mode, one press has two possible meanings: start or stop. The closure reads `camera.captureActivity.isRecording` to know which one it is. A person who is not near the screen then hears a different sound for each of the two.
+In video mode, one press has two possible meanings: start or stop. The closure reads `camera.captureActivity.isRecording` to know which one it is. A person who is not near the screen then hears a different sound for each of the two. The two sounds are `.endVideoRecording` and `.beginVideoRecording`. The sample selects them with the `?:` operator on two lines: the first line ends with `?`, and the second line has `.endVideoRecording : .beginVideoRecording` with one more level of indentation.
+
+The file compiles again after this step. Xcode shows one warning, because nothing reads `sound` yet. Step 8 removes the warning.
 
 ```swift file=AVCam/CameraView.swift highlight=4-6
                                 sound = .cameraShutter
@@ -120,7 +123,7 @@ In video mode, one press has two possible meanings: start or stop. The closure r
 ```
 
 ### Step
-After the sound selection in the `.video` case, call `toggleRecording()` of the camera model.
+After the sound selection in the `.video` case, call `toggleRecording()` of the camera model, with `await`.
 
 The order of these lines is necessary. The closure must read `isRecording` before the toggle. After the toggle, the property can have the opposite value, and the closure would then select the begin sound for a stop and the end sound for a start.
 
@@ -173,7 +176,7 @@ In this section, the capture button observes the model and copies each change of
 ### Step
 In `CaptureButton.swift`, add an `onChange` modifier to `captureButton` that observes `camera.captureActivity.isRecording`.
 
-The model is the object that knows if a recording is in progress, for each source of the capture: the screen button, a hardware button, or AirPods. The closure of `onChange` gets the old value and the new value. It needs only the new value, so the first parameter is `_`.
+The model is the object that knows if a recording is in progress, for each source of the capture: the screen button, a hardware button, or AirPods. The closure of `onChange` gets the old value and the new value. It needs only the new value, so the first parameter is `_` and the second one is `newValue`. Leave the closure empty in this step.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=5-7
     var body: some View {
@@ -189,7 +192,7 @@ The model is the object that knows if a recording is in progress, for each sourc
 ### Step
 In the closure, set the `isRecording` state to the new value, inside an animation.
 
-`MovieCaptureButton` has a binding to this state. When the value changes, the button draws its other form. The animation has the same curve and the same duration as the animation that the button uses for a tap, so the person sees no difference between a tap and a press of a hardware button. After a tap on the screen button, the state already has the new value, and this closure changes nothing.
+Write `withAnimation(.easeInOut(duration: 0.25)) { isRecording = newValue }` on three lines. `MovieCaptureButton` has a binding to this state. When the value changes, the button draws its other form. The animation has the same curve and the same duration as the animation that the button uses for a tap (`withAnimation` in `MovieCaptureButton`, further down in the same file), so the person sees no difference between a tap and a press of a hardware button. After a tap on the screen button, the state already has the new value, and this closure changes nothing.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=3-6
             // Respond to recording state changes that occur from hardware button presses.
@@ -213,6 +216,7 @@ In `CaptureService.swift`, in `setUpSession()`, set `configuresApplicationAudioS
 - The line is before the microphone input and before the start of the session. The session then probably configures the audio one time, with the correct value.
 - The property does not select the AirPods. It makes them available. The person selects the microphone, for example in Control Center. If the person selects nothing, the microphone of the iPhone probably records, as before.
 - The line has no availability test, because the deployment target of the project is iOS 26.
+- The property belongs to `captureSession`. Put an empty line after the new line, so that the "Add inputs" comment keeps its own group.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-6
             // Retrieve the default camera and microphone.
@@ -256,7 +260,7 @@ On a real iPhone with AirPods, move the three lines that play the sound to a pos
 On a real iPhone, add the argument `isEnabled: !camera.isSwitchingModes` in front of `defaultSoundDisabled: true`. While the app changes between photo mode and video mode, the volume buttons then change the volume again. This shows the rule of the API: when the app cannot capture, it gives the buttons back to the system. Remove the argument when you finish.
 
 ### Text
-Your code is now the same as the `chapter-11` branch. `CameraView` and `CaptureButton` are now the same as the files of Apple's sample. One closure connects four hardware controls and the AirPods to the capture methods of the model. In chapter 12, you use the other functions of the Camera Control: the light press and the slide, which change the zoom, the exposure, and the focus.
+Your code is now the same as the `chapter-11` branch. Chapters 12 and 13 add nothing to `CameraView` and `CaptureButton`. One closure connects four hardware controls and the AirPods to the capture methods of the model. In chapter 12, you use the other functions of the Camera Control: the light press and the slide, which change the zoom, the exposure, and the focus.
 
 ## Check your understanding
 
