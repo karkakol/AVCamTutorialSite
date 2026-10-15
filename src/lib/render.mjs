@@ -452,7 +452,9 @@ function isUncovered(step) {
 function solutionCover(page, step, env) {
   if (!step.block || step.block.type !== 'code') return '';
   if (isUncovered(step)) {
-    return step.block.code.copy ? `<p class="solution-copy">${icon('pen')}<span>Boilerplate. Copy this file as it is; the caption says what it contains.</span></p>` : '';
+    if (!step.block.code.copy) return '';
+    const whole = step.block.code.isNew || step.block.code.createsFile;
+    return `<p class="solution-copy">${icon('pen')}<span>Boilerplate. Copy ${whole ? 'this file' : 'these lines'} as they are; the caption says what they contain.</span></p>`;
   }
   const file = step.block.code.file;
   const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';

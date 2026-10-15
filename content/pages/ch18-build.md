@@ -27,7 +27,7 @@ In chapter 8, `AVCaptureMovieFileOutput` compressed the frames and wrote the fil
 ### Step
 Create a new Swift file with the name `MovieRecorder.swift` in the `Capture` group, and replace its contents.
 
-The writer gets a temporary URL from `URL.movieFileURL`, the extension from chapter 8, and the QuickTime file type. Each track is an [`AVAssetWriterInput`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput) with compression settings from the caller. [`expectsMediaDataInRealTime`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/expectsmediadatainrealtime) tells the writer that the samples come from live capture, so it must not wait for a full buffer. The audio input exists only when the caller gives audio settings.
+The file declares `final class MovieRecorder` with three stored properties: `private let writer: AVAssetWriter`, `private let videoInput: AVAssetWriterInput`, and `private let audioInput: AVAssetWriterInput?`. A computed property `var outputURL: URL` returns `writer.outputURL`. The initializer is `init(videoSettings: [String: Any], audioSettings: [String: Any]?) throws`. It creates the writer with `AVAssetWriter(outputURL: .movieFileURL, fileType: .mov)`, which throws: `URL.movieFileURL` is the extension from chapter 8, and `.mov` is the QuickTime file type. Each track is an [`AVAssetWriterInput`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput) with `mediaType:` and `outputSettings:` from the caller, and `writer.add(_:)` puts it in the writer. [`expectsMediaDataInRealTime`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/expectsmediadatainrealtime) tells the writer that the samples come from live capture, so it must not wait for a full buffer. The audio input exists only when the caller gives audio settings (`if let audioSettings`); otherwise `audioInput` is `nil`.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift new
 /*
@@ -80,7 +80,7 @@ final class MovieRecorder {
 ### Step
 Below the initializer, add the `append(videoSampleBuffer:)` method. The first video frame starts the file and sets its time zero.
 
-`startWriting()` opens the file one time, when the writer is still in the `unknown` state. Then [`startSession(atSourceTime:)`](https://developer.apple.com/documentation/avfoundation/avassetwriter/startsession(atsourcetime:)) takes the time stamp of the first frame as the time zero of the movie. With a time zero of 0, the movie would start with a long empty gap. Before the `append`, the code checks [`isReadyForMoreMediaData`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/isreadyformoremediadata): the SDK header permits an `append` only while the value is `true`, and for a live source a dropped frame is the better choice.
+The signature is `func append(videoSampleBuffer: CMSampleBuffer)`, with no `async` and no `throws`. `startWriting()` opens the file one time, when `writer.status` is still `.unknown`. After that, the status is `.writing`, and the guard needs that status. Then [`startSession(atSourceTime:)`](https://developer.apple.com/documentation/avfoundation/avassetwriter/startsession(atsourcetime:)) takes the time stamp of the first frame as the time zero of the movie. With a time zero of 0, the movie would start with a long empty gap. Before the `append`, the code checks [`isReadyForMoreMediaData`](https://developer.apple.com/documentation/avfoundation/avassetwriterinput/isreadyformoremediadata): the SDK header permits an `append` only while the value is `true`, and for a live source a dropped frame is the better choice.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift highlight=3-12
     }
@@ -101,7 +101,7 @@ Below the initializer, add the `append(videoSampleBuffer:)` method. The first vi
 ### Step
 Below that method, add the `append(audioSampleBuffer:)` method. It appends audio samples while the writer writes.
 
-Audio samples that arrive before the first video frame are dropped, because the session has no time zero yet. The method also does nothing when the movie has no audio input.
+The signature is `func append(audioSampleBuffer: CMSampleBuffer)`. One guard checks three things: `writer.status == .writing`, `let audioInput`, and `audioInput.isReadyForMoreMediaData`. Audio samples that arrive before the first video frame are dropped, because the session has no time zero yet. The method also does nothing when the movie has no audio input.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift highlight=3-7
     }
@@ -117,7 +117,7 @@ Audio samples that arrive before the first video frame are dropped, because the 
 ### Step
 Below the `append` methods, add the `finish()` method. It closes the inputs, waits for the writer, and returns the URL.
 
-`markAsFinished()` tells each input that no sample follows. [`finishWriting()`](https://developer.apple.com/documentation/avfoundation/avassetwriter/finishwriting()) completes the file, and the `await` waits for it. When the writer failed at any point, its `error` property tells why, and the method throws it. A writer that never started has no file, so the guard throws before the inputs close.
+The signature is `func finish() async throws -> URL`. The guard throws `writer.error ?? MovieCaptureError.notRecording`; the error case is from chapter 8. `markAsFinished()` tells each input that no sample follows. [`finishWriting()`](https://developer.apple.com/documentation/avfoundation/avassetwriter/finishwriting()) completes the file, and the `await` waits for it. When the writer failed at any point, its `error` property tells why, and the method throws it. A writer that never started has no file, so the guard throws before the inputs close.
 
 ```swift file=AVCam/Capture/MovieRecorder.swift highlight=3-15
     }
@@ -155,9 +155,9 @@ The mixer draws the small picture into the full picture. It does this on the GPU
 ### Step
 Create a new Metal file with the name `PiPMixer.metal` in the `Capture` group, and replace its contents with the parameters and the sampler.
 
-Use the Metal File template. `MixerParameters` is the structure that the Swift code fills: the position and the size of the small picture, in pixels of the output. The Swift copy must have the same layout. The sampler scales the small picture down with linear filtering, and it reads the texture in pixel coordinates. The [Metal Shading Language Specification](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) describes both.
+Use the Metal File template. This file and the next one are boilerplate: copy them as they are. `MixerParameters` is the structure that the Swift code fills: two `float2` members, `smallPicturePosition` and `smallPictureSize`, the position and the size of the small picture in pixels of the output. The Swift copy must have the same layout. The sampler `linearSampler` is a `constant sampler` with `filter::linear`, `coord::pixel`, and `address::clamp_to_edge`: it scales the small picture down with linear filtering, and it reads the texture in pixel coordinates. The [Metal Shading Language Specification](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf) describes both.
 
-```objc file=AVCam/Capture/PiPMixer.metal new
+```objc file=AVCam/Capture/PiPMixer.metal new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -181,9 +181,9 @@ constant sampler linearSampler(filter::linear, coord::pixel, address::clamp_to_e
 ### Step
 Below the sampler, add the kernel `pictureInPictureMixer`. It writes one output pixel for each thread.
 
-The kernel gets three textures and the parameters. `thread_position_in_grid` is the pixel that this thread writes. The GPU runs the kernel in groups of threads, and the last groups can reach beyond the edge of the texture, so the first test returns for a position outside the output. Inside the frame of the small picture, the kernel maps the output pixel to a pixel of the small picture and lets the sampler scale it down. Everywhere else, it copies the pixel of the full picture.
+The kernel gets three `texture2d<half>` textures and the parameters: `fullPicture` with `access::read` at `texture(0)`, `smallPicture` with `access::sample` at `texture(1)`, `output` with `access::write` at `texture(2)`, and `const device MixerParameters&` at `buffer(0)`. The Swift code uses the same indexes. The last parameter, `uint2 position [[ thread_position_in_grid ]]`, is the pixel that this thread writes. The GPU runs the kernel in groups of threads, and the last groups can reach beyond the edge of the texture, so the first test returns for a position outside the output. Inside the frame of the small picture, the kernel maps the output pixel to a pixel of the small picture and lets the sampler scale it down. Everywhere else, it copies the pixel of the full picture.
 
-```objc file=AVCam/Capture/PiPMixer.metal highlight=3-29
+```objc file=AVCam/Capture/PiPMixer.metal highlight=3-29 copy
 constant sampler linearSampler(filter::linear, coord::pixel, address::clamp_to_edge);
 
 /// Writes one output pixel: from the small picture inside its frame, from the full picture elsewhere.
@@ -218,9 +218,9 @@ kernel void pictureInPictureMixer(texture2d<half, access::read> fullPicture [[ t
 ### Step
 Create a new Swift file with the name `PiPVideoMixer.swift` in the `Capture` group, and replace its contents.
 
-The Swift `MixerParameters` has the same layout as the Metal structure: two pairs of 32-bit floats. `smallPictureFrame` is the frame of the small picture as a part of the full picture, from 0 to 1. The initializer compiles the kernel one time: [`makeDefaultLibrary()`](https://developer.apple.com/documentation/metal/mtldevice/makedefaultlibrary()) loads every `.metal` file of the target, and the [`MTLComputePipelineState`](https://developer.apple.com/documentation/metal/mtlcomputepipelinestate) is the compiled kernel, ready to run. The pool, the texture cache, and the output format come later, because they depend on the size of the frames.
+This file is boilerplate too; the six steps of this file show it in parts. The class is `final class PiPVideoMixer`. The private Swift `MixerParameters` has the same layout as the Metal structure: two `SIMD2<Float>` members with the same names. `var smallPictureFrame` is a `CGRect` (0.04, 0.03, 0.3, 0.3): the frame of the small picture as a part of the full picture, from 0 to 1. Two `private(set)` properties, `isPrepared` (`false`) and `outputFormatDescription` (`CMFormatDescription?`), tell the recorder the state. The Metal objects are `private`: `device` from `MTLCreateSystemDefaultDevice()`, and the optionals `commandQueue`, `pipelineState`, `textureCache`, and `outputPool`. The initializer compiles the kernel one time with `makeFunction(name: "pictureInPictureMixer")` and `makeComputePipelineState(function:)`: [`makeDefaultLibrary()`](https://developer.apple.com/documentation/metal/mtldevice/makedefaultlibrary()) loads every `.metal` file of the target, and the [`MTLComputePipelineState`](https://developer.apple.com/documentation/metal/mtlcomputepipelinestate) is the compiled kernel, ready to run. The pool, the texture cache, and the output format come later, because they depend on the size of the frames.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift new
+```swift file=AVCam/Capture/PiPVideoMixer.swift new copy
 /*
 See the LICENSE.txt file for this sample's licensing information.
 
@@ -271,9 +271,9 @@ final class PiPVideoMixer {
 ### Step
 Below the initializer, add the `prepare(with:)` method. It creates a pool of output buffers with the size of the input frames.
 
-A [`CVPixelBufferPool`](https://developer.apple.com/documentation/corevideo/cvpixelbufferpool) reuses buffers that the writer has released, so the app allocates no memory for each frame. The pool makes BGRA buffers, the format that the kernel writes. The IOSurface property lets the GPU and the asset writer share a buffer without a copy. The method ends after the pool for now; the next step completes it.
+A [`CVPixelBufferPool`](https://developer.apple.com/documentation/corevideo/cvpixelbufferpool) reuses buffers that the writer has released, so the app allocates no memory for each frame. The attributes dictionary has four keys: `kCVPixelBufferPixelFormatTypeKey` with `kCVPixelFormatType_32BGRA`, the format that the kernel writes; `kCVPixelBufferWidthKey` and `kCVPixelBufferHeightKey` from `CMVideoFormatDescriptionGetDimensions`; and `kCVPixelBufferIOSurfacePropertiesKey` with an empty dictionary, which lets the GPU and the asset writer share a buffer without a copy. Each key needs `as String`. `CVPixelBufferPoolCreate` is a C function: it returns a status and writes the pool to the `&pool` argument. The method ends after the pool for now; the next step completes it. The method calls `reset()`, which the next step adds, so the project does not compile until then.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-22
+```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-22 copy
     }
     
     // MARK: - Preparation
@@ -302,9 +302,9 @@ A [`CVPixelBufferPool`](https://developer.apple.com/documentation/corevideo/cvpi
 ### Step
 Complete `prepare(with:)` with the output format and the texture cache, and add the `reset()` method below it.
 
-The asset writer needs a format description for each mixed frame. The simplest source is a first buffer from the pool. A [`CVMetalTextureCache`](https://developer.apple.com/documentation/corevideo/cvmetaltexturecache) turns a pixel buffer into a Metal texture that shares its memory. `reset()` discards all three, so that a new frame size gets a new pool.
+The asset writer needs a format description for each mixed frame. The simplest source is a first buffer from the pool: `CVPixelBufferPoolCreatePixelBuffer` makes it, and `CMVideoFormatDescriptionCreateForImageBuffer(allocator:imageBuffer:formatDescriptionOut:)` describes it. `CVMetalTextureCacheCreate(nil, nil, device, nil, &cache)` makes the cache. A [`CVMetalTextureCache`](https://developer.apple.com/documentation/corevideo/cvmetaltexturecache) turns a pixel buffer into a Metal texture that shares its memory. `reset()` discards all three, so that a new frame size gets a new pool.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-16,19-25
+```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-16,19-25 copy
         outputPool = pool
         
         // Describe the output format from a first buffer of the pool.
@@ -335,9 +335,9 @@ The asset writer needs a format description for each mixed frame. The simplest s
 ### Step
 Below `reset()`, add the `mix(fullPicture:smallPicture:)` method. It takes an output buffer from the pool, makes the three textures, and computes the parameters.
 
-The method `makeTexture(from:)` comes in a later step. The parameters convert `smallPictureFrame` from parts of the picture to pixels of the output, because the kernel works in pixels. The method ends after the parameters for now.
+The signature is `func mix(fullPicture: CVPixelBuffer, smallPicture: CVPixelBuffer) -> CVPixelBuffer?`. The first guard unwraps `isPrepared`, `outputPool`, `commandQueue`, and `pipelineState`. The method `makeTexture(from:)` comes in a later step. The parameters convert `smallPictureFrame` from parts of the picture to pixels of the output, because the kernel works in pixels; `var parameters` is a variable, because the next step passes its address. The method ends after the parameters for now. It has no `return` and calls a method that does not exist yet, so the project does not compile until two steps from now.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-23
+```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-23 copy
     }
     
     // MARK: - Mixing
@@ -367,9 +367,9 @@ The method `makeTexture(from:)` comes in a later step. The parameters convert `s
 ### Step
 Complete `mix(fullPicture:smallPicture:)` with the encoder, the thread groups, and the wait for the GPU.
 
-An [`MTLComputeCommandEncoder`](https://developer.apple.com/documentation/metal/mtlcomputecommandencoder) gets the pipeline state, the three textures at the indexes of the kernel, and the parameters as bytes. The pipeline state tells the best width of a thread group and the largest group size; the division rounds up, so that the groups cover every pixel. `commit()` sends the work to the GPU, and `waitUntilCompleted()` blocks until the frame is complete. A production app would use a completion handler and more buffers instead; the wait is simple and correct.
+A command buffer from `commandQueue.makeCommandBuffer()` gives an [`MTLComputeCommandEncoder`](https://developer.apple.com/documentation/metal/mtlcomputecommandencoder) with `makeComputeCommandEncoder()`. The encoder gets the pipeline state (`setComputePipelineState`), the three textures at the indexes of the kernel (`setTexture(_:index:)` with 0, 1, 2), and the parameters as bytes (`setBytes(&parameters, length: MemoryLayout<MixerParameters>.size, index: 0)`). The pipeline state tells the best width of a thread group (`threadExecutionWidth`) and the largest group size (`maxTotalThreadsPerThreadgroup`); the division rounds up, so that the groups cover every pixel. `dispatchThreadgroups(_:threadsPerThreadgroup:)` takes two `MTLSize` values, and `endEncoding()` closes the encoder. `commit()` sends the work to the GPU, and `waitUntilCompleted()` blocks until the frame is complete. A production app would use a completion handler and more buffers instead; the wait is simple and correct.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-25
+```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-25 copy
                                     Float(smallPictureFrame.height) * Float(outputTexture.height)))
         
         // Encode one run of the kernel over every pixel of the output.
@@ -401,9 +401,9 @@ An [`MTLComputeCommandEncoder`](https://developer.apple.com/documentation/metal/
 ### Step
 Below `mix`, add the `makeTexture(from:)` method. It wraps a pixel buffer in a Metal texture through the cache.
 
-[`CVMetalTextureCacheCreateTextureFromImage`](https://developer.apple.com/documentation/corevideo/cvmetaltexturecachecreatetexturefromimage(_:_:_:_:_:_:_:_:_:)) makes no copy: the texture reads and writes the memory of the pixel buffer. The pixel format `bgra8Unorm` matches the BGRA buffers of the outputs and of the pool. That is why the video data outputs ask for BGRA in a later section.
+[`CVMetalTextureCacheCreateTextureFromImage`](https://developer.apple.com/documentation/corevideo/cvmetaltexturecachecreatetexturefromimage(_:_:_:_:_:_:_:_:_:)) makes no copy: the texture reads and writes the memory of the pixel buffer. The method is `private func makeTexture(from pixelBuffer: CVPixelBuffer) -> MTLTexture?`. The C function writes a `CVMetalTexture?` to the `&texture` argument, and `CVMetalTextureGetTexture` unwraps the `MTLTexture`. The pixel format `bgra8Unorm` matches the BGRA buffers of the outputs and of the pool. That is why the video data outputs ask for BGRA in a later section.
 
-```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-12
+```swift file=AVCam/Capture/PiPVideoMixer.swift highlight=3-12 copy
     }
     
     /// Wraps a pixel buffer in a Metal texture through the texture cache.
@@ -436,7 +436,7 @@ The dual recorder is the delegate of the three data outputs. It receives each fr
 ### Step
 Create a new Swift file with the name `DualRecorder.swift` in the `Capture` group, and replace its contents.
 
-The class adopts the two delegate protocols, [`AVCaptureVideoDataOutputSampleBufferDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate) and [`AVCaptureAudioDataOutputSampleBufferDelegate`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutputsamplebufferdelegate), which need an `NSObject`. `captureActivity` is published, like in `MovieCapture` from chapter 8, so the capture service can show the recording time. `dataOutputQueue` is the serial queue of all three outputs: one queue means that no two delegate calls run at the same time, so the class needs no lock. The recorder keeps the three outputs, because the delegate method tells only the output that a frame comes from.
+The class adopts the two delegate protocols, [`AVCaptureVideoDataOutputSampleBufferDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate) and [`AVCaptureAudioDataOutputSampleBufferDelegate`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutputsamplebufferdelegate), which need an `NSObject`. The class is `final class DualRecorder: NSObject` with the two protocols. `@Published private(set) var captureActivity: CaptureActivity = .idle` is published, like in `MovieCapture` from chapter 8, so the capture service can show the recording time. `let dataOutputQueue = DispatchQueue(label: "com.karolkakol.AVCam.dataOutputQueue")` is the serial queue of all three outputs: one queue means that no two delegate calls run at the same time, so the class needs no lock. `var smallPicture = AVCaptureDevice.Position.front` names the camera in the small picture. The recorder keeps the three outputs as `private let` constants, `backOutput` and `frontOutput` of type `AVCaptureVideoDataOutput` and `audioOutput` of type `AVCaptureAudioDataOutput?`, because the delegate method tells only the output that a frame comes from; the initializer `init(backOutput:frontOutput:audioOutput:)` stores them. The private state is `let mixer = PiPVideoMixer()`, `var recorder: MovieRecorder?`, `var latestSmallPictureFrame: CMSampleBuffer?`, `var recordingStartTime: CMTime?`, and `var reportedDuration = TimeInterval.zero`. The computed property `var isRecording: Bool` returns `recorder != nil`.
 
 ```swift file=AVCam/Capture/DualRecorder.swift new
 /*
@@ -493,7 +493,7 @@ final class DualRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 ### Step
 Below `isRecording`, add the `startRecording()` method. It creates a movie recorder with the settings that the outputs recommend.
 
-[`recommendedVideoSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettingsforassetwriter(writingto:)) returns compression settings that fit the format of the output and the file type. The audio settings have a trap: in the simulator, [`recommendedAudioSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput/recommendedaudiosettingsforassetwriter(writingto:)) returned a sample rate of 0, probably because the microphone had delivered no samples, and `AVAssetWriterInput` raised an exception for that value. The first version of this chapter crashed here. The guard records without sound in that case.
+[`recommendedVideoSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettingsforassetwriter(writingto:)) returns compression settings that fit the format of the output and the file type. The signature is `func startRecording() throws`. A first guard returns when `recorder` is not `nil`. The video settings come from `backOutput` with the file type `.mov`; when they are `nil`, the method throws `MovieCaptureError.notRecording`. The audio settings have a trap: in the simulator, [`recommendedAudioSettingsForAssetWriter(writingTo:)`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput/recommendedaudiosettingsforassetwriter(writingto:)) returned a sample rate of 0, probably because the microphone had delivered no samples, and `AVAssetWriterInput` raised an exception for that value. The first version of this chapter crashed here. The guard reads `audioSettings?[AVSampleRateKey] as? Double`, and sets `audioSettings` to `nil` when the value is missing or not above 0, so the movie gets no sound in that case. The method ends with `recordingStartTime = nil`, `reportedDuration = .zero`, and `captureActivity = .movieCapture()`.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-21
     var isRecording: Bool { recorder != nil }
@@ -523,7 +523,7 @@ Below `isRecording`, add the `startRecording()` method. It creates a movie recor
 ### Step
 Below `startRecording()`, add the `stopRecording()` method. It gives up the movie recorder and returns it.
 
-The method does not finish the file. It detaches: after the `defer` block, `recorder` is `nil`, and no frame reaches the movie recorder. The caller runs this method on the data output queue, so the detach happens between two frames. Then the caller can finish the file on any queue, with no frame in flight.
+The signature is `func stopRecording() -> MovieRecorder?`. The method does not finish the file. It detaches: the `defer` block sets `recorder` to `nil` and `captureActivity` to `.idle` after the `return`, and no frame reaches the movie recorder. The caller runs this method on the data output queue, so the detach happens between two frames. Then the caller can finish the file on any queue, with no frame in flight.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-12
     }
@@ -544,7 +544,7 @@ The method does not finish the file. It detaches: after the `defer` block, `reco
 ### Step
 Below `stopRecording()`, add the delegate method `captureOutput(_:didOutput:from:)`. It sorts each sample buffer by its output.
 
-Both delegate protocols use the same method, [`captureOutput(_:didOutput:from:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate/captureoutput(_:didoutput:from:)). Audio samples go to the movie recorder at once. A video frame is the small picture when its output and `smallPicture` name the same camera. The recorder stores the latest small picture frame and processes each full picture frame, so the full picture sets the frame rate and the time stamps of the movie.
+Both delegate protocols use the same method, [`captureOutput(_:didOutput:from:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutputsamplebufferdelegate/captureoutput(_:didoutput:from:)). The method compares the output with `===`, the identity operator: `output === audioOutput` is `true` when both names point to the same object. Audio samples go to the movie recorder at once. A video frame is the small picture when its output and `smallPicture` name the same camera: `(output === frontOutput) == (smallPicture == .front)`. The recorder stores the latest small picture frame in `latestSmallPictureFrame` and gives each full picture frame to `process(fullPictureFrame:)`, so the full picture sets the frame rate and the time stamps of the movie. That method comes in the next step, so the project does not compile until then.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-17
     }
@@ -570,7 +570,7 @@ Both delegate protocols use the same method, [`captureOutput(_:didOutput:from:)`
 ### Step
 Below the delegate method, add the `process(fullPictureFrame:)` method. It prepares the mixer at the first frame and mixes the two pictures.
 
-The guard returns at once when no recording runs: the preview layers show the live pictures by themselves, and the GPU work is needed only for the file. The mixer prepares its pool from the format description of the first frame. The method ends after the mix for now.
+The signature is `private func process(fullPictureFrame: CMSampleBuffer)`. The guard returns at once when no recording runs: the preview layers show the live pictures by themselves, and the GPU work is needed only for the file. It unwraps `recorder`, the `imageBuffer` of the full picture frame (`fullPixelBuffer`), the `imageBuffer` of the latest small picture frame (`smallPixelBuffer`), and the `formatDescription` of the full picture frame. The mixer prepares its pool from that format description at the first frame. A second guard unwraps the result of `mix` (`mixedPixelBuffer`) and `mixer.outputFormatDescription` (`outputFormat`). The method ends after the mix for now, so Xcode warns that `recorder`, `mixedPixelBuffer`, and `outputFormat` are never used until the next step.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-16
     }
@@ -595,7 +595,7 @@ The guard returns at once when no recording runs: the preview layers show the li
 ### Step
 Complete `process(fullPictureFrame:)`: wrap the mixed buffer in a sample buffer with the time of the source frame, append it, and report the time.
 
-A mixed frame is a new pixel buffer with no time. [`CMSampleBufferCreateReadyWithImageBuffer`](https://developer.apple.com/documentation/coremedia/cmsamplebuffercreatereadywithimagebuffer(allocator:imagebuffer:formatdescription:sampletiming:samplebufferout:)) gives it the format of the pool and the [`presentationTimeStamp`](https://developer.apple.com/documentation/coremedia/cmsamplebuffer/presentationtimestamp) of the full picture frame, so the writer puts it at the correct time. The recording time comes from the frame times, not from a timer, and the recorder publishes it four times per second, as the video mode shows it.
+A mixed frame is a new pixel buffer with no time. [`CMSampleBufferCreateReadyWithImageBuffer`](https://developer.apple.com/documentation/coremedia/cmsamplebuffercreatereadywithimagebuffer(allocator:imagebuffer:formatdescription:sampletiming:samplebufferout:)) gives it the format of the pool and the [`presentationTimeStamp`](https://developer.apple.com/documentation/coremedia/cmsamplebuffer/presentationtimestamp) of the full picture frame (`time`), so the writer puts it at the correct time. The timing is a `CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: time, decodeTimeStamp: .invalid)` variable, because the function takes its address. The recording time comes from the frame times, not from a timer: `recordingStartTime` keeps the first `time`, and `(time - start).seconds` is the duration. When it has grown by 0.25 seconds or more since `reportedDuration`, the recorder publishes `.movieCapture(duration: duration)`, so four times per second, as the video mode shows it.
 
 ```swift file=AVCam/Capture/DualRecorder.swift highlight=3-20
               let outputFormat = mixer.outputFormatDescription else { return }
@@ -654,7 +654,7 @@ In chapter 17, `MultiCamCapture` connected each camera to its preview layer by h
 ### Step
 In `MultiCamCapture.swift`, add the three outputs and the `recorder` property below the two inputs.
 
-An [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) for each camera, because the delegate method tells only the output that a frame comes from. One [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) for the microphone. The recorder is `private(set)`, so the capture service can observe its activity.
+An [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) for each camera, because the delegate method tells only the output that a frame comes from: `private let backVideoOutput` and `private let frontVideoOutput`, each with a new output as the value. One [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) for the microphone, `private let audioOutput`. The recorder is `private(set) var recorder: DualRecorder?`, so the capture service can observe its activity.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=5-8,10-11
     // The inputs for the two cameras.
@@ -676,7 +676,7 @@ An [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoun
 ### Step
 Give `configure` a `microphone:` parameter. In its body, create the dual recorder, pass it to the two `addCamera` calls, and add the microphone.
 
-The microphone is optional: a device without one records a movie without sound. The recorder gets the audio output only when a microphone exists, so it never waits for audio that never comes. The new `addCamera` parameters and `addMicrophone(_:recorder:)` do not exist yet. You add them in the next steps.
+The parameter `microphone: AVCaptureDevice?` comes after `frontCamera:`. The microphone is optional: a device without one records a movie without sound. The constant `hasMicrophone` is `microphone != nil`, and the recorder, `DualRecorder(backOutput:frontOutput:audioOutput:)`, gets the audio output only when a microphone exists, so it never waits for audio that never comes. A local constant `recorder` goes to `self.recorder` and to the calls. The new `addCamera` parameters and `addMicrophone(_:recorder:)` do not exist yet. You add them in the next steps, so the project does not compile until step 4.6 adds `addMicrophone`.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift remove
     /// Adds the two cameras to the session and connects each one to its own preview layer.
@@ -718,7 +718,7 @@ The microphone is optional: a device without one records a movie without sound. 
 ### Step
 Give `addCamera` two more parameters, `videoOutput:` and `recorder:`, so that each camera gets its own output.
 
-Each camera gets its own output object, and the recorder is the delegate of both. The body of the method does not use the two parameters yet.
+The types are `videoOutput: AVCaptureVideoDataOutput` and `recorder: DualRecorder`. Each camera gets its own output object, and the recorder is the delegate of both. The body of the method does not use the two parameters yet.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift remove
     // Adds an input for a camera and a connection from the camera to a preview layer.
@@ -736,7 +736,7 @@ Each camera gets its own output object, and the recorder is the delegate of both
 ### Step
 Before the `return` statement of `addCamera`, add the video data output to the session, select its pixel format, and set its delegate.
 
-[`addOutputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutputwithnoconnections(_:)) is the twin of the input method from chapter 17: the output joins the session, and nothing feeds it yet. [`videoSettings`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/videosettings) asks for BGRA pixels, the format that the Metal textures of the mixer read. [`setSampleBufferDelegate(_:queue:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/setsamplebufferdelegate(_:queue:)) names the recorder and its serial queue.
+[`addOutputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutputwithnoconnections(_:)) is the twin of the input method from chapter 17: the output joins the session, and nothing feeds it yet. Before it, `canAddOutput(_:)` in a guard throws `CameraError.addOutputFailed`. [`videoSettings`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/videosettings) is a dictionary with one entry, `kCVPixelBufferPixelFormatTypeKey as String` with `kCVPixelFormatType_32BGRA`: it asks for BGRA pixels, the format that the Metal textures of the mixer read. [`setSampleBufferDelegate(_:queue:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/setsamplebufferdelegate(_:queue:)) names the recorder and its serial queue.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-12
         let rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
@@ -759,7 +759,7 @@ Before the `return` statement of `addCamera`, add the video data output to the s
 ### Step
 Below the delegate line, connect the video port to the output, and give the connection its mirroring and its rotation angle.
 
-[`AVCaptureConnection(inputPorts:output:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:)) links the same port that feeds the preview layer to the output. The app does not rely on automatic mirroring for a connection that it makes, so the code mirrors the front camera again. The angle is [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), not the preview angle: a recorded frame is turned like a photo. In the simulator, this angle is 0, so the movie is landscape, as the photos of chapter 3 are.
+[`AVCaptureConnection(inputPorts:output:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:)) links the same port that feeds the preview layer, `videoPort`, to the output; the constant is `outputConnection`, and `canAddConnection(_:)` in a guard throws `CameraError.addOutputFailed`. The three mirroring lines are the ones of chapter 16 and 17, on the new connection. The app does not rely on automatic mirroring for a connection that it makes, so the code mirrors the front camera again. The angle is [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), not the preview angle: a recorded frame is turned like a photo. In the simulator, this angle is 0, so the movie is landscape, as the photos of chapter 3 are.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=3-13
         videoOutput.setSampleBufferDelegate(recorder, queue: recorder.dataOutputQueue)
@@ -783,7 +783,7 @@ Below the delegate line, connect the video port to the output, and give the conn
 ### Step
 Below `addCamera`, add the `addMicrophone(_:recorder:)` method. It adds the microphone input with no connections and finds its audio port.
 
-The SDK header says that the microphone input has a hidden [`AVCaptureInput.Port`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/port) for each direction, which only this method finds. The port with the back position gives the sound of the scene in front of the back camera. In the simulator, no port has the back position, so the fallback takes the first audio port from [`ports`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/ports). The method ends after the port for now.
+The signature is `private func addMicrophone(_ microphone: AVCaptureDevice, recorder: DualRecorder) throws`. The input is an `AVCaptureDeviceInput`, and `canAddInput(_:)` in a guard throws `CameraError.addInputFailed`, as in `addCamera`. The SDK header says that the microphone input has a hidden [`AVCaptureInput.Port`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/port) for each direction, which only `ports(for:sourceDeviceType:sourceDevicePosition:)` finds; `addCamera` uses the same method for the video port. The port with `.audio`, the device type of the microphone, and the back position gives the sound of the scene in front of the back camera. In the simulator, no port has the back position, so the fallback with `??` takes the first audio port from [`ports`](https://developer.apple.com/documentation/avfoundation/avcaptureinput/ports) (`first(where:)` with `mediaType == .audio`). When both are `nil`, the guard throws `CameraError.addInputFailed`. The method ends after the port, `audioPort`, for now, so Xcode warns that the constant is never used until the next step.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-17
         return input
@@ -810,7 +810,7 @@ The SDK header says that the microphone input has a hidden [`AVCaptureInput.Port
 ### Step
 Complete `addMicrophone(_:recorder:)`: add the audio output with the recorder as its delegate, and connect the port to it.
 
-The audio output uses the same delegate and the same queue as the video outputs. So audio samples and video frames arrive one after the other on one queue, and the recorder sorts them by output.
+The four lines for the output are the ones of `addCamera`, with `audioOutput`. The connection, `connection`, links `audioPort` to it. The audio output uses the same delegate and the same queue as the video outputs. So audio samples and video frames arrive one after the other on one queue, and the recorder sorts them by output.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-14
                 ?? input.ports.first(where: { $0.mediaType == .audio }) else {
@@ -833,7 +833,7 @@ The audio output uses the same delegate and the same queue as the video outputs.
 ### Step
 In `CaptureService.swift`, in `startDualCaptureIfNeeded()`, pass the default microphone to `configure`, and call `observeDualRecorder()` after the first configuration.
 
-`deviceLookup.defaultMic` throws on a device without a microphone. The `try?` turns that into `nil`, and the session records without sound. The method runs again each time a person returns to the dual mode, but `configure` does its work one time only. The check keeps the app from observing the same recorder twice. The method `observeDualRecorder()` does not exist yet. You add it in the next step.
+`deviceLookup.defaultMic` throws on a device without a microphone. The `try?` turns that into `nil` in the constant `microphone`, and the session records without sound. The method runs again each time a person returns to the dual mode, but `configure` does its work one time only. The constant `isFirstConfiguration`, read before the call, is `!multiCamCapture.isConfigured`; the check keeps the app from observing the same recorder twice. The method `observeDualRecorder()` does not exist yet. You add it in the next step, so the project does not compile until then.
 
 ```swift file=AVCam/CaptureService.swift remove
             try multiCamCapture.configure(backCamera: backCamera, frontCamera: frontCamera,
@@ -860,7 +860,7 @@ In `CaptureService.swift`, in `startDualCaptureIfNeeded()`, pass the default mic
 ### Step
 Below `observeOutputServices()`, add the `observeDualRecorder()` method. It forwards the activity of the dual recorder to the actor's property.
 
-The recorder publishes from the data output queue. The capture service is an actor, and its property must change on the actor's queue. `receive(on: sessionQueue)` delivers each value there, in order. Chapter 8 did not need this line, because `MovieCapture` published from the session queue already.
+The method is `private func observeDualRecorder()`, with no `async`. A guard unwraps `multiCamCapture.recorder`. The recorder publishes from the data output queue. The capture service is an actor, and its property must change on the actor's queue. `receive(on: sessionQueue)` delivers each value there, in order. Chapter 8 did not need this line, because `MovieCapture` published from the session queue already.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-13
     private func observeOutputServices() {
@@ -895,7 +895,7 @@ The recorder exists, but nothing calls it. In this section, `MultiCamCapture` ge
 ### Step
 In `MultiCamCapture.swift`, below the two cost properties, add a mark, `setSmallPicture(_:)`, and `startRecording()`.
 
-Both methods run on the data output queue, because the recorder changes its state only there. `setSmallPicture` uses `async`: the layout can wait for the next frame. `startRecording` uses `sync`, so the error of the recorder reaches the caller. The guard needs a running session, because the recommended settings come from the outputs of a running session.
+The signatures are `func setSmallPicture(_ position: AVCaptureDevice.Position)` and `func startRecording() throws`. Both methods unwrap `recorder` in a guard and run on the data output queue, because the recorder changes its state only there. `setSmallPicture` uses `recorder.dataOutputQueue.async`: the layout can wait for the next frame. `startRecording` uses `sync`, so the error of the recorder reaches the caller: `try recorder.dataOutputQueue.sync { try recorder.startRecording() }`. The `try` before `sync` is necessary, because `sync` throws again what its closure throws. The guard also needs `session.isRunning`, because the recommended settings come from the outputs of a running session.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=5-21
     var systemPressureCost: Float {
@@ -924,7 +924,7 @@ Both methods run on the data output queue, because the recorder changes its stat
 ### Step
 Below `startRecording()`, add `stopRecording()`. It detaches the movie recorder on the data output queue, then finishes the file.
 
-The order matters. The detach runs with `sync` on the data output queue, between two frames. After it, no frame reaches the movie recorder. Then `finish()` runs on the capture actor and waits for the writer. A frame that arrives during `finishWriting()` would be an error, and the order makes that impossible.
+The signature is `func stopRecording() async throws -> Movie`, the same as in `MovieCapture`. Without a recorder, the method throws `MovieCaptureError.notRecording`. The order matters. The detach runs with `sync(execute:)` on the data output queue, between two frames; a guard unwraps its result, `movieRecorder`, and throws the same error when it is `nil`. After it, no frame reaches the movie recorder. Then `finish()` runs on the capture actor and waits for the writer, and the method returns `Movie(url:)` with the URL. A frame that arrives during `finishWriting()` would be an error, and the order makes that impossible.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=3-12
     }
@@ -946,13 +946,13 @@ The order matters. The detach runs with `sync` on the data output queue, between
 ### Step
 In `CaptureService.swift`, in `startRecording()` and `stopRecording()`, route the dual mode to `multiCamCapture`.
 
-The camera model calls these two methods for the video mode and the dual mode alike. A start error goes to the log, as `movieCapture.startRecording()` has no error either. The movie from `stopRecording()` goes to the Photos library through the same path as in chapter 8.
+The camera model calls these two methods for the video mode and the dual mode alike. Both signatures stay as they are. In `startRecording()`, the `if` block with `do` and `catch` comes before the existing line, and ends with `return`. A start error goes to the log, as `movieCapture.startRecording()` has no error either. In `stopRecording()`, the old `try await` line gets `return` in front of it, and the `if` block comes before it. The movie from `stopRecording()` goes to the Photos library through the same path as in chapter 8.
 
 ```swift file=AVCam/CaptureService.swift remove
         try await movieCapture.stopRecording()
 ```
 
-```swift file=AVCam/CaptureService.swift highlight=2-10,15-19
+```swift file=AVCam/CaptureService.swift highlight=2-10,16-19
     func startRecording() {
         if captureMode == .dual {
             // The dual mode records the mixed pictures of the two cameras.
@@ -1009,7 +1009,7 @@ In chapter 17, the dual mode had no capture button, and a tap on the preview cha
 ### Step
 In `CameraPreview.swift`, add the `setSmallPicture(_:)` requirement to `DualPreviewSource`, and implement it in `DefaultDualPreviewSource`.
 
-The requirement is on the main actor, like `connect(back:front:)`, because the view calls it. The implementation sends the position to the capture actor in a task.
+The requirement is `@MainActor func setSmallPicture(_ position: AVCaptureDevice.Position)`, on the main actor like `connect(back:front:)`, because the view calls it. The implementation sends the position to the capture actor in a `Task` with `await captureService.setDualSmallPicture(position)`. The preview stub in `PreviewCameraModel.swift` adopts the protocol too, so the project does not compile until the next step adds the method there.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=4-5,25-28
 protocol DualPreviewSource: Sendable {
@@ -1207,7 +1207,7 @@ Build and run the app. Select the dual mode, wait for both pictures, tap the rec
 
 The record button and the recording time appear in the dual mode. A tap starts the recording, and the time counts. A second tap stops it, and the movie goes to the Photos library. In the simulator, the movie is landscape, 640 by 480 pixels, with no audio track. Tap the preview during a recording: the movie shows the exchange too.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch18-s6-7.jpg|A recording in the dual mode: the time at the top, the red square as the stop button, and the mode picker dimmed."
 Destination: the iPhone 18 Pro simulator (iOS 27.0), with SimCam in operation
 Action: Product > Run (Command-R), then tap the third mode, then tap the record button two times
 Result: The time counts during the recording. The Photos app shows the movie with the small picture in a corner.
