@@ -146,6 +146,7 @@ Other use: a list of menu choices or template options (`Product Name: AVCam`).
 3. Coverage: each line that `git diff startBranch branch` adds to a Swift file appears as a highlighted line in at least one step for that file. The learner who follows all steps must arrive at exactly the branch code. Exceptions are listed in the front matter as `uncovered: <path>, <path>` (whole files, for example assets or the project file) and must be explained on the page.
 4. Each quiz question has exactly one correct choice, and each choice has an explanation.
 5. Each image file exists. Each internal link resolves.
+6. Warnings for two copier traps: a highlighted line of a step that already exists on `startBranch` (the learner would type it twice; list it in a `remove` box when it moves), and a `remove` box line that the main fence of the same step still shows as context.
 
 ### Content budget for a tutorial page
 

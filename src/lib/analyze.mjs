@@ -158,6 +158,51 @@ function analyzeCoverage(page, repo, missingBranches) {
   }
 
   const uncoveredFiles = new Set(page.uncovered);
+
+  // Two traps for a learner who pastes the highlighted lines (found by the learner reviews):
+  // 1. A highlighted line that git does not count as added already exists in the file; a paste repeats it.
+  // 2. A "remove" box lists a line that the main fence still shows as context; the learner deletes a line that stays.
+  // Lines that a "remove" box of the page lists: a repeated line that the page tells the learner to delete is intended.
+  const removedByPage = new Map(); // file -> Set<trimmed text>
+  for (const section of page.sections) {
+    for (const item of section.items) {
+      if (item.type !== 'step' || !item.block || item.block.type !== 'code') continue;
+      for (const r of item.block.removes || []) {
+        const file = r.file || item.block.code.file;
+        if (!removedByPage.has(file)) removedByPage.set(file, new Set());
+        for (const t of r.lines) removedByPage.get(file).add(String(t).trim());
+      }
+    }
+  }
+  const isBrace = (text) => /^[{}()\]\[]+$/.test(text) || /^\}\s*else\s*\{$/.test(text);
+  for (const section of page.sections) {
+    for (const item of section.items) {
+      if (item.type !== 'step' || !item.block || item.block.type !== 'code') continue;
+      const fence = item.block.code;
+      if (!fence.file || !fence.file.endsWith('.swift') || !fence.map || fence.isNew || fence.createsFile || fence.transient) continue;
+      const addedLines = new Set((added.get(fence.file) || []).map((l) => l.line));
+      const deleted = removedByPage.get(fence.file) || new Set();
+      for (const n of fence.highlight) {
+        const fileLine = fence.map[n - 1];
+        const text = (fence.lines[n - 1] || '').trim();
+        if (!fileLine || !text || isBrace(text) || deleted.has(text)) continue;
+        if (!addedLines.has(fileLine)) {
+          page.problems.push({ level: 'warning', line: fence.line + n, where: fence.where.where, step: fence.where.step,
+            message: `Highlighted line ${n} already exists on "${page.startBranch}" (git does not add it). A learner who pastes the highlighted lines types it twice.\n      | ${text}` });
+        }
+      }
+      const context = new Set(fence.lines.filter((l, i) => !fence.highlight.includes(i + 1)).map((l) => l.trim()).filter(Boolean));
+      for (const r of item.block.removes || []) {
+        for (const t of r.lines) {
+          const text = String(t).trim();
+          if (text && !isBrace(text) && context.has(text)) {
+            page.problems.push({ level: 'warning', line: r.line, where: fence.where.where, step: fence.where.step,
+              message: `The "remove" box lists a line that the code after the step still shows as context. A learner deletes a line that stays.\n      | ${text}` });
+          }
+        }
+      }
+    }
+  }
   for (const [file, lines] of added) {
     if (uncoveredFiles.has(file)) continue;
     const have = covered.get(file) || new Set();
