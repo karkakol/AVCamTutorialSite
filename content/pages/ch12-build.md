@@ -25,7 +25,7 @@ The method makes two system controls, which change a device property themselves,
 ### Step
 In `CaptureService.swift`, add the `controlsMap` property above the `sessionQueue` property.
 
-The key is the [`uniqueID`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/uniqueid) of a camera, and the value is the array of controls for that camera. [`AVCaptureControl`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol) is the base class of all controls, so one array can hold system controls and custom controls.
+The key is the [`uniqueID`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/uniqueid) of a camera, and the value is the array of controls for that camera. [`AVCaptureControl`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol) is the base class of all controls, so one array can hold system controls and custom controls. Write `private var controlsMap: [String: [AVCaptureControl]] = [:]`. The dictionary starts empty.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5
     // A Boolean value that indicates whether the actor finished its required configuration.
@@ -158,7 +158,7 @@ Call `device.setFocusModeLocked(lensPosition: lensPosition)` without the complet
 ### Step
 Below the action, add the slider to the array of controls.
 
-The slider is the third control of a camera that supports a custom lens position. For other cameras, the array has only the two system controls.
+The slider is the third control of a camera that supports a custom lens position. For other cameras, the array has only the two system controls. Write `controls.append(lensSlider)`.
 
 ```swift file=AVCam/CaptureService.swift highlight=11-12
                 // Perform the slider's action on the session queue.
@@ -596,7 +596,7 @@ class PreviewCameraModel: Camera {
 ### Step
 In `CameraModel.swift`, add the `prefersMinimizedUI` property below the `isSwitchingVideoDevices` property.
 
-The setter is private, because only the model changes this state.
+The setter is private, because only the model changes this state. Write `private(set) var prefersMinimizedUI = false`.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-5
     /// A Boolean value that indicates whether the app is currently switching video devices.
@@ -643,7 +643,7 @@ Write `for await isShowingFullscreenControls in await captureService.$isShowingF
 ### Step
 In the loop, write each value to `prefersMinimizedUI` in an animation block.
 
-`withAnimation` makes each view that depends on the property animate its change. Thus the controls fade, and do not jump.
+`withAnimation` makes each view that depends on the property animate its change. Thus the controls fade, and do not jump. Write `withAnimation {`, the assignment `prefersMinimizedUI = isShowingFullscreenControls`, and the closing brace on three lines. `withAnimation` has no arguments here, so SwiftUI uses its default animation. Chapter 11 gave it a curve and a duration; this chapter does not.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-7
         Task {
@@ -689,7 +689,7 @@ struct MainToolbar<CameraModel: Camera>: PlatformView {
 ### Step
 Set the opacity of the thumbnail button and of the button that changes the camera to zero when the model prefers a minimal interface.
 
-Each `opacity` modifier comes before the `hidden(until:)` modifier from chapter 10. That modifier also sets an opacity, and the two values multiply. Thus a view is visible only when the session runs and the model does not ask for a minimal interface.
+Each `opacity` modifier comes before the `hidden(until:)` modifier from chapter 10. That modifier also sets an opacity, and the two values multiply. Thus a view is visible only when the session runs and the model does not ask for a minimal interface. Write `.opacity(camera.prefersMinimizedUI ? 0 : 1)` under each of the two views, with its comment line from the solution above it. Steps 3 and 4 use the same modifier line.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=4-5,14-15
     var body: some View {
@@ -715,7 +715,7 @@ Each `opacity` modifier comes before the `hidden(until:)` modifier from chapter 
 ### Step
 In `CaptureModeView.swift`, replace the comment above `hidden(until:)` with the opacity modifier and two new comments.
 
-The picker changes the capture mode, and a change of the mode configures the session again. That is not an operation for the moment when a person adjusts a setting with the Camera Control.
+The picker changes the capture mode, and a change of the mode configures the session again. That is not an operation for the moment when a person adjusts a setting with the Camera Control. The modifier is the same line as in step 2: `.opacity(camera.prefersMinimizedUI ? 0 : 1)`.
 
 ```swift file=AVCam/Views/Controls/CaptureModeView.swift remove
         // Hide the capture mode view until the capture session runs, using a custom modifier.
@@ -736,7 +736,7 @@ The picker changes the capture mode, and a change of the mode configures the ses
 ### Step
 In `FeatureToolbar.swift`, set the opacity of the toolbar above the `hidden(until:)` modifier.
 
-One modifier on the `HStack` hides all items of the toolbar: the Live Photo button, the quality picker, and the HDR button.
+One modifier on the `HStack` hides all items of the toolbar: the Live Photo button, the quality picker, and the HDR button. The modifier is the same line as in step 2.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=16-17
     var body: some View {

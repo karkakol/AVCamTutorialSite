@@ -63,7 +63,7 @@ Add the `onCameraCaptureEvent` modifier to `CameraPreview`, as its first modifie
 ### Step
 In the closure, continue only when the phase of the event is `.ended`.
 
-One press calls the closure more than one time. The [`phase`](https://developer.apple.com/documentation/avkit/avcaptureeventphase) of the [`AVCaptureEvent`](https://developer.apple.com/documentation/avkit/avcaptureevent) is `.began` when the person pushes the control down, and `.ended` when the person releases it. Without this test, one click captures two times. The third phase, `.cancelled`, means that the press must not count, so the closure ignores it too.
+One press calls the closure more than one time. The [`phase`](https://developer.apple.com/documentation/avkit/avcaptureeventphase) of the [`AVCaptureEvent`](https://developer.apple.com/documentation/avkit/avcaptureevent) is `.began` when the person pushes the control down, and `.ended` when the person releases it. Without this test, one click captures two times. The third phase, `.cancelled`, means that the press must not count, so the closure ignores it too. Write `if event.phase == .ended {` and its closing brace. All later lines of the closure go inside this block.
 
 ```swift file=AVCam/CameraView.swift highlight=3-4
                     // Handle capture events from device hardware buttons.
