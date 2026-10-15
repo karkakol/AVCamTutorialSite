@@ -77,6 +77,8 @@ Below `CaptureActivity`, add the `CaptureMode` enumeration with its two cases an
 
 The declaration is `enum CaptureMode: String, Identifiable, CaseIterable, Codable`. The cases are `photo` and `video`, each with a doc comment. The `id` property returns `self` (`var id: Self { self }`). `CaseIterable` supplies `allCases`, and `Identifiable` lets a `ForEach` use the cases. You use both in the mode picker. `systemName` is the name of the symbol that the picker shows: `"camera.fill"` for `photo` and `"video.fill"` for `video`. The sample writes the `switch` without `return`. The `String` raw value and `Codable` are for chapter 13, where the app stores the mode.
 
+The closing brace of `CaptureActivity` is highlighted too, because git counts it as new. Do not add a second brace. In Try first mode, the first placeholder stands for this brace: write nothing there.
+
 ```swift file=AVCam/Model/DataTypes.swift highlight=7,9-15,17-25
     var isRecording: Bool {
         if case .movieCapture = self {
@@ -860,7 +862,7 @@ The two methods only send the call to the movie service. They are methods of the
 ### Step
 In `MediaLibrary.swift`, add the method `save(movie: Movie) async throws` below the `save(photo:)` method.
 
-The method gets `currentLocation` first, as `save(photo:)` does. Then it uses the `performChange(_:)` method from chapter 4, so the permission test and the thumbnail are the same as for a photo. In the closure, create a `PHAssetResourceCreationOptions` object and a request with `PHAssetCreationRequest.forAsset()`. Call `addResource(with: .video, fileURL: movie.url, options:)`, set the `location`, and return `placeholderForCreatedAsset`. The resource type is `.video`, and the resource is a file, not data. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), the Photos library moves the file and does not copy it. A movie can be very large, and a copy uses two times the space for a moment. The move also removes the temporary file.
+The method gets `currentLocation` first, as `save(photo:)` does. Then it uses the `performChange(_:)` method from chapter 4, so the permission test and the thumbnail are the same as for a photo. In the closure, create a `PHAssetResourceCreationOptions` object with the name `options`, set its `shouldMoveFile` to `true`, and then create a request with `PHAssetCreationRequest.forAsset()`. Call `addResource(with: .video, fileURL: movie.url, options:)`, set the `location`, and return `placeholderForCreatedAsset`. The resource type is `.video`, and the resource is a file, not data. With [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile), the Photos library moves the file and does not copy it. A movie can be very large, and a copy uses two times the space for a moment. The move also removes the temporary file.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=12-23
             // Save Live Photo data.
@@ -1596,7 +1598,7 @@ Build and run the app. Select the video mode, tap the red button, wait some seco
 
 The first tap starts a recording, and the red circle changes to a rounded square. The second tap stops the recording, and the app saves the movie. Open the Photos app in the Simulator to see the movie. You cannot see the recording time yet.
 
-```settings title="Checkpoint" result="../images/ch08-s9-4.jpg|The video mode: the capture button is red."
+```settings title="Checkpoint" result="../images/ch08-s9-4.jpg|The video mode: the capture button is red. The picture is from the end of the chapter. At this step, your screen still shows the two photo controls at the top, no time view, and the 3:4 preview. Sections 10 and 11 change this."
 Action: Product > Run (Command-R), select the video mode, then tap the capture button two times
 Result: The button is red in video mode and changes its shape during the recording. A new movie is in the Photos library.
 ```
@@ -1717,7 +1719,7 @@ Build and run the app. Select the video mode, and record a movie of some seconds
 
 In video mode, the two photo controls at the top go away, and the time view shows `00:00:00`. During the recording, the time view counts the seconds. After the second tap, it goes back to `00:00:00`.
 
-```settings title="Checkpoint" result="../images/ch08-s10-4.jpg|During a recording: the time at the top, the red button as a square."
+```settings title="Checkpoint" result="../images/ch08-s10-4.jpg|During a recording: the time at the top, the red button as a square. The dim camera switch button in the picture comes in section 12."
 Action: Product > Run (Command-R), select the video mode, then record a movie
 Result: The time view at the top counts during the recording.
 ```

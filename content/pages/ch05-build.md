@@ -129,7 +129,7 @@ let movieAspectRatio = AspectRatio(width: 9.0, height: 16.0)
 ### Step
 Add two lines to the documentation comment of the structure, and add the `horizontalSizeClass` property between the structure line and the `camera` property.
 
-The two comment lines are from the sample: "On a compact device size, the app also uses this view to offset the vertical position" and "of the camera preview to better fit the UI when in photo capture mode." The property is `@Environment(\.horizontalSizeClass) var horizontalSizeClass`. The container needs only the horizontal size class. The viewfinder frame makes sense when the window is narrow, and the height of the window does not change that.
+The two comment lines are from the sample: "On a compact device size, the app also uses this view to offset the vertical position" and "of the camera preview to better fit the UI when in photo capture mode." The property is `@Environment(\.horizontalSizeClass) var horizontalSizeClass`. The container needs only the horizontal size class. The viewfinder frame makes sense when the window is narrow, and the height of the window does not change that. In Try first mode, the cover shows the two comment lines as hints, with line numbers. They are not in your file yet. You add them in this step.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=4-5,9
 /// A view that provides a container view around the camera preview.
@@ -146,7 +146,7 @@ struct PreviewContainer<Content: View, CameraModel: Camera>: View {
 ```
 
 ### Step
-Add the private constant `photoModeOffset`, a `CGFloat` with the value -44, above the `content` property.
+Add the private constant `photoModeOffset`, with the value `CGFloat(-44)`, above the `content` property.
 
 A frame in the center of the screen has two equal bars. The sample moves the frame up by 44 points, so that the frame sits better between the controls at the top and the larger toolbar at the bottom. The value is a design decision.
 
@@ -204,7 +204,7 @@ The `body` property of a view is a view builder, so it can contain an `if` state
 ### Step
 Add the `clipped()` and `aspectRatio(_:contentMode:)` modifiers to the `ZStack`.
 
-- `aspectRatio(_:contentMode:)` with `.fit` gives the stack the largest 3:4 size that fits in the available space. On an iPhone, the frame is as wide as the window.
+- `aspectRatio(_:contentMode:)` takes the `aspectRatio` property from step 4 as its first argument, not the constant `photoAspectRatio`. With `.fit`, it gives the stack the largest 3:4 size that fits in the available space. On an iPhone, the frame is as wide as the window.
 - `clipped()` makes sure that no effect on the preview draws outside the frame.
 
 The app does not set the video gravity of the preview layer. The layer now has the shape of the image, so its default gravity shows all of the image with no bars.
@@ -410,7 +410,7 @@ Add the `onGeometryChange(for:of:action:)` modifier to the `Group`, between the 
 - The `for:` argument is the type of the value, `CGSize.self`. The first closure gets a geometry proxy and returns a value. SwiftUI calls the second closure, `action:`, when that value changes, for example when the person resizes the window on iPad. The action stores the value in `windowSize`.
 - `proxy.size` is the size of the layout area. That area does not include the safe areas, such as the area of the home indicator. The closure adds `proxy.safeAreaInsets` (`leading` and `trailing` to the width, `top` and `bottom` to the height) to get the full window.
 
-The sample measures the window, and not the screen, because an iPad window can be smaller than the screen.
+The sample reads the insets into a constant `insets`, and then returns the `CGSize` with the `return` keyword, because the closure has two statements. The sample measures the window, and not the screen, because an iPad window can be smaller than the screen.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=9-17
     var body: some View {
@@ -456,7 +456,7 @@ At the end of the structure, add the computed property `bottomPadding` of the ty
 - `rect.minY` is the top edge of that area. It is also the height of the bar above the video.
 - The space below the toolbar is half of that height, rounded with `rounded()` before the division, plus 12 points. Thus the space is larger in a tall window.
 
-The property always uses the video ratio, also in photo mode. So the toolbar does not move when the capture mode changes in chapter 8.
+The property is not private, like `aspectRatio` in `PreviewContainer`. It always uses the video ratio, also in photo mode. So the toolbar does not move when the capture mode changes in chapter 8.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=5-10
             .padding(.bottom, 32)
@@ -473,7 +473,7 @@ The property always uses the video ratio, also in photo mode. So the toolbar doe
 ```
 
 ### Step
-In `compactUI`, add the bottom padding to the toolbar.
+In `compactUI`, add the modifier `.padding(.bottom, bottomPadding)` to the toolbar.
 
 The padding adds empty space below the toolbar, so the toolbar moves away from the bottom edge. Only the compact layout uses this value. The regular layout has a fixed distance of 32 points.
 

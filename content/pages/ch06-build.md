@@ -28,7 +28,7 @@ In this section, you write the private method `focusAndExpose(at:isUserInitiated
 ### Step
 In `CaptureService.swift`, below the `videoPreviewLayer` property, add a `MARK` comment and the private method `focusAndExpose(at:isUserInitiated:)`. Read `currentDevice` into a constant `device`.
 
-The comment is `// MARK: - Automatic focus and exposure`. The signature is `private func focusAndExpose(at devicePoint: CGPoint, isUserInitiated: Bool) throws`. The method reads `currentDevice` one time and uses the constant `device` for all later lines. Thus all operations of the method, from the lock to the unlock, go to the same device object. The method is `throws`, because the lock in the next step can fail.
+The comment is `// MARK: - Automatic focus and exposure`. The signature is `private func focusAndExpose(at devicePoint: CGPoint, isUserInitiated: Bool) throws`. The method reads `currentDevice` one time and uses the constant `device` for all later lines. Thus all operations of the method, from the lock to the unlock, go to the same device object. The method is `throws`, because the lock in the next step can fail. If you build after this step, Xcode warns that the constant `device` is never used. The next step uses it.
 
 ```swift file=AVCam/CaptureService.swift highlight=4,6-9
         return previewLayer
@@ -68,7 +68,7 @@ Lock the device for configuration, and unlock it at the end of the method.
 ### Step
 Between the lock and the unlock, select the focus mode into a constant `focusMode`: `.autoFocus` for a tap, and `.continuousAutoFocus` in the other case.
 
-With [`.autoFocus`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focusmode-swift.enum), the camera focuses one time and then locks the lens. So the focus stays on the place that the person selected. With `.continuousAutoFocus`, the camera focuses again each time the scene makes it necessary. The first value has its full type name, `AVCaptureDevice.FocusMode.autoFocus`, so that Swift knows the type of the constant.
+With [`.autoFocus`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/focusmode-swift.enum), the camera focuses one time and then locks the lens. So the focus stays on the place that the person selected. With `.continuousAutoFocus`, the camera focuses again each time the scene makes it necessary. The first value has its full type name, `AVCaptureDevice.FocusMode.autoFocus`, so that Swift knows the type of the constant. A build after this step warns that `focusMode` is never used. The next step uses it.
 
 ```swift file=AVCam/CaptureService.swift highlight=4
         // The following mode and point of interest configuration requires obtaining an exclusive lock on the device.
@@ -185,7 +185,7 @@ This method is not `private`, because the camera model calls it. It is not `asyn
 ### Step
 In the new method, convert the view point to a device point with the preview layer. Keep the result in a constant `devicePoint`.
 
-The preview layer shows the video, so it has the data for the conversion. The SDK header says that [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) uses the frame size and the video gravity of the layer, and that the result is a point of the image that is not rotated. This tutorial did not test the result with a mirrored front camera. The preview layer is the backing layer of the preview view, so a point of the view is also a point of the layer. The service finds the layer with the `videoPreviewLayer` property from chapter 2.
+The preview layer shows the video, so it has the data for the conversion. The SDK header says that [`captureDevicePointConverted(fromLayerPoint:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/capturedevicepointconverted(fromlayerpoint:)) uses the frame size and the video gravity of the layer, and that the result is a point of the image that is not rotated. This tutorial did not test the result with a mirrored front camera. The preview layer is the backing layer of the preview view, so a point of the view is also a point of the layer. The service finds the layer with the `videoPreviewLayer` property from chapter 2. A build after this step warns that `devicePoint` is never used. The next step uses it.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-8
     // MARK: - Automatic focus and exposure

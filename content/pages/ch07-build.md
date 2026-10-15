@@ -145,7 +145,7 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ### Step
 Below the `PhotoFeatures` structure, add the `CaptureCapabilities` structure with the property `isLivePhotoCaptureSupported`, an initializer, and the start value `unknown`.
 
-This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The property is `let isLivePhotoCaptureSupported: Bool`. The initializer is `init(isLivePhotoCaptureSupported: Bool = false)`. The start value is `static let unknown = CaptureCapabilities()`, with each capability set to `false`. Above the structure, the sample has a documentation comment on two lines: "A structure that represents the capture capabilities of `CaptureService` in" and "its current configuration." In chapter 9, you add a second capability for HDR video.
+This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The property is `let isLivePhotoCaptureSupported: Bool`. The initializer is `init(isLivePhotoCaptureSupported: Bool = false)`. The start value is `static let unknown = CaptureCapabilities()`, with each capability set to `false`. The sample has an empty line directly after the opening brace of the structure; keep it, so that your file equals the branch. Above the structure, the sample has a documentation comment on two lines: "A structure that represents the capture capabilities of `CaptureService` in" and "its current configuration." In chapter 9, you add a second capability for HDR video.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-17
 struct PhotoFeatures {
@@ -632,7 +632,7 @@ A URL in [`livePhotoMovieFileURL`](https://developer.apple.com/documentation/avf
 ### Step
 Set the quality prioritization of the settings from the choice of the person.
 
-The initializer with a raw value changes the app type into the AVFoundation type. Its result is an optional value, so the code uses `if let`. For this Objective-C enumeration, the initializer does not return `nil` for an unknown number. Thus the raw values of the app type must stay 1, 2, and 3. The value in [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) must not be above the maximum of the output, which you set to `.quality`.
+The initializer with a raw value changes the app type into the AVFoundation type. Its result is an optional value, so the code uses `if let prioritization = AVCapturePhotoOutput.QualityPrioritization(rawValue: features.qualityPrioritization.rawValue)` and assigns `prioritization` inside. For this Objective-C enumeration, the initializer does not return `nil` for an unknown number. Thus the raw values of the app type must stay 1, 2, and 3. The value in [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) must not be above the maximum of the output, which you set to `.quality`.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-7
         // Set the movie URL if the photo output supports Live Photo capture.
@@ -755,9 +755,9 @@ The model reads the properties at the moment of the tap. Each capture gets its o
 ```
 
 ### Step
-In `PreviewCameraModel.swift`, add the two properties with the same defaults.
+In `PreviewCameraModel.swift`, add the properties `isLivePhotoEnabled` and `qualityPrioritization` with the same defaults, above `shouldFlashScreen`.
 
-The model for SwiftUI previews must conform to the `Camera` protocol too.
+The model for SwiftUI previews must conform to the `Camera` protocol too. The two lines are the same as in `CameraModel`, without the documentation comments.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=4-5
 @Observable
@@ -802,7 +802,7 @@ Each capture has its own delegate and its own progress task. The counter is in t
 ### Step
 In `monitorProgress(of:isolation:)`, add a local `isLivePhoto` flag, copy each activity into a variable `currentActivity`, and publish the variable.
 
-The flag belongs to one task, and thus to one capture. It holds the last Live Photo state that this capture reported. Write `var isLivePhoto = false` above the comment line, before the `for await` loop. In the loop, write `var currentActivity = activity` as the first line, and `captureActivity = currentActivity` as the last line. The copy is a `var`, because the next steps can change the value before the service publishes it.
+The flag belongs to one task, and thus to one capture. It holds the last Live Photo state that this capture reported. Write `var isLivePhoto = false` above the comment line, before the `for await` loop. In the loop, write `var currentActivity = activity` as the first line, and `captureActivity = currentActivity` as the last line. The copy is a `var`, because the next steps can change the value before the service publishes it. Until step 5.4, Xcode shows two warnings: `isLivePhoto` is never used, and `currentActivity` is never mutated. The warnings go away when the next two steps use the variables.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
                 captureActivity = activity

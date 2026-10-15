@@ -853,6 +853,8 @@ html.try-first .step-block.no-cover .tool-hide { display: none; }
 .solution-cover { min-width: 0; }
 .solution-place .ln.ph .tx { color: var(--accent); font-style: italic; }
 .solution-place .ln.ph .no { border-left-color: var(--accent); }
+.solution-place .ln.hint .tx { font-style: italic; opacity: 0.8; }
+.solution-place .ln.hint .no { border-left-color: var(--accent); }
 .tool-hide { display: none; }
 /* The tools of a step code card show icons only, so that the row has room for the file path. */
 .step-block .codecard-head .tool { width: 32px; padding: 0; justify-content: center; }

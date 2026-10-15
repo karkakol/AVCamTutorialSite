@@ -421,13 +421,16 @@ function solutionPlace(step, env) {
           if (strings.length) body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// texts in this code: ${e(strings.map((t) => `"${t}"`).join(', '))}\n</span></span>`;
           run = 0;
         }
+      } else if (hl.has(i + 1)) {
+        // A comment line of the solution: a hint, shown without a line number.
+        body += `<span class="ln hint"><span class="no" data-n=""></span><span class="tx">${html[i]}\n</span></span>`;
       } else {
         body += codeLines([html[i]], { numbers: [numbers[i]] });
       }
     });
     const context = fence.lines.length - fence.highlight.length;
     const where = context > 0
-      ? `in ${fileHtml}. The lines below are already in your file; they show the place. Write your code at the marked line. The line numbers are those of the finished chapter.`
+      ? `in ${fileHtml}. The lines with a number are already in your file; they show the place. Write your code at the marked line. Lines in italics are comments and texts from the solution: hints, not in your file yet.`
       : `in ${fileHtml}, at the place that the step text names. The whole region is new code.`;
     const enclosing = (fence.enclosing || []).slice().reverse();
     const inside = enclosing.length ? ` Inside ${enclosing.map((d) => `<code>${e(d)}</code>`).join(' › ')}.` : '';
