@@ -205,7 +205,7 @@ The parameter carries the stored values into the actor. `CameraState` is a struc
 ### Step
 At the start of the method, copy the capture mode and the HDR setting from the state into the properties of the service.
 
-These two values decide how the session is built. The lines are above the `guard` statement, so the service has the values before `setUpSession()` runs. The other values of the state, for example the Live Photo setting, belong to one capture and not to the session, so the service does not need them here.
+These two values decide how the session is built. The lines are above the `guard` statement, so the service has the values before `setUpSession()` runs. The two names for the HDR setting differ: the line is `isHDRVideoEnabled = state.isVideoHDREnabled`. The other values of the state, for example the Live Photo setting, belong to one capture and not to the session, so the service does not need them here.
 
 ```swift file=AVCam/CaptureService.swift highlight=2-5
     func start(with state: CameraState) async throws {
@@ -276,7 +276,7 @@ At the end of the `if` block, apply the stored HDR setting.
 ### Note
 The project does not compile at this time. `CameraModel` still calls `start()` without an argument. You change that call in the next section.
 
-The Apple sample has one empty line less below `stopRecording()` than your file. This has no effect. If you want a file that is fully the same, compare it with the branch: `git diff chapter-13 -- AVCam/CaptureService.swift`.
+The Apple sample has one empty line less below `stopRecording()` than your file, and the empty line below the preset line has no spaces in the sample. Your file can have twelve spaces there. This has no effect. If you want a file that is fully the same, compare it with the branch: `git diff chapter-13 -- AVCam/CaptureService.swift`.
 
 ## Read and write the state in the model
 
@@ -363,7 +363,7 @@ Below the `start()` method, add the `syncState()` method. In this step, it only 
 ### Step
 In `syncState()`, copy four values from the state into the properties of the model.
 
-The views read the properties of the model, not the state. After these lines, the mode picker and the feature toolbar show the stored values. The fifth value, `isVideoHDRSupported`, is not copied: the model gets it from the capabilities of the camera.
+The views read the properties of the model, not the state. The four lines, in this order, assign `captureMode`, `qualityPrioritization`, `isLivePhotoEnabled`, and `isHDRVideoEnabled` (from `isVideoHDREnabled` of the state). After these lines, the mode picker and the feature toolbar show the stored values. The fifth value, `isVideoHDRSupported`, is not copied: the model gets it from the capabilities of the camera.
 
 ```swift file=AVCam/CameraModel.swift highlight=3-6
     func syncState() async {

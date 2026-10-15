@@ -290,7 +290,7 @@ The `guard` statement is the result of a crash. The simulated camera reports a l
 
 The three constants keep the value in the range. The lower limit is the smallest zoom factor of the device, but not less than 1. The upper limit is the smaller of two values: the largest zoom factor of the device, and the display value 10 as a device value. The outer `max` call makes sure that the upper limit is never less than the lower limit.
 
-The method is private: `private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool)`. Name the constants `smallestFactor`, `largestFactor`, and `factor`. The last name is the name of the parameter. Swift permits this: the new constant hides the parameter, and the next steps use the limited value. Until the next step, Xcode warns that `factor` is never used.
+The method is private: `private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool)`. Name the constants `smallestFactor`, `largestFactor`, and `factor`. The last name is the name of the parameter. Swift permits this: the new constant hides the parameter, and the next steps use the limited value. Until step 4 of this section, where the ramp uses the constant, Xcode warns that `factor` is never used.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-15
     /// Returns the ratio between the zoom factor of the device and the value to show to a person.
@@ -315,7 +315,7 @@ The method is private: `private func setVideoZoomFactor(_ factor: CGFloat, on de
 ### Step
 Lock the device for configuration, and unlock it again.
 
-This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. The lock can fail with a Swift error, so the `do`-`catch` statement has a use here. It does not catch the range exception. The log text is `"Unable to change the zoom factor: \(error)"`.
+This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. The lock can fail with a Swift error, so the `do`-`catch` statement has a use here. It does not catch the range exception. The log text is `"Unable to change the zoom factor: \(error)"`. The constant `factor` is still not used, so the warning from the last step stays until the next step.
 
 ```swift file=AVCam/CaptureService.swift highlight=2-7
         let factor = min(max(factor, smallestFactor), largestFactor)
@@ -759,7 +759,7 @@ At the end of the file, add a preview that uses the preview model in the running
 
 The status must be `.running`. With the default status of the preview model, the `hidden(until:)` modifier keeps the control hidden, and the canvas shows only the gray background. Write `ZoomControl(camera: PreviewCameraModel(status: .running))` with `.padding()` and `.background(.gray)`.
 
-```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=6-10 result="../images/ch14-s5-7.jpg|The zoom control in the Xcode preview canvas: three levels in a capsule, the current level in yellow with a multiplication sign."
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=6-10 result="../images/ch14-s5-7.jpg|The zoom control with the three example levels of the preview model: three buttons in a capsule, the selected level in yellow with a multiplication sign. The picture comes from a temporary build in the Simulator, not from the canvas. The region of the Simulator uses a comma, so the first button shows 0,5."
             .frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)
             .background(.black.opacity(0.5), in: Circle())
     }
