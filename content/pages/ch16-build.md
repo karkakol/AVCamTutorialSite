@@ -157,7 +157,7 @@ In `DeviceLookup.swift`, add the static `builtInCameraTypes` property below the 
 
 The direction coordinator reports only the camera types that you give it. The list has the back cameras too, because on iPhone Duo a back camera can face the person. The order is the order of preference: a virtual device with more lenses comes first.
 
-Write `static var builtInCameraTypes: [AVCaptureDevice.DeviceType]` as a computed property. Inside, declare `var types: [AVCaptureDevice.DeviceType]` with the five types `.builtInTripleCamera`, `.builtInDualWideCamera`, `.builtInDualCamera`, `.builtInWideAngleCamera`, and `.builtInTrueDepthCamera`, and return it. The list is `var`, not `let`, because the next step appends to it. Until then, Xcode warns that `types` is never changed.
+Write `static var builtInCameraTypes: [AVCaptureDevice.DeviceType]` as a computed property. Inside, declare `var types: [AVCaptureDevice.DeviceType]` with the five types `.builtInTripleCamera`, `.builtInDualWideCamera`, `.builtInDualCamera`, `.builtInWideAngleCamera`, and `.builtInTrueDepthCamera`, and return it. Write the list on two lines, as the solution shows, so that your file equals the branch. The list is `var`, not `let`, because the next step appends to it. Until then, Xcode warns that `types` is never changed.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift highlight=7-12
         // If the host doesn't currently define a system-preferred camera device, set the user's preferred selection to the back camera.
@@ -588,7 +588,7 @@ Write three constants: `isFacingForward` and `isFacingBackward` from `contains(d
 ### Step
 Get the connection of the preview layer. In a task on the main actor, make sure that the connection supports mirroring.
 
-Store `videoPreviewLayer.connection` in a constant `connection` before the task, because the layer property belongs to the actor. Inside `Task { @MainActor in }`, write `guard let connection, connection.isVideoMirroringSupported else { return }`. The task on the main actor is the pattern of `updatePreviewRotation(_:)`, which also changes the preview connection. An assignment to [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception when the connection does not support mirroring, so the code asks first.
+Store `videoPreviewLayer.connection` in a constant `connection` before the task, because the layer property belongs to the actor. Inside `Task { @MainActor in }`, write `guard let connection, connection.isVideoMirroringSupported else { return }`. The task on the main actor is the pattern of `updatePreviewRotation(_:)`, which also changes the preview connection. An assignment to [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception when the connection does not support mirroring, so the code asks first. The warning that `needsOverride` is never used stays until the next step.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-9
         // The connection mirrors the preview of each camera with the front position by itself.
@@ -693,7 +693,7 @@ Write `func setCameraDirections(_ directions: CameraDirections) async`. The requ
 ### Step
 In `CameraModel.swift`, add the `setCameraDirections(_:)` method above the `switchVideoDevices()` method. It gives the directions to the capture service.
 
-Write `func setCameraDirections(_ directions: CameraDirections) async`, and call `await captureService.setCameraDirections(directions)`. The model runs on the main actor, and the service is a different actor, so the call needs `await`. The `CameraDirections` value can make this step because it is `Sendable`. The project compiles again after the next step.
+Write `func setCameraDirections(_ directions: CameraDirections) async`, and call `await captureService.setCameraDirections(directions)`. The model runs on the main actor, and the service is a different actor, so the call needs `await`. The `CameraDirections` value can go from the main actor to the capture actor because it is `Sendable`. The project compiles again after the next step.
 
 ```swift file=AVCam/CameraModel.swift highlight=1-4
     /// Tells the capture service the directions that the cameras face in relation to the preview.
