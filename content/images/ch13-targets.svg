@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
-  <title>The three targets and the source files of each target: 25 files are in the app and the capture extension, 3 files are in all targets, and each target has its own entry point</title>
+  <title>The three targets and the source files of each target: 26 files are in the app and the capture extension, 3 files are in all targets, and each target has its own entry point</title>
   <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
     <rect x="20" y="16" width="200" height="48" rx="10"/>
     <rect x="260" y="16" width="200" height="48" rx="10"/>
@@ -26,7 +26,7 @@
     <text x="120" y="108">AVCamApp.swift</text>
     <text x="360" y="108">AVCamCaptureExtension.swift</text>
     <text x="600" y="108">The control and its bundle</text>
-    <text x="240" y="176">25 files: the model, the capture service, and the views</text>
+    <text x="240" y="176">26 files: the model, the capture service, and the views</text>
     <text x="360" y="246">3 files: CameraState.swift, DataTypes.swift, AVCamCaptureIntent.swift</text>
   </g>
   <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">

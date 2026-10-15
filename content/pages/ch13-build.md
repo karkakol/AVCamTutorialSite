@@ -29,6 +29,8 @@ In the `Model` group, create the file `CameraState.swift`, and replace its conte
 
 The structure is `Codable`, because the system stores the [app context](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.associatedtype) of an intent as encoded data. Each property has a `didSet` observer that calls `save()`. Thus a change of one value stores the full structure, and the code that changes a value cannot forget to save.
 
+The file imports `os` and `Foundation`. The five properties are `var` with a start value, in this order: `isLivePhotoEnabled = true`, `qualityPrioritization = QualityPrioritization.quality`, `isVideoHDRSupported = true`, `isVideoHDREnabled = true`, and `captureMode = CaptureMode.photo`. Each observer is one line: `didSet { save() }`.
+
 ```swift file=AVCam/Model/CameraState.swift highlight=1-32
 /*
 See the LICENSE.txt file for this sample's licensing information.
@@ -72,6 +74,8 @@ Below the properties, add the `save()` method, which sends the structure to the 
 
 [`updateAppContext(_:)`](https://developer.apple.com/documentation/appintents/cameracaptureintent/updateappcontext(_:)) is an `async` method, and a `didSet` observer cannot wait. Thus the method starts a task. The task gets a copy of the structure with the values of that moment. An error goes only to the log, because the camera works without the stored state too.
 
+The method is `private func save()`. In the task, a `do` block calls `try await AVCamCaptureIntent.updateAppContext(self)`. The `catch` block writes `"Unable to update intent context: \(error.localizedDescription)"` with `os.Logger().debug(_:)`. The file does not use the global `logger` constant, because this file is later also a part of the control extension, which has no such constant.
+
 ```swift file=AVCam/Model/CameraState.swift highlight=4-13
     var captureMode = CaptureMode.photo {
         didSet { save() }
@@ -93,6 +97,8 @@ Below the properties, add the `save()` method, which sends the structure to the 
 Below `save()`, add the static `current` property, which reads the stored state.
 
 [`appContext`](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.type.property) returns `nil` when the system has no value yet, for example at the first launch. It throws when the read or the decoding fails. In the two situations, the property returns a new `CameraState` with the default values, so the caller always gets a state that it can use.
+
+The property is `static var current: CameraState` with a `get async` block. In it, a `do` block has `if let context = try await AVCamCaptureIntent.appContext { return context }`. The `catch` block logs `"Unable to fetch intent context: \(error.localizedDescription)"` in the same way as `save()`. After the `do` and `catch` blocks, the getter returns `CameraState()`.
 
 ```swift file=AVCam/Model/CameraState.swift highlight=10-22
     private func save() {
@@ -125,6 +131,8 @@ In the `Model` group, create a group with the name `Intent`. In it, create the f
 
 [`CameraCaptureIntent`](https://developer.apple.com/documentation/appintents/cameracaptureintent) tells the system that this intent starts the camera experience of the app. The `AppContext` type alias selects `CameraState` as the type of the stored value. The title and the description are the texts with which the system presents the intent. The file imports LockedCameraCapture, but it uses no type of that framework.
 
+The file imports `LockedCameraCapture`, `AppIntents`, and `os`. The structure is `struct AVCamCaptureIntent: CameraCaptureIntent` with three members: `typealias AppContext = CameraState`, `static let title: LocalizedStringResource = "AVCamCaptureIntent"`, and `static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")`.
+
 ```swift file=AVCam/Model/Intent/AVCamCaptureIntent.swift highlight=1-19
 /*
 See the LICENSE.txt file for this sample's licensing information.
@@ -152,6 +160,8 @@ Below the description, add the `perform()` method, which each app intent must ha
 
 The method only writes to the log. The system starts the app or the capture extension because the type conforms to `CameraCaptureIntent`, so `perform()` has nothing to open. AVCam has one screen. An app with more screens goes to its camera screen here.
 
+The declaration is `func perform() async throws -> some IntentResult`, with `@MainActor` on the line above it. The body logs `"AVCam capture intent performed successfully."` with `os.Logger().debug(_:)`, and then returns `.result()`.
+
 ```swift file=AVCam/Model/Intent/AVCamCaptureIntent.swift highlight=4-9
     static let title: LocalizedStringResource = "AVCamCaptureIntent"
     static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")
@@ -175,7 +185,7 @@ Until now, the capture session always started in photo mode. If the stored mode 
 ### Step
 In `CaptureService.swift`, give the `start()` method a `state` parameter.
 
-The parameter carries the stored values into the actor. `CameraState` is a structure of simple values, so it can go from the main actor to the capture service without a problem.
+The parameter carries the stored values into the actor. `CameraState` is a structure of simple values, so it can go from the main actor to the capture service without a problem. The parameter has the label `with` and the name `state`. From this step until you change the call in `CameraModel` (section 3), the project does not compile.
 
 ```swift file=AVCam/CaptureService.swift remove
     func start() async throws {
@@ -275,7 +285,9 @@ The Apple sample has one empty line less below `stopRecording()` than your file.
 ### Step
 In `Camera.swift`, add the `syncState()` method at the end of the protocol.
 
-The app structure calls this method in a later section. The method is in the protocol, so each camera model must have it, also the preview model.
+The app structure calls this method in a later section. The method is in the protocol, so each camera model must have it, also the preview model. The declaration is `func syncState() async`, with the documentation comment above it. Until the two models have the method (the next step and step 5 of this section), the project does not compile.
+
+The sample also has no spaces on the empty line below `func start() async` in this file. Your file can have four spaces there. This has no effect.
 
 ```swift file=AVCam/Model/Camera.swift highlight=3-5
     /// An error if the camera encountered a problem.
@@ -289,7 +301,7 @@ The app structure calls this method in a later section. The method is in the pro
 ### Step
 In `PreviewCameraModel.swift`, add a `syncState()` method at the end of the class.
 
-The preview model has no stored state. It only writes a line to the log, the same as its other methods. Without this method, the class does not conform to the protocol.
+The preview model has no stored state. It only writes a line to the log, the same as its other methods: `logger.debug("Syncing state isn't implemented in PreviewCamera.")`. Without this method, the class does not conform to the protocol.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-7
     func focusAndExpose(at point: CGPoint) {
@@ -315,7 +327,7 @@ import Combine
 ### Step
 Below the `captureService` property, add a property for the camera state.
 
-The model keeps one `CameraState` value. It starts with the default values, and `syncState()` replaces it with the stored value. The property is a `var`, because each change of a setting changes one value of the structure.
+The model keeps one `CameraState` value: `private var cameraState = CameraState()`. It starts with the default values, and `syncState()` replaces it with the stored value. The property is a `var`, because each change of a setting changes one value of the structure.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-6
     /// An object that manages the app's capture functionality.
@@ -492,7 +504,7 @@ In this section, the app reads the state again each time it becomes active. The 
 ### Step
 In `AVCamApp.swift`, add the scene phase from the environment below the `camera` property.
 
-[`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase) tells you whether the scene of the app is active, inactive, or in the background. SwiftUI supplies the value through the environment and updates it when the state changes.
+[`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase) tells you whether the scene of the app is active, inactive, or in the background. SwiftUI supplies the value through the environment and updates it when the state changes. The property is `@Environment(\.scenePhase) var scenePhase`, with the comment above it.
 
 ```swift file=AVCam/AVCamApp.swift highlight=4-6
     // Simulator doesn't support the AVFoundation capture APIs. Use the preview camera when running in Simulator.
@@ -507,7 +519,7 @@ In `AVCamApp.swift`, add the scene phase from the environment below the `camera`
 ### Step
 Below the `task` modifier, add an `onChange` modifier that observes the scene phase and stops when there is nothing to do.
 
-[`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) calls its closure each time the value changes. The `guard` statement lets only one situation through: the scene becomes active, and the camera runs. At the launch, the camera does not run yet, and `start()` does the sync.
+[`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) calls its closure each time the value changes. The closure gets the old and the new value: `{ _, newPhase in`. The `guard` statement lets only one situation through: the scene becomes active, and the camera runs: `guard camera.status == .running, newPhase == .active else { return }`. At the launch, the camera does not run yet, and `start()` does the sync.
 
 ```swift file=AVCam/AVCamApp.swift highlight=5-9
                 .task {
@@ -526,7 +538,7 @@ Below the `task` modifier, add an `onChange` modifier that observes the scene ph
 ### Step
 Below the `guard` statement, start a task that calls `syncState()`.
 
-The closure of `onChange` is not `async`, so it needs a task for the `await`. `syncState()` reads the stored state and assigns the values. The status is `running` now, so the `didSet` observer of `captureMode` asks the service to change the mode.
+The closure of `onChange` is not `async`, so it needs a task for the `await`: `Task { @MainActor in await camera.syncState() }`, on three lines. `syncState()` reads the stored state and assigns the values. The status is `running` now, so the `didSet` observer of `captureMode` asks the service to change the mode.
 
 ```swift file=AVCam/AVCamApp.swift highlight=3-5
                 .onChange(of: scenePhase) { _, newPhase in
@@ -583,6 +595,8 @@ Between `focusAndExpose(at:)` and `syncState()`, add the private `capabilities(f
 
 The method returns the capabilities that a preview can pretend to have in each mode. No code of the sample calls it. It is a helper that stayed in the file.
 
+The declaration is `private func capabilities(for mode: CaptureMode) -> CaptureCapabilities`. A `switch` on the mode returns `CaptureCapabilities(isLivePhotoCaptureSupported: true)` for `.photo`, and `CaptureCapabilities(isLivePhotoCaptureSupported: false, isHDRSupported: true)` for `.video`. The sample breaks the second initializer call over two lines, after the comma.
+
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-14
     func focusAndExpose(at point: CGPoint) {
         logger.debug("Focus and expose isn't implemented in PreviewCamera.")
@@ -604,7 +618,7 @@ The method returns the capabilities that a preview can pretend to have in each m
 ### Step
 In the list of properties, add `isVideoDeviceSwitchable` below `isSwitchingModes`.
 
-No code reads this property, and the `Camera` protocol does not have it. It is a second remainder of an older version of the sample.
+No code reads this property, and the `Camera` protocol does not have it. It is a second remainder of an older version of the sample. The line is `private(set) var isVideoDeviceSwitchable = true`.
 
 > [!NOTE]
 > In the sample, no empty line is between the `captureActivity` property and the `captureMode` property. Delete the empty line if you want a file that is fully the same.
@@ -633,7 +647,7 @@ Select video mode, stop the app in Xcode, and run it again. If the system stored
 
 The capture extension is the program that the system starts from the Lock Screen. It is a new target in the project. In this section, you create the target from a template, replace the template code with one small file, and make the Swift files of the app a part of the extension too.
 
-![The three targets and their source files: 25 files are in the app and the capture extension, 3 files are in all targets, and each target has its own entry point](../images/ch13-targets.svg)
+![The three targets and their source files: 26 files are in the app and the capture extension, 3 files are in all targets, and each target has its own entry point](../images/ch13-targets.svg)
 
 Xcode writes the targets, the settings, and the file membership to `AVCam.xcodeproj/project.pbxproj`. You do not edit this file by hand, so no step shows it. The template also creates an `Info.plist` file for the extension. You do not change it, but one step tells you what it must contain.
 
@@ -672,10 +686,15 @@ The viewfinder of the template uses `UIImagePickerController`, the simple camera
 AVCamCaptureExtensionViewFinder.swift: Delete › Move to Trash
 ```
 
+### Note
+From this step until the end of the section, the `AVCam` scheme does not build. The entry point of the template uses the viewfinder that you deleted, and the files that you write next use the model and the views, which are not members of the extension target yet. Use the build at the end of the section.
+
 ### Step
 Open `AVCamCaptureExtension.swift`, and replace its contents with the header, the imports, and a structure that owns a camera model.
 
 [`LockedCameraCaptureExtension`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracaptureextension) is for the extension what the `App` protocol is for the app. The structure creates its own `CameraModel`. The extension is a separate process, so it has its own model, its own capture service, and its own capture session.
+
+The file imports `ExtensionKit`, `Foundation`, `LockedCameraCapture`, `SwiftUI`, and `os`, in this order. The structure is `struct AVCamCaptureExtension: LockedCameraCaptureExtension` with `@main` on the line above it. Its one property is `@State private var camera = CameraModel()`, the same line as in `AVCamApp.swift`.
 
 ```swift file=AVCamCaptureExtension/AVCamCaptureExtension.swift highlight=1-18
 /*
@@ -702,6 +721,8 @@ struct AVCamCaptureExtension: LockedCameraCaptureExtension {
 Add the `body` property with a scene that shows the camera view and starts the camera.
 
 The content is the same as in `AVCamApp`: the camera view, a hidden status bar, and a task that calls `start()`. `CameraView` contains the `onCameraCaptureEvent` modifier from chapter 11, which a capture extension must have. The closure gets a [`LockedCameraCaptureSession`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession) in the `session` parameter. AVCam does not use it.
+
+The property is `var body: some LockedCameraCaptureExtensionScene`. Its content is a `LockedCameraCaptureUIScene { session in … }` with `CameraView(camera: camera)`, the modifier `.statusBarHidden(true)`, and the `.task` modifier with the comment and `await camera.start()`, the same as in `AVCamApp.swift`.
 
 ```swift file=AVCamCaptureExtension/AVCamCaptureExtension.swift highlight=5-15
 @main
@@ -739,14 +760,14 @@ let logger = Logger()
 ### Step
 In the project navigator, select all Swift files in the `AVCam` group except `AVCamApp.swift`. In the File inspector, under Target Membership, click the Add button (+). In the Choose Targets dialog, select `AVCamCaptureExtension`, and click Save.
 
-The extension uses the model, the capture service, and the views of the app, so the compiler must build these 28 files for the extension too. Each target compiles its own copy. `AVCamApp.swift` stays out: it has the `@main` type of the app, and a program can have only one entry point.
+The extension uses the model, the capture service, and the views of the app, so the compiler must build these 29 files for the extension too. Each target compiles its own copy. `AVCamApp.swift` stays out: it has the `@main` type of the app, and a program can have only one entry point.
 
 > [!TIP]
 > Open the File inspector with View › Inspectors › File. To select many files, open all groups, select the first file, and Shift-click the last file. Then Command-click `AVCamApp.swift` to remove it from the selection.
 
 ```settings title="File inspector › Target Membership"
 AVCamApp.swift: AVCam
-All other Swift files in the AVCam group (28 files): AVCam, AVCamCaptureExtension
+All other Swift files in the AVCam group (29 files): AVCam, AVCamCaptureExtension
 The asset catalog: AVCam
 ```
 
@@ -830,10 +851,15 @@ Info.plist › NSExtension › NSExtensionPointIdentifier: com.apple.widgetkit-e
 Target AVCam › Build Phases: A new phase, Embed Foundation Extensions
 ```
 
+### Note
+From this step until the target membership step of this section, the `AVCam` scheme does not build. The bundle of the template names the control that you deleted, and the control that you write next uses `AVCamCaptureIntent`, which is not a member of the new target yet.
+
 ### Step
 Open `AVCamControlCenterExtension.swift`, and replace its contents with the header, the imports, and a control structure with three static properties.
 
 [`ControlWidget`](https://developer.apple.com/documentation/swiftui/controlwidget) is the protocol of a control. The `kind` string identifies this control for the system. It looks like a bundle identifier, but it is only a name. Do not change it after people have the app: a control with a new `kind` is a new control for the system, and the old one probably disappears.
+
+The file imports `SwiftUI`, `WidgetKit`, and `AppIntents`. The structure is `struct AVCamControlCenterExtension: ControlWidget`, without `@main`. The three properties are `static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"`, `static var displayName: LocalizedStringResource = "Open AVCam"`, and `static var description: LocalizedStringResource = "Launch AVCam app."`.
 
 ```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=1-17
 /*
@@ -860,6 +886,8 @@ Add the `body` property with a static configuration that contains one button.
 
 [`StaticControlConfiguration`](https://developer.apple.com/documentation/widgetkit/staticcontrolconfiguration) is for a control without options. [`ControlWidgetButton`](https://developer.apple.com/documentation/widgetkit/controlwidgetbutton) performs an intent when the person presses the control. The intent is `AVCamCaptureIntent`, and this is the connection to the capture extension: only a capture intent lets the system start the camera on a locked device. The display name and the description appear in the list where the person selects a control.
 
+The property is `var body: some ControlWidgetConfiguration`. It returns `StaticControlConfiguration(kind: AVCamControlCenterExtension.kind)` with a closure that contains `ControlWidgetButton(action: AVCamCaptureIntent())`. The label of the button is `Label("Open AVCam", systemImage: "curlybraces")`. After the closing brace of the configuration, the two modifiers `.displayName(AVCamControlCenterExtension.displayName)` and `.description(AVCamControlCenterExtension.description)` follow.
+
 ```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=7-15
 struct AVCamControlCenterExtension: ControlWidget {
     
@@ -883,6 +911,8 @@ struct AVCamControlCenterExtension: ControlWidget {
 Open `AVCamControlCenterExtensionBundle.swift`, and replace its contents with a widget bundle that contains the control.
 
 A [`WidgetBundle`](https://developer.apple.com/documentation/swiftui/widgetbundle) is the entry point of a widget extension. Its `body` lists what the extension supplies. Here, that is the one control.
+
+The file imports `WidgetKit` and `SwiftUI`. The structure is `struct AVCamControlCenterExtensionBundle: WidgetBundle` with `@main` above it, and `var body: some Widget` contains only `AVCamControlCenterExtension()`. The template file already has this form. Replace the header comment, and delete the line with the example control.
 
 ```swift file=AVCamControlCenterExtension/AVCamControlCenterExtensionBundle.swift new
 /*
