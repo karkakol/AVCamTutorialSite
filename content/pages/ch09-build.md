@@ -544,7 +544,7 @@ Open the canvas of `CaptureButton.swift` and select the two previews, one after 
 
 The preview "Photo" shows the white button as before. The preview "Waiting for processing" shows the same button at half opacity, with a black spinner in the middle. Change `.notReadyWaitingForProcessing` to `.notReadyWaitingForCapture` to see the dim button without the spinner, and to `.notReadyMomentarily` to see that nothing changes. Change it back before you continue.
 
-```settings title="Checkpoint (Xcode canvas)"
+```settings title="Checkpoint (Xcode canvas)" result="../images/ch09-s5-1-ready.jpg|The capture button in the ready state, as the first preview shows it.; ../images/ch09-s5-1.jpg|The preview Waiting for processing: the button is dimmed and shows a spinner."
 Action: Open CaptureButton.swift, show the canvas (Option-Command-Return), and select the preview "Waiting for processing"
 Result: The capture button is at half opacity and a spinner is on it. In the preview "Photo", the button looks as before.
 ```
