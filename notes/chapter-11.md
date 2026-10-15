@@ -1,14 +1,21 @@
-# Chapter 11 hand-off notes (code by the coordinator)
+# Chapter 11 (was chapter 9 before the RAW and fast capture chapters) hand-off notes (code by the coordinator)
 
-Branch `chapter-11`, start `chapter-10`. Full change: `git -C ../AVCamTutorialApp diff chapter-10 chapter-11` (31 added lines; about 10 to 14 steps, 20 minutes; the concept page is the main part).
+Branch `chapter-09`, start `chapter-08`. Full change: `git -C ../AVCamTutorialApp diff chapter-08 chapter-09` (about 100 added lines; plan about 25 steps, 30 minutes; the concept page carries more weight).
 
 ## Result and verification
-- Build succeeded, no warnings. Nothing in this chapter can be verified in the Simulator: hardware buttons, the Camera Control, and AirPods need a real iPhone. AirPods remote capture and high-quality recording are not available in the EU (see research), so a learner in the EU cannot test them at all.
+- Build succeeded, no warnings. Run with SimCam: video mode works as before. The HDR button does NOT appear in the Simulator, because the SimCam camera has no 10-bit format (`isHDRVideoSupported` is false). This is the correct behaviour of the code. HDR recording needs a real iPhone and was not verified.
 
 ## What the chapter adds
-- `CameraView` (now identical to the sample): `import AVKit`, `.onCameraCaptureEvent(defaultSoundDisabled: true)` with the sound logic.
-- `CaptureButton` (now identical to the sample): `.onChange(of: camera.captureActivity.isRecording)` so that the button animates when a hardware button starts or stops a recording.
-- `CaptureService`: `captureSession.configuresApplicationAudioSessionForBluetoothHighQualityRecording = true`.
+- `Support/CaptureExtensions.swift` (now identical to the sample): `AVCaptureDevice.activeFormat10BitVariant`, `Format.isTenBitFormat`, `Format.maxFrameRate`.
+- `Capture/MovieCapture.swift` (now identical to the sample): `isHDRSupported`, the line in `updateConfiguration(for:)`, `capabilities` with the HDR flag.
+- `DataTypes`: `CaptureCapabilities.isHDRSupported` and the new initializer.
+- `CaptureService`: published `isHDRVideoEnabled`, `setHDRVideoEnabled(_:)`, the HDR lines in `setCaptureMode(_:)`.
+- `Camera`, `CameraModel`, `PreviewCameraModel`: `isHDRVideoSupported`, `isHDRVideoEnabled` (with `didSet` in the model), the capabilities task in `observeState()`.
+- `FeaturesToolbar`: the video case shows `hdrButton`; `hdrButton` and `hdrToggleButton`.
 
-## Things to explain (research/04-system-integration.md, sections 1 and 2)
-- `AVCaptureEventInteraction` and the SwiftUI modifier, its overloads, event phases, which button is primary or secondary, the requirement for an active session, `shouldPlaySound`, `play(_:)` and its limits (the research found that the sound comes late in the sample), the AirPods features and their limits.
+## Changes to earlier code
+- `CaptureCapabilities` initializer; `MovieCapture.capabilities`; `FeaturesToolbar` `EmptyView()` replaced.
+
+## Things to explain (research/03-video-capture.md, sections 4 and 5)
+- Device formats; `activeFormat` against session presets (setting a format changes the preset to input priority); 10-bit `x420`; HLG and BT.2020; the difference between this "HDR" and `isVideoHDREnabled`; how `activeFormat10BitVariant` selects a format and its limits; why the else branch sets the `.high` preset again; frame rates as capability map.
+- Unverified points from the research: whether HDR stays on after a camera switch (the code does not apply it again).
