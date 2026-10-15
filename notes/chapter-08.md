@@ -55,3 +55,7 @@ Branch `chapter-08-raw`, start `chapter-07`. One commit `c16d761`. Full change: 
 - `resolvedSettings.rawPhotoDimensions` and the DNG size with the largest `maxPhotoDimensions` (the code does not log the dimensions; only the byte size).
 - Whether normal photos stay as fast after `isAppleProRAWEnabled = true` (it changes the capture pipeline).
 - The expected error path: if the RAW fails and the HEIF works, the delegate logs the error and returns without data, so `noPhotoData` or the processed photo alone result. Not tested.
+
+## Coordinator check (15 Oct 2026)
+- The chapter 8 build launches in the iPhone 18 Pro simulator with SimCam; the RAW control is hidden, as planned.
+- A tap on the capture button saved NO photo (DCIM count stayed at 20, no thumbnail). The same happened with the chapter 7 end state, with Live Photo on and off. The chapter 4 end state saved a photo earlier the same day. The app log shows no error line. So the fault is not in chapter 8; something between chapters 4 and 7 (quality prioritization, deferred delivery, responsive capture, Live Photo settings) no longer completes a capture in the Simulator. On 1 Oct the chapter 7 build saved a JPEG. Open item for the chapter 9 agent: find the step at which the Simulator capture stops working, and whether a setting must be guarded with its `isSupported` flag.
