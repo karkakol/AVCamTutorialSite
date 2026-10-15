@@ -4,8 +4,10 @@ Written 15 Oct 2026. Goal: two new chapters that sit after chapter 7 ("Photo fea
 
 ## Order of the new chapters
 
-1. **Chapter 8, Fast capture** (first, because every later photo goes through its changes): responsive capture, fast capture prioritization, zero shutter lag, the readiness coordinator on the capture button, deferred photo delivery that chapter 7 already started. Source: WWDC23 session 10105 "Create a more responsive camera experience"; Apple documentation of `AVCapturePhotoOutput` (`isResponsiveCaptureEnabled`, `isFastCapturePrioritizationEnabled`, `isZeroShutterLagEnabled`, `isAutoDeferredPhotoDeliveryEnabled`) and `AVCapturePhotoOutputReadinessCoordinator`.
-2. **Chapter 9, RAW and Apple ProRAW**: a RAW button in the features toolbar, `isAppleProRAWEnabled` and `isAppleProRAWSupported`, the choice of a RAW pixel format (`availableRawPhotoPixelFormatTypes`, Bayer RAW against ProRAW), `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the two delegate callbacks (one for the RAW photo, one for the processed photo), saving the DNG next to the HEIF with `PHAssetCreationRequest` (`.photo` plus `.alternatePhoto`), constant color as an option. Source: Apple's article "Capturing photos in RAW and Apple ProRAW formats"; WWDC21 session 10047.
+Decided by the user on 15 Oct 2026: RAW is chapter 8, fast capture is chapter 9; the RAW control offers a choice between Apple ProRAW and Bayer RAW; the way the DNG is saved is still open (see "Decisions").
+
+1. **Chapter 9, Fast capture**: responsive capture, fast capture prioritization, zero shutter lag, the readiness coordinator on the capture button, deferred photo delivery that chapter 7 already started. Source: WWDC23 session 10105 "Create a more responsive camera experience"; Apple documentation of `AVCapturePhotoOutput` (`isResponsiveCaptureEnabled`, `isFastCapturePrioritizationEnabled`, `isZeroShutterLagEnabled`, `isAutoDeferredPhotoDeliveryEnabled`) and `AVCapturePhotoOutputReadinessCoordinator`.
+2. **Chapter 8, RAW and Apple ProRAW** (written and coded first): a RAW control with the choices Off, ProRAW, and RAW in the features toolbar, `isAppleProRAWEnabled` and `isAppleProRAWSupported`, the choice of a RAW pixel format (`availableRawPhotoPixelFormatTypes`, Bayer RAW against ProRAW), `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the two delegate callbacks (one for the RAW photo, one for the processed photo), saving the DNG next to the HEIF with `PHAssetCreationRequest` (`.photo` plus `.alternatePhoto`), constant color as an option. Source: Apple's article "Capturing photos in RAW and Apple ProRAW formats"; WWDC21 session 10047.
 
 Both chapters follow the part 2 rules: our own code, a stated deviation from the sample, verified in the Simulator as far as possible, and a checkpoint that says what a real iPhone shows.
 
@@ -26,7 +28,7 @@ Fable (coordinator) work: phases 0 and 1 to 5 review points only, about 10 short
 ## Decisions to make before phase 1
 
 - Zero shutter lag and responsive capture are **on by default** on devices that support them when the app links the iOS 17 SDK or later. The chapter therefore shows the switches, explains the defaults, and adds the readiness coordinator as the visible feature. Confirm in phase 0 from the headers.
-- The RAW format choice: ProRAW when `isAppleProRAWSupported`, else the first Bayer RAW format, else no RAW (button hidden). Decide whether the button offers both or only ProRAW.
+- The RAW control offers Off, Apple ProRAW (when `isAppleProRAWSupported`), and Bayer RAW (when `availableRawPhotoPixelFormatTypes` has a Bayer format); a choice that the device does not support is hidden. Decided.
 - Where the DNG goes: as an alternate resource of the same asset (Photos shows one photo with a RAW badge), which is what the system camera does.
 - `main` after the rewrite equals the new chapter 20 (the old 18).
 - The user's branch `following-tutorial` stays untouched; the user is in chapter 2, before the insertion point, so the renumbering does not affect their work. The site serves the renumbered pages after a rebuild.
