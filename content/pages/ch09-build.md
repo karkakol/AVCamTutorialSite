@@ -25,7 +25,7 @@ In this section, you write the search for that format. You add it to `CaptureExt
 ### Step
 In `CaptureExtensions.swift`, add an extension on `AVCaptureDevice.Format` with the `isTenBitFormat` property at the end of the file.
 
-The format description of a format holds the pixel format in `mediaSubType`, as a four-character code. The constant [`kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange`](https://developer.apple.com/documentation/corevideo/kcvpixelformattype_420ypcbcr10biplanarvideorange) is the code `x420`: 10 bits for each value. AVCam uses this pixel format as the sign of an HDR format.
+The format description of a format holds the pixel format in `mediaSubType`, as a four-character code. The constant [`kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange`](https://developer.apple.com/documentation/corevideo/kcvpixelformattype_420ypcbcr10biplanarvideorange) is the code `x420`: 10 bits for each value. AVCam uses this pixel format as the sign of an HDR format. `isTenBitFormat` is a computed `Bool` property. It compares `formatDescription.mediaSubType.rawValue` with the constant.
 
 ```swift file=AVCam/Support/CaptureExtensions.swift highlight=6-10
     public static func < (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
@@ -43,7 +43,7 @@ extension AVCaptureDevice.Format {
 ### Step
 Below `isTenBitFormat`, add the `maxFrameRate` property, which reads the highest frame rate of a format.
 
-A format does not have one frame rate. It has a list of ranges in [`videoSupportedFrameRateRanges`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges), and each range has a minimum and a maximum rate. The property reads the maximum of the last range, or 0 when the list is empty. The code assumes that the last range is the fastest one. The documentation does not promise an order.
+A format does not have one frame rate. It has a list of ranges in [`videoSupportedFrameRateRanges`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges), and each range has a minimum and a maximum rate. The property has the type `Double`. It reads `maxFrameRate` of the last range (`last?.maxFrameRate`), or 0 when the list is empty (`?? 0`). The code assumes that the last range is the fastest one. The documentation does not promise an order.
 
 ```swift file=AVCam/Support/CaptureExtensions.swift highlight=5-7
 extension AVCaptureDevice.Format {
@@ -59,7 +59,7 @@ extension AVCaptureDevice.Format {
 ### Step
 Above this extension, add an extension on `AVCaptureDevice` with the `activeFormat10BitVariant` property. Start with a filter that compares the frame size.
 
-[`formats`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/formats) is the list of all formats of the camera, and [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) is the format in use. The filter keeps the formats that have the same pixel size as the active format. The `==` operator for two `CMVideoDimensions` values comes from the extension at the top of this file.
+[`formats`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/formats) is the list of all formats of the camera, and [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) is the format in use. The type of the property is `AVCaptureDevice.Format?`. The filter keeps the formats whose `formatDescription.dimensions` is equal to that of `activeFormat`. The `==` operator for two `CMVideoDimensions` values comes from the extension at the top of this file.
 
 The property does not compile yet. The filter gives an array, and the property must return one optional format. You complete it in the next two steps.
 
@@ -83,7 +83,7 @@ extension AVCaptureDevice.Format {
 ### Step
 In the closure of the filter, add a first condition that compares the maximum frame rate.
 
-The size alone does not identify a format. A camera can have two formats with the same size and different frame rates. The variant must keep the frame rate that the camera has now, so that only the number of bits and the color change.
+The size alone does not identify a format. A camera can have two formats with the same size and different frame rates. The variant must keep the frame rate that the camera has now, so that only the number of bits and the color change. The new line compares `$0.maxFrameRate` with `activeFormat.maxFrameRate` and ends with `&&`.
 
 ```swift file=AVCam/Support/CaptureExtensions.swift highlight=4
 extension AVCaptureDevice {
@@ -99,7 +99,7 @@ extension AVCaptureDevice {
 ### Step
 After the filter, select the first format that is a 10-bit format.
 
-`first(where:)` returns `nil` when no format passes the test. Thus one property answers two questions: "can this camera record HDR in its current configuration?" and "which format must the app set?". The search starts from the active format, so the answer depends on the current session preset.
+`first(where:)` returns `nil` when no format passes the test. Thus one property answers two questions: "can this camera record HDR in its current configuration?" and "which format must the app set?". The search starts from the active format, so the answer depends on the current session preset. The sample writes the closure inside the parentheses, `first(where: { … })`, not as a trailing closure.
 
 ```swift file=AVCam/Support/CaptureExtensions.swift highlight=7
 extension AVCaptureDevice {
@@ -132,7 +132,7 @@ In this section, you add an HDR flag to that path. The movie service computes th
 ### Step
 In `DataTypes.swift`, add the `isHDRSupported` property to `CaptureCapabilities`, and add a second parameter to its initializer.
 
-The default value of the new parameter is `false`. The photo service does not pass it, so in photo mode the flag is `false`, and its code needs no change. The `unknown` value also has the flag `false`.
+The property is `let isHDRSupported: Bool`. The parameter `isHDRSupported: Bool = false` goes on its own line below the first parameter, and the initializer stores it in the property. The photo service does not pass it, so in photo mode the flag is `false`, and its code needs no change. The `unknown` value also has the flag `false`.
 
 ```swift file=AVCam/Model/DataTypes.swift remove
     init(isLivePhotoCaptureSupported: Bool = false) {
@@ -159,7 +159,7 @@ struct CaptureCapabilities {
 ### Step
 In `MovieCapture.swift`, add the `isHDRSupported` property below the two timer properties.
 
-The movie service keeps the answer in a property, because the computed `capabilities` value reads it later.
+The movie service keeps the answer in a property, because the computed `capabilities` value reads it later. The property is `private var` with the start value `false`. The sample has a comment of two lines above it.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=5-7
     // The interval at which to update the recording time.
@@ -176,7 +176,7 @@ The movie service keeps the answer in a property, because the computed `capabili
 ### Step
 At the start of `updateConfiguration(for:)`, set the property from the device.
 
-The capture service calls this method after each change of capture mode and after each change of camera. These are the moments when the active format changes, so they are the moments when the answer can change. The line is above the `guard` statement. The `guard` returns in photo mode, when the movie output has no connection, and this line must not depend on a connection.
+The property is `true` when `device.activeFormat10BitVariant` is not `nil`. The capture service calls this method after each change of capture mode and after each change of camera. These are the moments when the active format changes, so they are the moments when the answer can change. The line is above the `guard` statement. The `guard` returns in photo mode, when the movie output has no connection, and this line must not depend on a connection.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=2-3
     func updateConfiguration(for device: AVCaptureDevice) {
@@ -228,7 +228,7 @@ There are two ways to select a camera format. Until now, the app set a session p
 ### Step
 In `CaptureService.swift`, add the published `isHDRVideoEnabled` property below `captureCapabilities`.
 
-The service keeps the HDR state itself. It needs the state later, when the capture mode changes. The property has the `@Published` attribute as in the Apple sample. In this chapter, no code reads the publisher.
+The service keeps the HDR state itself. It needs the state later, when the capture mode changes. The property has the `@Published` attribute as in the Apple sample, no `private(set)`, and the start value `false`. In this chapter, no code reads the publisher.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-8
 actor CaptureService {
@@ -247,7 +247,7 @@ actor CaptureService {
 ### Step
 Below `stopRecording()`, add the `setHDRVideoEnabled(_:)` method with a configuration pair.
 
-A format change is a change of the session configuration. The session applies all changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) together. The `defer` statement makes sure that the commit runs on each path out of the method. These pairs can be nested, which is important later in this section.
+A format change is a change of the session configuration. The session applies all changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) together. The `defer` statement makes sure that the commit runs on each path out of the method. These pairs can be nested, which is important later in this section. The method is `func setHDRVideoEnabled(_ isEnabled: Bool)`. It is not `async` and does not throw: it handles the error of the next step itself.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-12
     /// Stops the recording and returns the captured movie.
@@ -269,7 +269,7 @@ A format change is a change of the session configuration. The session applies al
 ### Step
 Add a `do` statement with the two branches of the decision, and a `catch` block that writes an error to the log.
 
-The condition has two parts. The person must want HDR, and the camera must have a 10-bit variant of its active format. If one part is not true, the `else` branch runs. The `catch` block is for an error from the device lock, which you add in the next step. After such an error, the method changes nothing.
+The condition has two parts. The person must want HDR, and the camera must have a 10-bit variant of its active format. If one part is not true, the `else` branch runs. The condition is `if isEnabled, let format = currentDevice.activeFormat10BitVariant`. The `catch` block is for an error from the device lock, which you add in the next step. After such an error, the method changes nothing. It writes `logger.error("Unable to obtain lock on device and can't enable HDR video capture.")`. Until the next step, Xcode shows two warnings: `format` is not used, and the `catch` block cannot run.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-13
     /// Sets whether the app captures HDR video.
@@ -291,7 +291,7 @@ The condition has two parts. The person must want HDR, and the camera must have 
 ### Step
 In the first branch, lock the device, set the active format to the 10-bit variant, unlock the device, and keep the new state.
 
-You can set `activeFormat` only between [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) and `unlockForConfiguration()`. You used this lock in chapter 6 for focus and exposure. When the app sets the format, the session changes its preset to [`.inputPriority`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/inputpriority) by itself. This preset means that the app selected the format and the session does not change it.
+You can set `activeFormat` only between [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) and `unlockForConfiguration()`. You used this lock in chapter 6 for focus and exposure. When the app sets the format, the session changes its preset to [`.inputPriority`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/inputpriority) by itself. This preset means that the app selected the format and the session does not change it. `lockForConfiguration()` throws, so write `try`. The last line sets `isHDRVideoEnabled` to `true`.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-12
     /// Sets whether the app captures HDR video.
@@ -395,7 +395,7 @@ The views do not talk to the capture service. They use the `Camera` protocol. In
 ### Step
 In `Camera.swift`, add the `isHDRVideoSupported` and `isHDRVideoEnabled` properties to the protocol, above `toggleRecording()`.
 
-The first property is read-only for a view: only the camera knows the answer. The second property has `get set`, because the HDR button changes it.
+The first property is read-only for a view: only the camera knows the answer. The second property has `get set`, because the HDR button changes it. Both properties are `Bool`, each with a `///` comment line.
 
 ```swift file=AVCam/Model/Camera.swift highlight=4-5,7-8
     /// A Boolean value that indicates whether to show visual feedback when capture begins.
@@ -417,7 +417,7 @@ The project does not compile at this time, because `CameraModel` and `PreviewCam
 ### Step
 In `CameraModel.swift`, add the `isHDRVideoSupported` property with a private setter below `previewSource`.
 
-A view can read the value but cannot change it. The value comes only from the capture service.
+A view can read the value but cannot change it. The value comes only from the capture service. The property is `private(set) var` with the start value `false`.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-5
     /// An object that provides the connection between the capture session and the video preview layer.
@@ -489,7 +489,7 @@ This property has no private setter, because the HDR button changes it. A view o
 ### Step
 In the observer, send the new value to the capture service when the session runs in video mode.
 
-The capture service is a different actor, so the call needs `await` and a task. The `guard` statement stops the call when the session does not run or when the app is in photo mode. The model does not read the result. If the service cannot turn HDR on, this property keeps the value `true`.
+The capture service is a different actor, so the call needs `await` and a task. The `guard` statement stops the call when `status` is not `.running` or when `captureMode` is not `.video`. The model does not read the result. If the service cannot turn HDR on, this property keeps the value `true`.
 
 ```swift file=AVCam/CameraModel.swift highlight=6-9
     // MARK: - Video capture
@@ -542,7 +542,7 @@ On an iPhone, the features toolbar is at the top of the screen. In chapter 7, yo
 ### Step
 In `FeatureToolbar.swift`, add the `hdrToggleButton` property at the end of the structure.
 
-The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer from the last section does the rest. The label is text, "HDR On" or "HDR Off", so the person always sees the current state.
+The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer from the last section does the rest. The label is text, "HDR On" or "HDR Off", so the person always sees the current state. The property is `var hdrToggleButton: some View`. It returns a `Button` with two trailing closures: the action calls `toggle()` on `camera.isHDRVideoEnabled`, and the label is a `Text` with the modifier `.font(.body.weight(.semibold))`.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=13-20
         } label: {
@@ -569,9 +569,9 @@ The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer f
 ```
 
 ### Step
-Disable the button while the app records a movie.
+In `hdrToggleButton`, disable the button while the app records a movie.
 
-A format change builds the capture pipeline again, and that ends a recording. For the same reason, chapter 8 disabled the mode picker during a recording.
+A format change builds the capture pipeline again, and that ends a recording. For the same reason, chapter 8 disabled the mode picker during a recording. Add the modifier `.disabled(camera.captureActivity.isRecording)` to the `Button`.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=8
     var hdrToggleButton: some View {
@@ -589,7 +589,7 @@ A format change builds the capture pipeline again, and that ends a recording. Fo
 ### Step
 Above `hdrToggleButton`, add the `hdrButton` property, which shows the toggle button in each of its two branches.
 
-`isCompactSize` comes from the `PlatformView` protocol from chapter 5. It is `true` in a compact layout, as on an iPhone. There, the button keeps the default style of the toolbar. The two branches are equal at this time. You make them different in the next step.
+`isCompactSize` comes from the `PlatformView` protocol from chapter 5. It is `true` in a compact layout, as on an iPhone. There, the button keeps the default style of the toolbar. The two branches are equal at this time. You make them different in the next step. Write `@ViewBuilder` on the line above `var hdrButton: some View`. The next step needs it.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=13-20
         } label: {
@@ -619,7 +619,7 @@ Above `hdrToggleButton`, add the `hdrButton` property, which shows the toggle bu
 ### Step
 In the `else` branch, give the button a border in the form of a capsule.
 
-The `else` branch is for a layout that is not compact, as on an iPad. A text button with no border is hard to see as a button on a large screen. The two branches now return different view types, and `@ViewBuilder` permits that.
+The `else` branch is for a layout that is not compact, as on an iPad. A text button with no border is hard to see as a button on a large screen. The two branches now return different view types, and `@ViewBuilder` permits that. The two modifiers are `.buttonStyle(.bordered)` and `.buttonBorderShape(.capsule)`.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=7-8
     @ViewBuilder
@@ -637,7 +637,7 @@ The `else` branch is for a layout that is not compact, as on an iPad. A text but
 ```
 
 ### Step
-In `body`, replace `EmptyView()` in the video case with the HDR button, and show it only when the camera supports HDR.
+In `body`, replace `EmptyView()` in the video case with `hdrButton`, and show it only when the camera supports HDR.
 
 A control for a feature that the camera does not have confuses the person. The condition reads `isHDRVideoSupported`, which follows the capabilities of the capture service. When the person changes the camera or the mode, the button appears or goes away by itself.
 
