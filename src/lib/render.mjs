@@ -394,8 +394,14 @@ function solutionPlace(step, env) {
     const numbers = fence.numbers || fence.lines.map((_, i) => i + 1);
     let body = '';
     let run = 0;
-    // A blank line between two runs of new lines belongs to the run.
-    const isNew = (n) => hl.has(n) || (n > 1 && n < fence.lines.length && !fence.lines[n - 1].trim() && hl.has(n - 1) && hl.has(n + 1));
+    // A comment line of the solution is a hint, not the solution: show it as context.
+    const isComment = (n) => /^\s*\/\//.test(fence.lines[n - 1] || '');
+    const isCode = (n) => hl.has(n) && !isComment(n);
+    // A blank line (or a comment) between two runs of new lines belongs to the run.
+    const isNew = (n) => isCode(n) || (n > 1 && n < fence.lines.length && (!fence.lines[n - 1].trim()) && isCode(n - 1) && isCode(n + 1));
+    const runs = [];
+    fence.lines.forEach((l, i) => { if (isNew(i + 1) && !isNew(i)) runs.push(i + 1); });
+    let runIndex = 0;
     fence.lines.forEach((line, i) => {
       if (isNew(i + 1)) {
         run += 1;
@@ -403,7 +409,9 @@ function solutionPlace(step, env) {
         if (last) {
           const firstText = fence.lines.slice(i - run + 1, i + 1).find((l) => l.trim()) || '';
           const indent = (firstText.match(/^\s*/) || [''])[0];
-          body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// your code goes here\n</span></span>`;
+          runIndex += 1;
+          const label = runs.length > 1 ? ` (${runIndex} of ${runs.length})` : '';
+          body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// your code goes here${e(label)}\n</span></span>`;
           run = 0;
         }
       } else {

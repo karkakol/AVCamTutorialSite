@@ -23,7 +23,7 @@ The system can take the camera or the microphone away from your app at any time.
 ### Step
 In `CaptureService.swift`, add the published `isInterrupted` property below the `captureCapabilities` property.
 
-The property follows the pattern of `captureActivity` from chapter 3. The actor changes the value, and `@Published` gives the model a publisher that it can observe from the main actor.
+The property follows the pattern of `captureActivity` from chapter 3: `@Published private(set) var isInterrupted = false`. The actor changes the value, and `@Published` gives the model a publisher that it can observe from the main actor. Put the documentation comment "A Boolean value that indicates whether a higher priority event, like receiving a phone call, interrupts the app." above it.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-8
 actor CaptureService {
@@ -39,9 +39,9 @@ actor CaptureService {
 ```
 
 ### Step
-At the end of the actor, add the `observeNotifications()` method with one empty task.
+At the end of the actor, add the private `observeNotifications()` method with one empty task.
 
-A [`Task`](https://developer.apple.com/documentation/swift/task) that an actor method creates runs on that actor. Thus the code that you put in the task can change the properties of the actor directly.
+The method has no parameters and returns nothing. Its documentation comment is "Observe capture-related notifications." A [`Task`](https://developer.apple.com/documentation/swift/task) that an actor method creates runs on that actor. Thus the code that you put in the task can change the properties of the actor directly.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-12
     /// Merge the `captureActivity` values of the photo and movie capture services,
@@ -62,9 +62,9 @@ A [`Task`](https://developer.apple.com/documentation/swift/task) that an actor m
 ### Step
 In the task, read each interruption notification, get its reason, and set `isInterrupted` for two reasons only.
 
-[`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an asynchronous sequence. The first `compactMap` reads the value for [`AVCaptureSessionInterruptionReasonKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessioninterruptionreasonkey), which is a number object. The second `compactMap` changes the number into an [`AVCaptureSession.InterruptionReason`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason).
+Write a `for await reason in` loop over `NotificationCenter.default.notifications(named: AVCaptureSession.wasInterruptedNotification)`. [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an asynchronous sequence. Add two `compactMap` calls to the sequence. The first one reads `$0.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?`. The value for [`AVCaptureSessionInterruptionReasonKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessioninterruptionreasonkey) is a number object. The second one changes the number into an [`AVCaptureSession.InterruptionReason`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason) with `InterruptionReason(rawValue: $0.integerValue)`.
 
-The last line is the decision. Each move to the background is also an interruption, and that must not show a message. So the value becomes `true` only when a different client uses the microphone or the camera.
+The last line is the decision. Each move to the background is also an interruption, and that must not show a message. So the value becomes `true` only when a different client uses the microphone or the camera: `isInterrupted = [.audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient].contains(reason)`. The sample puts the comment "Set the `isInterrupted` state as appropriate." above this line, with three slashes.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-9
     /// Observe capture-related notifications.
@@ -82,7 +82,7 @@ The last line is the decision. Each move to the background is also an interrupti
 ### Step
 Add a second task, which sets `isInterrupted` to `false` when an interruption ends.
 
-The code does not start the session here. After an interruption, the system starts the session again. The app only updates its state.
+The loop is `for await _ in NotificationCenter.default.notifications(named: AVCaptureSession.interruptionEndedNotification)`, with the comment "Await notification of the end of an interruption." above it. The code does not start the session here. After an interruption, the system starts the session again. The app only updates its state.
 
 ```swift file=AVCam/CaptureService.swift highlight=12-17
     /// Observe capture-related notifications.
@@ -140,7 +140,7 @@ You also make `setUpSession()` safe to call more than one time.
 ### Step
 In `observeNotifications()`, add a third task, which reads the error of each runtime error notification.
 
-The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in the notification is an error object. The conditional cast gives it to you as an `AVError`, so that you can compare its code in the next step. Until then, Xcode can show a warning that `error` is not used.
+The loop is `for await error in NotificationCenter.default.notifications(named: AVCaptureSession.runtimeErrorNotification)` with one `compactMap`. The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in the notification is an error object. The conditional cast `as? AVError` gives it to you as an `AVError`, so that you can compare its code in the next step. Until then, Xcode can show a warning that `error` is not used.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-12
         Task {
@@ -162,7 +162,7 @@ The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documenta
 ### Step
 In the loop, start the session again when the error code is `mediaServicesWereReset`.
 
-The camera hardware belongs to a system process. When this process starts again, the session stops. The sample keeps the session with its inputs and outputs. [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset) is the code for this event, and [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) is the repair. The task runs on the actor, and thus on the session queue, which is the correct place for this blocking call.
+The camera hardware belongs to a system process. When this process starts again, the session stops. The sample keeps the session with its inputs and outputs. [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset) is the code for this event, and [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) is the repair. Write two nested `if` statements: the first one compares `error.code`, and the second one calls `startRunning()` only when `captureSession.isRunning` is `false`. The sample puts the comment "If the system resets media services, the capture session stops running." above the first `if`. The task runs on the actor, and thus on the session queue, which is the correct place for this blocking call.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-9
         Task {
@@ -181,7 +181,7 @@ The camera hardware belongs to a system process. When this process starts again,
 ### Step
 Add the private `isSetUp` property below the rotation properties.
 
-This flag records that the session has its inputs and outputs. You use it in the next two steps.
+This flag records that the session has its inputs and outputs. Write `private var isSetUp = false`, with the comment "A Boolean value that indicates whether the actor finished its required configuration." above it, and an empty line after it. You use it in the next two steps.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-6
     // An object that monitors video device rotations.
@@ -198,7 +198,7 @@ This flag records that the session has its inputs and outputs. You use it in the
 ### Step
 At the start of `setUpSession()`, return immediately when the setup is complete.
 
-`start()` calls `setUpSession()` each time that the session does not run. Without this line, a second call tries to add the same inputs again. The session is expected to refuse them, and the method then throws `setupFailed`. The guard is above the two `observe` calls, so the service also starts its observers one time only.
+`start()` calls `setUpSession()` each time that the session does not run. Without this line, a second call tries to add the same inputs again. The session is expected to refuse them, and the method then throws `setupFailed`. Write `guard !isSetUp else { return }` with the comment "Return early if already set up." above it, and an empty line after it. The guard is above the two `observe` calls, so the service also starts its observers one time only.
 
 ```swift file=AVCam/CaptureService.swift highlight=13-14
     // MARK: - Capture session life cycle
@@ -265,7 +265,7 @@ The capture service now knows when an interruption starts and ends. In this sect
 ### Step
 In `DataTypes.swift`, add the `interrupted` case to the `CameraStatus` enumeration.
 
-The status is the one value that tells the views what the camera does. The `switch` statements that read it have a `default` case, so the project still compiles.
+The documentation comment of the case is "A status that indicates higher-priority media processing is interrupting the camera." The status is the one value that tells the views what the camera does. The `switch` statements that read it have a `default` case, so the project still compiles.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=11-12
 /// An enumeration that describes the current status of the camera.
@@ -306,7 +306,7 @@ struct StatusOverlayView: View {
 ### Step
 Add a yellow color and a message for the `interrupted` status.
 
-The three colors show how serious a status is. Red tells the person to change a setting, and orange reports a failure. Yellow is for a state that ends by itself. The text style that is already in the view uses dark gray text on yellow, because white text on yellow is hard to read.
+The three colors show how serious a status is. Red tells the person to change a setting, and orange reports a failure. Yellow is for a state that ends by itself. In `color`, the new case returns `.yellow` after the `failed` case. In `message`, the new case goes between the `unauthorized` case and the `failed` case, and it returns "The camera was interrupted by higher-priority media processing." The text style that is already in the view uses dark gray text on yellow, because white text on yellow is hard to read.
 
 ```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=7-8,18-19
 	var color: Color {
@@ -337,11 +337,11 @@ The three colors show how serious a status is. Red tells the person to change a 
 ```
 
 ### Step
-Add a preview for the interrupted state above the two previews at the end of the file.
+Add a preview with the name "Interrupted" above the two previews at the end of the file.
 
-You cannot make an interruption in the Xcode canvas. A preview with a fixed status lets you examine the look of the message with no camera and no phone call.
+The preview has the same form as the "Failed" preview, with the status `.interrupted`. You cannot make an interruption in the Xcode canvas. A preview with a fixed status lets you examine the look of the message with no camera and no phone call.
 
-```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=3-7
+```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=3-7 result="../images/ch10-s3-4.jpg|The interrupted state in the Xcode preview canvas: a yellow message over the dimmed controls."
 }
 
 #Preview("Interrupted") {
@@ -369,7 +369,7 @@ The next step is the one place in this chapter where your code is different from
 ### Step
 In `CameraModel.swift`, add a task at the end of `observeState()` that sets `status` from the `isInterrupted` value of the capture service.
 
-The task has the same form as the task for the capabilities above it. The publisher sends its current value first, which is `false`, so the status is `running` after the start. Then each change of `isInterrupted` changes the status.
+The task has the same form as the task for the capabilities above it: `for await isInterrupted in await captureService.$isInterrupted.values`, and then `status = isInterrupted ? .interrupted : .running`. The two comments are "Await updates to the interruption state of the capture service." above the loop and "Show a status message while a higher-priority event interrupts the camera." inside it. The publisher sends its current value first, which is `false`, so the status is `running` after the start. Then each change of `isInterrupted` changes the status.
 
 ```swift file=AVCam/CameraModel.swift highlight=8-14
         Task {
@@ -412,7 +412,7 @@ At launch, the person waits for the first preview frame. In this section, you wr
 ### Step
 In `setUpSession()` in `CaptureService.swift`, select automatic deferred start for the session, and enable deferred start on the photo output.
 
-With deferred start, the session shows the preview first and prepares the marked outputs a moment later. The app gets this behavior with no code, because these values are the defaults for an app that you build with the iOS 26 SDK or later. The lines are here so that you know where the behavior comes from. The second line copies [`isDeferredStartSupported`](https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartsupported), because the value `true` on an output with no support raises an exception.
+With deferred start, the session shows the preview first and prepares the marked outputs a moment later. The app gets this behavior with no code, because these values are the defaults for an app that you build with the iOS 26 SDK or later. The lines are here so that you know where the behavior comes from. The first line sets [`automaticallyRunsDeferredStart`](https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyrunsdeferredstart) of the session to `true`. It goes after the `sessionPreset` line, with an empty line before it and after it, and with the three comment lines of the solution above it. The second line sets [`isDeferredStartEnabled`](https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartenabled) of `photoCapture.output`. It goes between the comment "Add the photo capture output" and the `addOutput` call. The second line copies [`isDeferredStartSupported`](https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartsupported), because the value `true` on an output with no support raises an exception.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7,10
             // Configure the session for photo capture.
@@ -431,7 +431,7 @@ With deferred start, the session shows the preview first and prepares the marked
 ### Step
 In `ViewExtensions.swift`, add an extension on `View` with the `hidden(until:)` method below `DefaultButtonStyle`.
 
-The method changes the opacity only. An invisible view keeps its place in the layout, so no other view moves when the control appears.
+The method is `func hidden(until isRunning: Bool) -> some View`, and its body is `opacity(isRunning ? 1 : 0)`. The method changes the opacity only. An invisible view keeps its place in the layout, so no other view moves when the control appears.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=6-10
     var isRegularSize: Bool {
@@ -455,7 +455,7 @@ extension Image {
 ### Step
 Add the documentation comment and an animation that fades the view in.
 
-The `animation(_:value:)` modifier starts an animation each time `isRunning` changes. The control appears in 0.3 seconds and does not jump onto the screen.
+The comment has four lines with three slashes: "Hides this view until the capture session is running.", an empty comment line, "The app applies this to its controls so that it doesn't show UI until it's", and "functional, and so the preview is the first thing to appear at launch." Then add `.animation(.easeIn(duration: 0.3), value: isRunning)` on its own line below `opacity`. The `animation(_:value:)` modifier starts an animation each time `isRunning` changes. The control appears in 0.3 seconds and does not jump onto the screen.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=2-5,8
 extension View {
@@ -473,7 +473,7 @@ extension View {
 ### Step
 In `MainToolbar.swift`, hide the thumbnail button until the camera status is `running`.
 
-The thumbnail opens the Photos library. It is not necessary for the first photo, so it can wait.
+The thumbnail opens the Photos library. It is not necessary for the first photo, so it can wait. Add `.hidden(until: camera.status == .running)` on its own line below the button, with the comment "Hide it until the capture session runs, using a custom modifier." above it.
 
 > [!NOTE]
 > In the Apple sample, the `ThumbnailButton` line starts with tab characters, not with spaces. The branch `chapter-10` copies this. Thus Git reports the line as changed, although the code on it is the same.
@@ -498,7 +498,7 @@ The thumbnail opens the Photos library. It is not necessary for the first photo,
 ### Step
 Add the comment above the capture button, and hide the button that changes the camera.
 
-The capture button gets no modifier. A capture request that arrives before the deferred start is complete is legal: the session then prepares the photo output immediately. Responsive capture, which you enabled in chapter 7, lets more than one early request through.
+The comment has two lines: "The capture button stays visible. A capture that arrives before deferred start" and "finishes is still honored, because the photo output enables responsive capture." The `SwitchCameraButton` gets the same modifier and the same comment as the thumbnail button. The capture button gets no modifier. A capture request that arrives before the deferred start is complete is legal: the session then prepares the photo output immediately. Responsive capture, which you enabled in chapter 7, lets more than one early request through.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=7-8,12-13
     var body: some View {
@@ -520,7 +520,7 @@ The capture button gets no modifier. A capture request that arrives before the d
 ### Step
 In `CaptureModeView.swift`, hide the mode picker in the same way.
 
-A change of mode configures the session again. That is not possible before the session runs, so the picker has no function until then.
+A change of mode configures the session again. That is not possible before the session runs, so the picker has no function until then. The modifier goes after `onChange`, with the comment "Hide the capture mode view until the capture session runs, using a custom modifier." above it.
 
 ```swift file=AVCam/Views/Controls/CaptureModeView.swift highlight=21-22
     var body: some View {
@@ -551,7 +551,7 @@ A change of mode configures the session again. That is not possible before the s
 ### Step
 In `FeatureToolbar.swift`, hide the features toolbar in the same way.
 
-One modifier on the stack hides all the feature buttons together.
+One modifier on the stack hides all the feature buttons together. It goes after `padding`, with the comment "Hide them until the capture session runs, using a custom modifier." above it.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=16-17
     var body: some View {
@@ -579,7 +579,7 @@ Build and run the app, and look at the first moments after the launch.
 
 At first, the screen shows only the capture button. When the camera runs, the thumbnail button, the button that changes the camera, the mode picker, and the features toolbar fade in. In the Simulator, SimCam shows the text "Waiting for SimCam..." in the preview for approximately 2 seconds after the launch.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch10-s4-8-b.jpg|After the start: the controls appear as soon as the session runs. Before that moment the screen shows only the preview."
 Action: Product > Run (Command-R)
 Result: The controls fade in after the launch, and capture works as before.
 ```
@@ -597,7 +597,7 @@ When the app goes to the background, the session stops, and the preview layer ke
 ### Step
 In `PreviewContainer.swift`, add the `scenePhase` environment value and the `coverOpacity` state.
 
-[`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase) tells a view if its scene is active, inactive, or in the background. The opacity starts at zero, so the cover is invisible while the app is in use.
+[`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase) tells a view if its scene is active, inactive, or in the background. Write `@Environment(\.scenePhase) private var scenePhase` below `camera`, and `@State private var coverOpacity = 0.0` below `blurRadius`. The opacity starts at zero, so the cover is invisible while the app is in use.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=7,11
 struct PreviewContainer<Content: View, CameraModel: Camera>: View {
@@ -617,7 +617,7 @@ struct PreviewContainer<Content: View, CameraModel: Camera>: View {
 ### Step
 In `previewView`, put a black overlay with this opacity on the content.
 
-The overlay is below the `blur` modifier in the code, so it is in front of the blurred preview. It covers only the preview. The controls stay visible.
+The modifier is `.overlay(Color.black.opacity(coverOpacity))`. The overlay is below the `blur` modifier in the code, so it is in front of the blurred preview. It covers only the preview. The controls stay visible.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=5
     /// Attach animations to the camera preview.
@@ -633,7 +633,7 @@ The overlay is below the `blur` modifier in the code, so it is in front of the b
 ### Step
 Below `updateBlurRadius(_:_:)`, add the `updateCoverOpacity(_:_:)` method with its documentation comment and an empty body.
 
-The two parameters are the old phase and the new phase. This is the form that [`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) gives to its action. The method needs only the new phase.
+The comment has five lines with three slashes: "Covers the preview as the app enters the background, and reveals it on return.", an empty comment line, "A preview that isn't covered on the way out reappears holding the frame it last", "rendered. Covering it first means a person doesn't see that stale frame, and the", and "reveal fades the cover away as live frames resume." The two parameters are the old phase and the new phase. This is the form that [`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) gives to its action. The method needs only the new phase.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=7-13
     func updateBlurRadius(_: Bool, _ isSwitching: Bool) {
@@ -675,7 +675,7 @@ There is no animation here. The app leaves the screen at this moment, and it has
 ### Step
 Fade the cover out when the scene becomes active again.
 
-The session starts again when the app returns, and the first new frames need a moment. The fade of 0.3 seconds hides the old frame during this moment, and the code needs no signal from the camera.
+Add a `case .active:` above `default`, and set `coverOpacity = 0` inside `withAnimation(.easeIn(duration: 0.3))`. The session starts again when the app returns, and the first new frames need a moment. The fade of 0.3 seconds hides the old frame during this moment, and the code needs no signal from the camera.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=5-8
     func updateCoverOpacity(_: ScenePhase, _ phase: ScenePhase) {
