@@ -387,7 +387,9 @@ function solutionPlace(step, env) {
   const removes = step.block.removes || [];
   let out = '';
   if (fence.isNew || fence.createsFile) {
-    out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml} and write the whole file yourself. The step text says what the file contains.</p>`;
+    const imports = fence.lines.filter((l) => /^\s*(@\w+\s+)?import\s+\w+/.test(l)).map((l) => l.trim());
+    const importHint = imports.length ? ` It starts with ${imports.map((i) => `<code>${e(i)}</code>`).join(', ')}.` : '';
+    out += `<p class="solution-text"><strong>Where:</strong> create the new file ${fileHtml} and write the whole file yourself. The step text says what the file contains.${importHint}</p>`;
   } else {
     const hl = new Set(fence.highlight);
     const html = env.highlight(fence.lines.join('\n'), fence.lang || 'swift');
@@ -459,7 +461,7 @@ function solutionCover(page, step, env) {
   if (isUncovered(step)) {
     if (!step.block.code.copy) return '';
     const whole = step.block.code.isNew || step.block.code.createsFile;
-    return `<p class="solution-copy">${icon('pen')}<span>Boilerplate. Copy ${whole ? 'this file' : 'these lines'} as they are; the caption says what they contain.</span></p>`;
+    return `<p class="solution-copy">${icon('pen')}<span>Boilerplate. ${whole ? 'Copy this file as it is; the caption says what it contains.' : 'Copy these lines as they are; the caption says what they contain.'}</span></p>`;
   }
   const file = step.block.code.file;
   const compare = page.branch && file ? `git diff ${page.branch} -- ${file}` : '';

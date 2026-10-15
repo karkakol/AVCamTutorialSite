@@ -29,7 +29,7 @@ At the end of the section, the mode picker shows three modes. The dual mode show
 ### Step
 In `DataTypes.swift`, add the `dual` case to the `CaptureMode` enumeration, and give it the symbol `rectangle.on.rectangle`.
 
-The raw value `dual` goes to the stored camera state. The symbol goes to the mode picker. A case in a `CaseIterable` enumeration joins `allCases` at the end, so the picker shows the dual mode after the video mode.
+The raw value `dual` goes to the stored camera state. The symbol goes to the mode picker. A case in a `CaseIterable` enumeration joins `allCases` at the end, so the picker shows the dual mode after the video mode. From this step until step 1.8, the project does not compile: each `switch` over the capture mode misses the new case, and the compiler shows you each place.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=4-5,13-14
     case photo
@@ -253,7 +253,7 @@ final class MultiCamCapture {
 ### Step
 Below the `maxFormatWidth` property, add the `configure(backCamera:frontCamera:backPreview:frontPreview:)` method. It adds the two cameras in one configuration.
 
-The signature is `func configure(backCamera: AVCaptureDevice, frontCamera: AVCaptureDevice, backPreview: AVCaptureVideoPreviewLayer, frontPreview: AVCaptureVideoPreviewLayer) throws`. The method runs one time: a `guard` on `isConfigured` returns early, and the last line sets `isConfigured` to `true`. `beginConfiguration()` and `commitConfiguration()` in a `defer` block make the two additions one atomic change, as in chapter 1. Each `try addCamera(...)` call returns the input, which goes to `backInput` or `frontInput`. The `addCamera(_:previewLayer:)` method does not exist yet. You write it in the next three steps, so the project does not compile until then.
+The signature is `func configure(backCamera: AVCaptureDevice, frontCamera: AVCaptureDevice, backPreview: AVCaptureVideoPreviewLayer, frontPreview: AVCaptureVideoPreviewLayer) throws`. The method runs one time: a `guard` on `isConfigured` returns early, and the last line sets `isConfigured` to `true`. `beginConfiguration()` and `commitConfiguration()` in a `defer` block make the two additions one atomic change, as in chapter 1. Each `try addCamera(...)` call returns the input, which goes to `backInput` or `frontInput`. The `addCamera(_:previewLayer:)` method does not exist yet. You write it in the next three steps, and the format selection that it calls comes in step 2.6, so the project does not compile until step 2.6.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-20
     // The largest width of a camera format that the dual mode uses. Two large formats cost more than the hardware can give.
@@ -725,7 +725,7 @@ The signature is `func attachDualPreview(back: AVCaptureVideoPreviewLayer, front
 ### Step
 Below that method, add the `startDualCaptureIfNeeded()` method. It needs the dual mode, the two layers, and a device with support.
 
-The method is private. Two events can come in either order: the mode becomes dual, and the preview view appears. Both call this method, and the `guard` statement waits until both have occurred: `captureMode == .dual`, `let layers = dualPreviewLayers`, and `MultiCamCapture.isSupported`. The cameras come from `deviceLookup.cameras`, the device lookup of chapter 2: `first(where:)` by `position` gives the first back camera and the first front camera. Without both, `logger.error` writes the first text, and the method returns. `configure` runs its work one time only, so a second call after a change of the mode costs nothing. A configuration error goes to the log with `logger.error`, and the dual mode stays black. After `multiCamCapture.start()`, `logger.info` writes the costs, the numbers from the concept page. A shipping app reduces the formats when a cost is above 1.0. This app only shows them.
+The method is private. Two events can come in either order: the mode becomes dual, and the preview view appears. Both call this method, and the `guard` statement waits until both have occurred: `captureMode == .dual`, `let layers = dualPreviewLayers`, and `MultiCamCapture.isSupported`. The cameras come from `deviceLookup.cameras`, the device lookup of chapter 2: `first(where:)` by `position` gives the first back camera and the first front camera. Without both, `logger.error` writes the first text, and the method returns. `configure` runs its work one time only, so a second call after a change of the mode costs nothing. A configuration error goes to the log with `logger.error`, and the dual mode stays black. After `multiCamCapture.start()`, `logger.info` writes the costs, the numbers from the concept page. Write `self.multiCamCapture` in that line: the log interpolation of a number is an escaping closure, so the compiler requires the explicit `self`. A shipping app reduces the formats when a cost is above 1.0. This app only shows them.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-24
     func attachDualPreview(back: AVCaptureVideoPreviewLayer, front: AVCaptureVideoPreviewLayer) {
@@ -1101,7 +1101,7 @@ The zoom levels belong to the camera of the single-camera session. The multi-cam
 ### Step
 Build and run the app. Select the dual mode, wait for both pictures, and tap the preview to exchange them.
 
-The back camera fills the screen, and the front camera is a small picture with a white border at the top leading corner. The front picture is a mirror image. The back picture is not. In the simulator, the second picture can take up to 20 seconds to show frames. If one picture stays black, stop the app and run it again: SimCam connects at the launch.
+The back camera fills the screen, and the front camera is a small picture with a white border at the top leading corner. The front picture is a mirror image. The back picture is not. The two pictures below do not show the mirroring: the text of the SimCam test card reads normally in both. In the simulator, the second picture can take up to 20 seconds to show frames. If one picture stays black, stop the app and run it again: SimCam connects at the launch.
 
 ```settings title="Checkpoint" result="../images/ch17-s6-6-a.jpg|The dual mode: the back camera fills the screen, the front camera is the small picture at the top leading corner.; ../images/ch17-s6-6-b.jpg|After a tap on the preview: the two pictures change places."
 Destination: the iPhone 18 Pro simulator (iOS 27.0), with SimCam in operation
