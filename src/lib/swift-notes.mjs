@@ -78,6 +78,8 @@ export const SWIFT_NOTES = [
     text: 'True when both sides are the same object, not only equal values. Use it to tell two instances of a class apart.' },
   { id: 'inout-argument', common: true, test: /\(\s*[^)]*&\w+/, title: '&variable (in-out argument)', link: `${S}functions#In-Out-Parameters`,
     text: 'The ampersand passes the variable itself, so that the function can write to it. C functions from Core Video and Core Media return their results this way.' },
+  { id: 'tuple-comparison', common: true, test: /\([^()]+,[^()]+\)\s*<\s*\([^()]+,[^()]+\)/, title: 'Tuple comparison', link: `${S}basicoperators#Comparison-Operators`,
+    text: 'Two tuples compare element by element: the first elements decide, and only equal first elements let the second elements decide. A short way to sort by two keys.' },
   { id: 'task', common: true, test: /\bTask(\.detached)?\s*(\(|\{)/, title: 'Task', link: `${S}concurrency#Tasks-and-Task-Groups`,
     text: 'A task is a unit of asynchronous work. Task { } starts async code from a place that is not async, for example a button action. The task inherits the actor of the place where it starts.' },
   { id: 'async-let', test: /\basync\s+let\b/, title: 'async let', link: `${S}concurrency#Calling-Asynchronous-Functions-in-Parallel`,

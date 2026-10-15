@@ -212,7 +212,7 @@ A new file in the `AVCam` group belongs only to the app target. That is enough f
 ### Step
 Create a new Swift file with the name `MultiCamCapture.swift` in the `Capture` group, and replace its contents.
 
-The static `isSupported` property reads [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported), which is `true` on a device with enough hardware bandwidth, system memory, and thermal performance. The session is a stored property, like the single session of the capture service. The width limit keeps the hardware cost low: two large formats cost more than the hardware can give.
+The file starts with the license header and `import AVFoundation`. The class is `final class MultiCamCapture` with five properties. The static computed property `isSupported: Bool` reads [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported), which is `true` on a device with enough hardware bandwidth, system memory, and thermal performance. The session is a stored constant, `let session = AVCaptureMultiCamSession()`, like the single session of the capture service. Two private optional variables, `backInput` and `frontInput` of type `AVCaptureDeviceInput?`, hold the inputs. `private(set) var isConfigured = false` tells whether the session has its inputs. The width limit, `private let maxFormatWidth: Int32 = 1920`, keeps the hardware cost low: two large formats cost more than the hardware can give. The type is `Int32`, because the width of a format description has that type.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift new
 /*
@@ -253,7 +253,7 @@ final class MultiCamCapture {
 ### Step
 Below the `maxFormatWidth` property, add the `configure(backCamera:frontCamera:backPreview:frontPreview:)` method. It adds the two cameras in one configuration.
 
-The method runs one time. `beginConfiguration()` and `commitConfiguration()` make the two additions one atomic change, as in chapter 1. The `addCamera(_:previewLayer:)` method does not exist yet. You write it in the next three steps.
+The signature is `func configure(backCamera: AVCaptureDevice, frontCamera: AVCaptureDevice, backPreview: AVCaptureVideoPreviewLayer, frontPreview: AVCaptureVideoPreviewLayer) throws`. The method runs one time: a `guard` on `isConfigured` returns early, and the last line sets `isConfigured` to `true`. `beginConfiguration()` and `commitConfiguration()` in a `defer` block make the two additions one atomic change, as in chapter 1. Each `try addCamera(...)` call returns the input, which goes to `backInput` or `frontInput`. The `addCamera(_:previewLayer:)` method does not exist yet. You write it in the next three steps, so the project does not compile until then.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-20
     // The largest width of a camera format that the dual mode uses. Two large formats cost more than the hardware can give.
@@ -282,7 +282,7 @@ The method runs one time. `beginConfiguration()` and `commitConfiguration()` mak
 ### Step
 Below `configure`, add the `addCamera(_:previewLayer:)` method. It selects a format, creates an input, and adds the input with no connections.
 
-[`addInputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addinputwithnoconnections(_:)) is the key call of this chapter. A plain `addInput(_:)` connects the camera to every output and to the preview layer. With two cameras, each camera would connect to each output. The format selection comes first, because the session accepts only a camera with a multi-camera format. The method `selectMultiCamFormat(for:)` comes in a later step.
+[`addInputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addinputwithnoconnections(_:)) is the key call of this chapter. A plain `addInput(_:)` connects the camera to every output and to the preview layer. With two cameras, each camera would connect to each output. The signature is `private func addCamera(_ device: AVCaptureDevice, previewLayer: AVCaptureVideoPreviewLayer) throws -> AVCaptureDeviceInput`. The format selection comes first, because the session accepts only a camera with a multi-camera format. Then the method creates the input with `AVCaptureDeviceInput(device:)`, checks `canAddInput(_:)`, and throws `CameraError.addInputFailed` when the check fails. The method `selectMultiCamFormat(for:)` comes in a later step, so the project does not compile until step 2.6.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-17
         isConfigured = true
@@ -308,7 +308,7 @@ Below `configure`, add the `addCamera(_:previewLayer:)` method. It selects a for
 ### Step
 Before the `return` statement, get the video port, give the preview layer the session with no connection, and connect the port to the layer.
 
-An input has one port for each stream that it supplies. `ports(for:sourceDeviceType:sourceDevicePosition:)` returns the ports for one media type, device type, and position. [`setSessionWithNoConnection(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/setsessionwithnoconnection(_:)) tells the layer its session but makes no connection. Then [`AVCaptureConnection(inputPort:videoPreviewLayer:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputport:videopreviewlayer:)) links this camera, and only this camera, to the layer.
+An input has one port for each stream that it supplies. `ports(for:sourceDeviceType:sourceDevicePosition:)` returns the ports for one media type, device type, and position. Call it with `.video`, `device.deviceType`, and `device.position`, and take `.first` in a `guard let`; throw `CameraError.addInputFailed` when there is no port. [`setSessionWithNoConnection(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/setsessionwithnoconnection(_:)) tells the layer its session but makes no connection. Then [`AVCaptureConnection(inputPort:videoPreviewLayer:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputport:videopreviewlayer:)) links this camera, and only this camera, to the layer. Check the connection with `canAddConnection(_:)`, throw `CameraError.addOutputFailed` when it fails, and add it with `addConnection(_:)`.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-15
         // Add the input without connections. The session must not connect the camera to every output.
@@ -334,7 +334,7 @@ An input has one port for each stream that it supplies. `ports(for:sourceDeviceT
 ### Step
 After `addConnection`, set the mirroring of the connection by the position of the camera, and give it the rotation angle of the preview.
 
-In the test of this chapter, a connection that the app made did not mirror the front camera, and no connection gets a rotation angle by itself. Without this code, the front preview is not a mirror image, and both previews can be on their side. The order of the two mirroring assignments is the rule from chapter 16: [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception while [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) is `true`. The rotation coordinator is the class from chapter 2, now for a second camera and a second layer.
+In the test of this chapter, a connection that the app made did not mirror the front camera, and no connection gets a rotation angle by itself. Without this code, the front preview is not a mirror image, and both previews can be on their side. The order of the two mirroring assignments is the rule from chapter 16: [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception while [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) is `true`. Make both assignments inside an `if` on `isVideoMirroringSupported`. The rotation coordinator is the class from chapter 2, now for a second camera and a second layer: create an `AVCaptureDevice.RotationCoordinator(device:previewLayer:)` and give its `videoRotationAngleForHorizonLevelPreview` to `connection.videoRotationAngle`.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=3-10
         session.addConnection(connection)
@@ -355,7 +355,7 @@ In the test of this chapter, a connection that the app made did not mirror the f
 ### Step
 Below `addCamera`, add the `selectMultiCamFormat(for:)` method. It sets the largest multi-camera format up to the width limit.
 
-A multi-camera session uses no preset, so each camera keeps its active format. Only a format with [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported) works. The method keeps the active format when it fits. Else it takes the widest format up to 1920 pixels, and among equal widths the one with the highest frame rate. `maxFrameRate` is the extension from chapter 9. A change of the format needs the configuration lock of the device.
+A multi-camera session uses no preset, so each camera keeps its active format. Only a format with [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported) works. The signature is `private func selectMultiCamFormat(for device: AVCaptureDevice) throws`. The width of a format is `formatDescription.dimensions.width`. The method keeps the active format when it fits. Else it filters `device.formats` into `candidates` and takes the widest format up to `maxFormatWidth`, and among equal widths the one with the highest frame rate: `max(by:)` compares the tuple `(width, maxFrameRate)` of two formats, and Swift compares tuples element by element. `maxFrameRate` is the extension from chapter 9. With no candidate, the method throws `CameraError.setupFailed`. A change of the format needs `lockForConfiguration()` and `unlockForConfiguration()`.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-22
         return input
@@ -386,7 +386,7 @@ A multi-camera session uses no preset, so each camera keeps its active format. O
 ### Step
 Below `selectMultiCamFormat`, add the two cost properties. They return the costs of the session.
 
-[`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the system pressure load. Above 1.0, the session cannot run, or it cannot run for a long time. The capture service writes both to the log. In the simulator, both are 0.
+[`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the system pressure load. Above 1.0, the session cannot run, or it cannot run for a long time. Both are computed properties of type `Float` that return the value of the session. The capture service writes both to the log. In the simulator, both are 0.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-14
         device.unlockForConfiguration()
@@ -409,7 +409,7 @@ Below `selectMultiCamFormat`, add the two cost properties. They return the costs
 ### Step
 At the end of the class, add the `start()` and `stop()` methods.
 
-[`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) blocks until both cameras run. The capture service calls it on its actor, never on the main actor. The guard in `start()` protects against a start without a configuration, and against a second start.
+[`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) blocks until both cameras run. The capture service calls it on its actor, never on the main actor. The `guard` in `start()` needs `isConfigured` and `!session.isRunning`: it protects against a start without a configuration, and against a second start. The `guard` in `stop()` needs `session.isRunning`.
 
 ```swift file=AVCam/Capture/MultiCamCapture.swift highlight=4-16
         session.systemPressureCost
@@ -448,7 +448,7 @@ The dual mode needs two preview views, one for each camera. In this section, you
 ### Step
 In `CameraPreview.swift`, add the `previewLayer` requirement to the `PreviewTarget` protocol, and add the `DualPreviewSource` protocol below it.
 
-`PreviewView` already has a `previewLayer` property, so it conforms with no change. The requirement is on the main actor, because a layer belongs to a view. `DualPreviewSource` is the twin of `PreviewSource` from chapter 1, with two targets instead of one.
+The requirement is `@MainActor var previewLayer: AVCaptureVideoPreviewLayer { get }`. `PreviewView` already has a `previewLayer` property, so it conforms with no change. The requirement is on the main actor, because a layer belongs to a view. `DualPreviewSource` is the twin of `PreviewSource` from chapter 1, with two targets instead of one: `protocol DualPreviewSource: Sendable` with one requirement, `@MainActor func connect(back: PreviewTarget, front: PreviewTarget)`. The closing brace of `PreviewTarget` is highlighted, because git counts it as a new line. Do not type a second one.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=4-6,8-12
 protocol PreviewTarget {
@@ -470,7 +470,7 @@ protocol DualPreviewSource: Sendable {
 ### Step
 Create a new Swift file with the name `DualCameraPreview.swift` in the `Views` group, and replace its contents.
 
-`DualCameraPreview` is the SwiftUI view of the dual mode. Its state is the position of the camera in the small picture. A tap exchanges the two pictures. The view `DualPreviewViews` does not exist yet. You add it in the next step.
+The file starts with the license header, `import SwiftUI`, and `@preconcurrency import AVFoundation`, as `CameraPreview.swift` does. `DualCameraPreview` is the SwiftUI view of the dual mode: `struct DualCameraPreview: View` with `private let source: DualPreviewSource` and an `init(source:)`. Its state is the position of the camera in the small picture: `@State private var smallPicture = AVCaptureDevice.Position.front`. The body is `DualPreviewViews(source: source, smallPicture: smallPicture)` with an `onTapGesture` that exchanges `.front` and `.back`. The view `DualPreviewViews` does not exist yet. You add it in the next step, so the project does not compile until the end of step 3.6.
 
 ```swift file=AVCam/Views/DualCameraPreview.swift new
 /*
@@ -510,7 +510,7 @@ struct DualCameraPreview: View {
 ### Step
 Below `DualCameraPreview`, add the `DualPreviewViews` structure, a `UIViewRepresentable` that creates the container view and connects its two previews.
 
-`makeUIView(context:)` runs one time, like in `CameraPreview`. It gives the two preview views to the source, and the source gives their layers to the capture service. `updateUIView(_:context:)` runs after each tap, and passes the new position to the container. The container class comes in the next steps.
+The structure has two constants, `source: DualPreviewSource` and `smallPicture: AVCaptureDevice.Position`. `makeUIView(context: Context) -> DualPreviewContainer` runs one time, like in `CameraPreview`. It creates the container, gives its two preview views to the source with `connect(back:front:)`, and the source gives their layers to the capture service. `updateUIView(_ container: DualPreviewContainer, context: Context)` runs after each tap, and passes the new position to the `smallPicture` property of the container. The container class comes in the next steps. Close the structure with its brace now; the next step puts the class inside it.
 
 ```swift file=AVCam/Views/DualCameraPreview.swift highlight=4-21
     }
@@ -539,7 +539,7 @@ struct DualPreviewViews: UIViewRepresentable {
 ### Step
 Below `updateUIView`, add the `DualPreviewContainer` class with its two preview views, its layout values, and the `smallPicture` property.
 
-The container reuses `CameraPreview.PreviewView` from chapter 1, two times. A new position starts an animation, and the animation calls the layout method that you add in a later step.
+The class is `class DualPreviewContainer: UIView`, nested inside `DualPreviewViews` before its closing brace, as `PreviewView` is nested inside `CameraPreview`. It reuses `CameraPreview.PreviewView` from chapter 1, two times: the constants `backPreview` and `frontPreview`. The layout values are two private constants: `smallPictureScale = 0.3` (the small picture takes 30 percent of the width) and `inset = CGFloat(16)`. The property `var smallPicture = AVCaptureDevice.Position.front` has a `didSet` observer: when the value differs from `oldValue`, `UIView.animate(withDuration: 0.25)` calls `self.layoutPreviews()`, the method that you add in step 3.6. Do not close the class yet. The next two steps add its initializers and its layout methods, and the last one ends with the closing brace.
 
 ```swift file=AVCam/Views/DualCameraPreview.swift highlight=5-22
     func updateUIView(_ container: DualPreviewContainer, context: Context) {
@@ -571,7 +571,7 @@ The container reuses `CameraPreview.PreviewView` from chapter 1, two times. A ne
 ### Step
 Below the `smallPicture` property, add the two initializers. The first one sets up the two previews and adds them to the container.
 
-`resizeAspectFill` fills the picture, so that the small picture has no black bars. `clipsToBounds` makes the round corners visible. The border width stays 0 here. The layout method sets it for the small picture only.
+`init()` calls `super.init(frame: .zero)` and sets the background color to `.black`. A `for` loop over the two previews sets `videoGravity` of their `previewLayer` to `resizeAspectFill`, which fills the picture, so that the small picture has no black bars. The loop also sets `layer.cornerRadius` to 12, `layer.borderColor` to `UIColor.white.cgColor`, and `clipsToBounds` to `true`, which makes the round corners visible, and then calls `addSubview`. The border width stays 0 here. The layout method sets it for the small picture only. The second initializer is the usual `required init?(coder:)` with a `fatalError`.
 
 ```swift file=AVCam/Views/DualCameraPreview.swift highlight=10-25
         var smallPicture = AVCaptureDevice.Position.front {
@@ -606,7 +606,7 @@ Below the `smallPicture` property, add the two initializers. The first one sets 
 ### Step
 Below the initializers, add `layoutSubviews()` and the `layoutPreviews()` method. One preview gets the full bounds, and the other preview gets a corner.
 
-UIKit calls `layoutSubviews()` after each change of the size, and the animation calls `layoutPreviews()` after each tap. The small picture has the same proportions as the view, at 30 percent of the width. It sits below the top safe area inset, with an inset of 16 points. `bringSubviewToFront` draws it on top of the full picture.
+UIKit calls `layoutSubviews()` after each change of the size (call `super` first), and the animation calls the private `layoutPreviews()` after each tap. Two constants, `small` and `full`, select the preview views by `smallPicture`. The small picture has the same proportions as the view, at 30 percent of the width: `width = bounds.width * smallPictureScale` and `height = width * bounds.height / max(bounds.width, 1)`; the `max` prevents a division by zero before the first layout. It sits below the top safe area inset, with an inset of 16 points: `CGRect(x: inset, y: safeAreaInsets.top + inset, width: width, height: height)`. The full picture gets `bounds`, a corner radius of 0, and a border width of 0; the small picture gets a corner radius of 12 and a border width of 1. `bringSubviewToFront` draws it on top of the full picture. This step ends with the closing brace of the class.
 
 ```swift file=AVCam/Views/DualCameraPreview.swift highlight=5-25
         required init?(coder: NSCoder) {
@@ -667,7 +667,7 @@ The capture service decides which session runs. In this section, it gets a `Mult
 ### Step
 In `CaptureService.swift`, add the `multiCamCapture` and `dualPreviewLayers` properties below the `movieCapture` property.
 
-The layers are optional, because the dual preview view does not exist at the start. The view gives the service its two layers when SwiftUI shows it. The tuple keeps the back layer and the front layer together.
+Both properties are private. The first is a constant, `multiCamCapture = MultiCamCapture()`. The second is a variable with the optional tuple type `(back: AVCaptureVideoPreviewLayer, front: AVCaptureVideoPreviewLayer)?`. The layers are optional, because the dual preview view does not exist at the start. The view gives the service its two layers when SwiftUI shows it. The tuple keeps the back layer and the front layer together, with the names `back` and `front`.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-8
     // An object that manages the app's video capture behavior.
@@ -702,7 +702,7 @@ The old line gave the `.high` preset to every mode except photo. The dual mode d
 ### Step
 Below `setCaptureMode(_:)`, add a mark and the `attachDualPreview(back:front:)` method. It stores the two layers and starts the dual capture.
 
-The dual preview view calls this method when it appears. The method it calls does not exist yet. You add it in the next step.
+The signature is `func attachDualPreview(back: AVCaptureVideoPreviewLayer, front: AVCaptureVideoPreviewLayer)`, not private, because the preview source calls it from outside the actor. The dual preview view calls this method when it appears. The method stores the tuple `(back, front)` and calls `startDualCaptureIfNeeded()`, which does not exist yet. You add it in the next step, so the project does not compile until then.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-13
         // A new session preset can select a new device format. Create the zoom levels again.
@@ -725,7 +725,7 @@ The dual preview view calls this method when it appears. The method it calls doe
 ### Step
 Below that method, add the `startDualCaptureIfNeeded()` method. It needs the dual mode, the two layers, and a device with support.
 
-Two events can come in either order: the mode becomes dual, and the preview view appears. Both call this method, and the `guard` statement waits until both have occurred. The cameras come from the device lookup of chapter 2: the first back camera and the first front camera. `configure` runs its work one time only, so a second call after a change of the mode costs nothing. A configuration error goes to the log, and the dual mode stays black. The costs are the numbers from the concept page. A shipping app reduces the formats when a cost is above 1.0. This app only shows them.
+The method is private. Two events can come in either order: the mode becomes dual, and the preview view appears. Both call this method, and the `guard` statement waits until both have occurred: `captureMode == .dual`, `let layers = dualPreviewLayers`, and `MultiCamCapture.isSupported`. The cameras come from `deviceLookup.cameras`, the device lookup of chapter 2: `first(where:)` by `position` gives the first back camera and the first front camera. Without both, `logger.error` writes the first text, and the method returns. `configure` runs its work one time only, so a second call after a change of the mode costs nothing. A configuration error goes to the log with `logger.error`, and the dual mode stays black. After `multiCamCapture.start()`, `logger.info` writes the costs, the numbers from the concept page. A shipping app reduces the formats when a cost is above 1.0. This app only shows them.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-24
     func attachDualPreview(back: AVCaptureVideoPreviewLayer, front: AVCaptureVideoPreviewLayer) {
@@ -759,7 +759,7 @@ Two events can come in either order: the mode becomes dual, and the preview view
 ### Step
 At the top of `setCaptureMode(_:)`, store the previous mode. For the dual mode, stop the single-camera session, start the dual capture, and return.
 
-The single-camera session must stop first, because two sessions probably cannot use the cameras at the same time. The `return` skips the configuration of the single-camera session, which the dual mode does not need. The call to `updateCaptureCapabilities()` gives the interface the unknown capabilities of the dual mode.
+The first line is `let previousMode = self.captureMode`. Xcode warns that the constant is never used until the next step reads it. The single-camera session must stop first, because two sessions probably cannot use the cameras at the same time. The `return` skips the configuration of the single-camera session, which the dual mode does not need. The call to `updateCaptureCapabilities()` gives the interface the unknown capabilities of the dual mode.
 
 ```swift file=AVCam/CaptureService.swift highlight=2,6-12
     func setCaptureMode(_ captureMode: CaptureMode) throws {
@@ -782,7 +782,7 @@ The single-camera session must stop first, because two sessions probably cannot 
 ### Step
 Below the `if` statement, stop the multi-camera session when the previous mode was dual. Extend the `defer` block to start the single-camera session again.
 
-The `defer` block runs at the end of the method, after the `switch` has set the preset and the outputs. A start inside the configuration would be wrong: the session must see the complete configuration. The old one-line `defer` becomes a block.
+The constant `restartsSession` is `previousMode == .dual`. When it is `true`, call `multiCamCapture.stop()`. The `defer` block runs at the end of the method, after the `switch` has set the preset and the outputs. A start inside the configuration would be wrong: the session must see the complete configuration. The old one-line `defer` becomes a block that also calls `captureSession.startRunning()` when `restartsSession` is `true`.
 
 ```swift file=AVCam/CaptureService.swift remove
         defer { captureSession.commitConfiguration() }
@@ -816,7 +816,7 @@ The `defer` block runs at the end of the method, after the `switch` has set the 
 ### Step
 In `start(with:)`, change a stored dual mode to photo on a device without support. In the dual mode, start the dual capture instead of the session.
 
-The app stores the last mode, and the stored state can come from a different device. A device without support starts in the photo mode. In the dual mode, `setUpSession()` still runs, so the single-camera session is ready for a later change of the mode. But the session does not start. The dual capture starts as soon as the preview view gives the service its layers.
+The app stores the last mode, and the stored state can come from a different device. A device without support starts in the photo mode. In the dual mode, `setUpSession()` still runs, so the single-camera session is ready for a later change of the mode. Keep the `try setUpSession()` line. But the session does not start: the old `startRunning()` line moves into the `else` branch of an `if` on `captureMode == .dual`, and the `if` branch calls `startDualCaptureIfNeeded()`. The dual capture starts as soon as the preview view gives the service its layers.
 
 ```swift file=AVCam/CaptureService.swift remove
         // Set initial operating state.
@@ -825,7 +825,9 @@ The app stores the last mode, and the stored state can come from a different dev
 
 ```swift file=AVCam/CaptureService.swift remove
         // Configure the session and start it.
-        try setUpSession()
+```
+
+```swift file=AVCam/CaptureService.swift remove
         captureSession.startRunning()
 ```
 
@@ -864,7 +866,7 @@ The view exists, and the service runs the multi-camera session. In this section,
 ### Step
 Below the protocol, add the `DefaultDualPreviewSource` structure. It reads the two layers and gives them to the capture service in a task.
 
-`DefaultPreviewSource` from chapter 1 holds the session. This structure holds the service, because the service owns the multi-camera session and connects the layers itself. The two layers are read on the main actor, and the task sends them to the capture actor. The preview layer class is `Sendable` in the SDK, so the compiler accepts this.
+`DefaultPreviewSource` from chapter 1 holds the session. This structure holds the service in a private constant `captureService: CaptureService`, with an `init(captureService:)`, because the service owns the multi-camera session and connects the layers itself. The `connect(back:front:)` method is `@MainActor`. It reads `previewLayer` of the two targets on the main actor, and a `Task` sends the two layers to `attachDualPreview(back:front:)` on the capture actor with `await`. The file imports AVFoundation with `@preconcurrency`, so the compiler accepts the layers in the task.
 
 ```swift file=AVCam/Views/CameraPreview.swift highlight=6-21
 protocol DualPreviewSource: Sendable {
@@ -914,7 +916,7 @@ The property is `nonisolated`, like `previewSource`, so that the main actor can 
 ### Step
 In `Camera.swift`, update the comment of `captureMode`, and add the `isDualCaptureSupported` and `dualPreviewSource` requirements below it.
 
-The interface reads `isDualCaptureSupported` to hide the dual mode on a device without support. `dualPreviewSource` is the path from the dual preview view to the capture service.
+The two requirements are read-only: `var isDualCaptureSupported: Bool { get }` and `var dualPreviewSource: DualPreviewSource { get }`. The interface reads `isDualCaptureSupported` to hide the dual mode on a device without support. `dualPreviewSource` is the path from the dual preview view to the capture service. The two models do not have the members yet, so the project does not compile until step 5.5.
 
 ```swift file=AVCam/Model/Camera.swift remove
     /// The capture mode, which can be photo or video.
@@ -956,7 +958,7 @@ In `CameraModel.swift`, add the two properties below the `previewSource` propert
 ### Step
 In `PreviewCameraModel.swift`, add a stub for the dual preview source and the two properties below the `previewSource` property.
 
-The preview model reports support, so that a SwiftUI preview of the mode picker shows all three modes. Its source does nothing.
+The stub is a structure nested in the class, `struct DualPreviewSourceStub: DualPreviewSource`, with an empty `connect(back:front:)` method, like `PreviewSourceStub` on the line above. Then `let dualPreviewSource: DualPreviewSource = DualPreviewSourceStub()` and `let isDualCaptureSupported = true`. The preview model reports support, so that a SwiftUI preview of the mode picker shows all three modes. Its source does nothing.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=3-10
     let previewSource: PreviewSource = PreviewSourceStub()
@@ -1007,7 +1009,7 @@ The capture service connects the preview layer of this view during the setup, in
 ### Step
 Below the `opacity` modifier of `CameraPreview`, add an `overlay` that shows `DualCameraPreview` in the dual mode.
 
-SwiftUI creates the overlay view when the mode becomes dual, and `makeUIView` gives the service its layers then. When the mode leaves dual, SwiftUI removes the view. The swipe gesture goes on the overlay too, because the overlay covers the single preview and would take the swipe.
+SwiftUI creates the overlay view when the mode becomes dual, and `makeUIView` gives the service its layers then. When the mode leaves dual, SwiftUI removes the view. The overlay content is an `if` on `camera.captureMode == .dual` with `DualCameraPreview(source: camera.dualPreviewSource)`. The swipe gesture goes on the overlay too, with `simultaneousGesture(swipeGesture)` as on the single preview, because the overlay covers the single preview and would take the swipe.
 
 ```swift file=AVCam/CameraView.swift highlight=5-12
                     /// The value of `shouldFlashScreen` changes briefly to `true` when capture
@@ -1030,7 +1032,7 @@ SwiftUI creates the overlay view when the mode becomes dual, and `makeUIView` gi
 ### Step
 In `CaptureModeView.swift`, add the `modes` property above `body`. Use it in `ForEach` and in `onChange`, and make the picker wider for three modes.
 
-A device without support does not show the dual mode. The `onChange` closure had its own `modes` constant, which used all cases. Delete that line, so that the swipe gesture also skips the dual mode on such a device. Three symbols need more width than two.
+The property is `private var modes: [CaptureMode]`, computed: it filters `CaptureMode.allCases` and keeps a mode when it is not `.dual` or when `camera.isDualCaptureSupported` is `true`. A device without support does not show the dual mode. The `onChange` closure had its own `modes` constant, which used all cases. Delete that line, so that the swipe gesture also skips the dual mode on such a device. Three symbols need more width than two: the frame width becomes 240 points when `modes.count > 2`, else 180 as before.
 
 ```swift file=AVCam/Views/Controls/CaptureModeView.swift remove
             ForEach(CaptureMode.allCases) {
@@ -1101,7 +1103,7 @@ Build and run the app. Select the dual mode, wait for both pictures, and tap the
 
 The back camera fills the screen, and the front camera is a small picture with a white border at the top leading corner. The front picture is a mirror image. The back picture is not. In the simulator, the second picture can take up to 20 seconds to show frames. If one picture stays black, stop the app and run it again: SimCam connects at the launch.
 
-```settings title="Checkpoint"
+```settings title="Checkpoint" result="../images/ch17-s6-6-a.jpg|The dual mode: the back camera fills the screen, the front camera is the small picture at the top leading corner.; ../images/ch17-s6-6-b.jpg|After a tap on the preview: the two pictures change places."
 Destination: the iPhone 18 Pro simulator (iOS 27.0), with SimCam in operation
 Action: Product > Run (Command-R), then tap the third mode, then tap the preview
 Result: Both cameras show frames. A tap exchanges the two pictures with an animation. The Xcode console shows the two costs.
