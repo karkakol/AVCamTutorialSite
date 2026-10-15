@@ -29,7 +29,7 @@
 
     <rect x="494" y="176" width="218" height="64" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
     <text x="603" y="204" fill="var(--muted)" font-weight="600">Movie file output</text>
-    <text x="603" y="225" fill="var(--muted)" font-size="13">chapter 8</text>
+    <text x="603" y="225" fill="var(--muted)" font-size="13">chapter 10</text>
 
     <text x="360" y="282" fill="var(--muted)" font-size="13">Each arrow that leaves the session is a connection (AVCaptureConnection). Dashed parts come later.</text>
   </g>

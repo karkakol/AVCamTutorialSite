@@ -21,20 +21,20 @@ This page is a summary. It also tells you honestly what this tutorial did not ve
 | 5 | The layout for iPhone and iPad sizes, and the viewfinder frame. |
 | 6 | Focus and exposure at a point, and the return to the continuous modes. |
 | 7 | Live Photos, the quality prioritization, deferred photo delivery, and responsive capture. |
-| 8 | Video mode, the microphone, movie recording, and the recording time. |
-| 9 | HDR video with a search for a 10-bit format. |
-| 10 | Interruptions, the media services reset, the deferred start, and the hidden controls. |
-| 11 | Capture with the hardware buttons and AirPods, and high-quality audio from AirPods. |
-| 12 | Controls for the Camera Control: zoom, exposure bias, and a lens position slider. |
-| 13 | A shared state, a capture extension for the Lock Screen, and a control for Control Center and the Action button. |
+| 10 | Video mode, the microphone, movie recording, and the recording time. |
+| 11 | HDR video with a search for a 10-bit format. |
+| 12 | Interruptions, the media services reset, the deferred start, and the hidden controls. |
+| 13 | Capture with the hardware buttons and AirPods, and high-quality audio from AirPods. |
+| 14 | Controls for the Camera Control: zoom, exposure bias, and a lens position slider. |
+| 15 | A shared state, a capture extension for the Lock Screen, and a control for Control Center and the Action button. |
 
-Part 2 goes beyond the sample: chapter 14 adds zoom and the virtual back cameras, chapter 15 corrects four defects of the sample, and chapter 16 adds support for iPhone Duo. The sections below about the Apple sample describe the state at the end of chapter 13.
+Part 2 goes beyond the sample: chapter 16 adds zoom and the virtual back cameras, chapter 17 corrects four defects of the sample, and chapter 18 adds support for iPhone Duo. The sections below about the Apple sample describe the state at the end of chapter 15.
 
-The design stayed the same from chapter 1 to chapter 13: the views read a model on the main actor, the model sends each request to the capture service, and the capture service owns the session on its own queue. Each chapter added lines to this design. No chapter replaced it.
+The design stayed the same from chapter 1 to chapter 15: the views read a model on the main actor, the model sends each request to the capture service, and the capture service owns the session on its own queue. Each chapter added lines to this design. No chapter replaced it.
 
 ## Your project and the Apple sample
 
-The Swift files of the `chapter-13` branch are the same as the files of [AVCam](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app), line for line, with these differences:
+The Swift files of the `chapter-15` branch are the same as the files of [AVCam](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app), line for line, with these differences:
 
 | File | Difference | Reason |
 |---|---|---|
@@ -70,7 +70,7 @@ A sample shows an API. It is not a finished product. The research for this tutor
 
 - The project uses Swift 5 mode with minimal concurrency checking. The compiler does not tell you when code leaves an actor.
 - The progress task of a photo capture probably does not run on the session queue (chapter 3). The Live Photo counter then has no protection (chapter 7).
-- The recording timer reads the movie output from the main thread (chapter 8).
+- The recording timer reads the movie output from the main thread (chapter 10).
 
 **Photo**
 
@@ -83,38 +83,38 @@ A sample shows an API. It is not a finished product. The research for this tutor
 
 - The app requests add-only access to Photos, but it declares the usage description for full access. It then reads the new asset to make the thumbnail (chapter 4).
 - Each save waits for a location, and a location error stops the save (chapter 4).
-- A failed save leaves the movie file in the temporary directory (chapters 7 and 8).
+- A failed save leaves the movie file in the temporary directory (chapters 7 and 10).
 
 **Video**
 
-- HDR can show "on" after a change of the camera, while the new camera uses an 8-bit format (chapter 9).
-- A mode change sets the stored mode before the session change, and the model hides the error with `try?` (chapter 8).
-- The app never asks for microphone access directly. The alert appears when the code creates the microphone input (chapter 8).
+- HDR can show "on" after a change of the camera, while the new camera uses an 8-bit format (chapter 11).
+- A mode change sets the stored mode before the session change, and the model hides the error with `try?` (chapter 10).
+- The app never asks for microphone access directly. The alert appears when the code creates the microphone input (chapter 10).
 
 **Session**
 
-- The `running` status is not the state of the session. The model sets it one time (chapter 10).
-- The sample handles only one runtime error (chapter 10).
+- The `running` status is not the state of the session. The model sets it one time (chapter 12).
+- The sample handles only one runtime error (chapter 12).
 
 **System integration**
 
-- The capture sound for AirPods plays after the save, not at the moment of the capture (chapter 11).
-- The lens position slider does not update when a tap on the preview changes the focus (chapter 12).
-- A recording in the capture extension can get lost when the person dismisses the extension (chapter 13).
-- Each activation of the app runs the mode change again, and the writes of the shared state have no order (chapter 13).
+- The capture sound for AirPods plays after the save, not at the moment of the capture (chapter 13).
+- The lens position slider does not update when a tap on the preview changes the focus (chapter 14).
+- A recording in the capture extension can get lost when the person dismisses the extension (chapter 15).
+- Each activation of the app runs the mode change again, and the writes of the shared state have no order (chapter 15).
 
 ## Ideas to continue
 
 You know the pipeline now. Each idea below uses it in a new way.
 
-- **Fix one more weak point.** Chapter 15 corrects four items from the list above. Select one of the others, find out on an iPhone whether it is real, and repair it.
+- **Fix one more weak point.** Chapter 17 corrects four items from the list above. Select one of the others, find out on an iPhone whether it is real, and repair it.
 - **Use the session object of the capture extension.** Write the movie into the session directory, collect it in the app with `LockedCameraCaptureManager`, and open the app from the thumbnail button with `openApplication(for:)`.
 - **Multi-camera capture.** [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) runs the front camera and the back camera at the same time. You connect the inputs and the outputs yourself, and you must watch the hardware cost. Start with the [AVMultiCamPiP sample](https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras).
 - **Depth.** The photo output can deliver a depth map and portrait mattes with a photo. Read [Capturing photos with depth](https://developer.apple.com/documentation/avfoundation/capturing-photos-with-depth).
 - **RAW and Apple ProRAW.** Add a second format to the photo settings and save a DNG file. Read [Capturing photos in RAW and Apple ProRAW formats](https://developer.apple.com/documentation/avfoundation/capturing-photos-in-raw-and-apple-proraw-formats).
 - **A video data output with your own processing.** [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) gives you each frame. You can apply a filter, draw your own preview, and write the movie with [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter). This is more work than the movie file output, and it gives you full control.
 - **Cinematic video.** From iOS 26, an app can record video with a depth of field that the person can change later. Read [Capturing Cinematic video](https://developer.apple.com/documentation/avfoundation/capturing-cinematic-video).
-- **A second display during capture.** Chapter 16 makes the app follow the direction of each camera on iPhone Duo. The next step is content for the other display, for example a preview for the person in front of the camera. Read [Registering a camera capture accessory on iPhone Duo](https://developer.apple.com/documentation/avfoundation/registering-a-camera-capture-accessory-on-iphone-duo).
+- **A second display during capture.** Chapter 18 makes the app follow the direction of each camera on iPhone Duo. The next step is content for the other display, for example a preview for the person in front of the camera. Read [Registering a camera capture accessory on iPhone Duo](https://developer.apple.com/documentation/avfoundation/registering-a-camera-capture-accessory-on-iphone-duo).
 - **Swift 6 and strict concurrency.** Change the language mode to Swift 6 and repair each error. You then find the places where the sample leaves an actor without a check, for example the delegate callbacks and the Combine publishers. This is hard, and it teaches you the most about the design.
 
 ## Documentation

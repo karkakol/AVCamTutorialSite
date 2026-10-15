@@ -100,14 +100,14 @@ Chapter 1 uses a small part of the session API. This map shows what else a sessi
 | Capability | API | In this tutorial |
 |---|---|---|
 | Take photos | [`AVCapturePhotoOutput`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput) | Chapters 3 and 7 |
-| Record movie files | [`AVCaptureMovieFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput) | Chapter 8 |
+| Record movie files | [`AVCaptureMovieFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput) | Chapter 10 |
 | Get each video frame, for filters or analysis | [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) | Not in AVCam |
 | Get each audio buffer | [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) | Not in AVCam |
-| Select a quality level | [`sessionPreset`](https://developer.apple.com/documentation/avfoundation/avcapturesession/sessionpreset) | Chapter 3 (`.photo`), chapter 8 (`.high`) |
-| Select the exact sensor format | [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) | Chapter 9 |
+| Select a quality level | [`sessionPreset`](https://developer.apple.com/documentation/avfoundation/avcapturesession/sessionpreset) | Chapter 3 (`.photo`), chapter 10 (`.high`) |
+| Select the exact sensor format | [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) | Chapter 11 |
 | Change many things in one operation | [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) | From chapter 2 |
 | Rotate and mirror a stream | [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle), [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) | Chapters 2 and 3 (rotation) |
-| React to interruptions and errors | [`runtimeErrorNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/runtimeerrornotification) and others | Chapter 10 |
+| React to interruptions and errors | [`runtimeErrorNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/runtimeerrornotification) and others | Chapter 12 |
 | Use two cameras at the same time | [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) | Not in AVCam |
 | Measure the load of a configuration | [`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturesession/hardwarecost) | Not in AVCam |
 
@@ -234,7 +234,7 @@ AVCam checks the authorization two times: in `CameraModel.start()` and again in 
 - **`addInput(_:)` without `canAddInput(_:)`.** `addInput(_:)` raises an exception when the session cannot use the input. Swift cannot catch that exception, so the app stops.
 - **The session starts before the person answers.** The preview is black until access is allowed.
 - **`.denied` and `.restricted` get the same message.** With `.restricted`, the person cannot change the setting. Do not send the person to the Settings app in that situation. AVCam shows the same message for the two statuses, so a real app must do better here.
-- **Trust in `start()`.** A session that fails to start does not throw an error. The failure arrives as a notification. In chapter 1, the model sets the `running` status when `startRunning()` returns. Chapter 10 adds the notifications.
+- **Trust in `start()`.** A session that fails to start does not throw an error. The failure arrives as a notification. In chapter 1, the model sets the `running` status when `startRunning()` returns. Chapter 12 adds the notifications.
 - **State after an `await` in an actor.** An actor can start a second call while the first call waits at an `await`. In `start()`, the `isRunning` test comes after the `await`, and no suspension point follows it, so this order is safe. Check the state after each suspension point when the result is important.
 - **A preview sublayer without layout code.** The layer keeps its first size, often zero. Use `layerClass`, or set the frame in each layout pass.
 - **Layer properties from a background thread.** A layer belongs to the main thread. The sample sets `previewLayer.session` in a task on the main actor.

@@ -2,10 +2,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420">
   <title>The recording pipeline of the dual mode: each camera input feeds its preview layer and a video data output, the microphone feeds an audio data output, the three outputs deliver sample buffers to the dual recorder on one queue, the mixer draws the small picture into the full picture with a Metal kernel, and the movie recorder writes the mixed frames and the audio to a file with an asset writer.</title>
   <defs>
-    <marker id="ch18-pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch20-pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
     </marker>
-    <marker id="ch18-pipe-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch20-pipe-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -71,24 +71,24 @@
     <rect x="456" y="356" width="238" height="44" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
     <text x="575" y="383" fill="currentColor" font-size="13">Photos library (stopRecording)</text>
 
-    <text x="215" y="356" fill="var(--muted)" font-size="13">Connections made by hand, as in chapter 17.</text>
+    <text x="215" y="356" fill="var(--muted)" font-size="13">Connections made by hand, as in chapter 19.</text>
     <text x="215" y="376" fill="var(--muted)" font-size="13">The preview layers show the live pictures.</text>
     <text x="215" y="396" fill="var(--muted)" font-size="13">The recorder mixes only while it records.</text>
   </g>
 
   <!-- Input to preview layer and to data output (muted) -->
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch18-pipe-arrow-muted)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch20-pipe-arrow-muted)">
     <path d="M154 70 H198"/>
     <path d="M154 172 H198"/>
   </g>
-  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch20-pipe-arrow)">
     <path d="M154 84 L198 100"/>
     <path d="M154 186 L198 202"/>
     <path d="M154 280 H198"/>
   </g>
 
   <!-- Data outputs to the recorder: sample buffers -->
-  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch20-pipe-arrow)">
     <path d="M400 104 H454"/>
     <path d="M400 206 H454"/>
     <path d="M400 280 H454"/>
@@ -100,7 +100,7 @@
   </g>
 
   <!-- Mixer to movie recorder, movie recorder to library -->
-  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-pipe-arrow)">
+  <g stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch20-pipe-arrow)">
     <path d="M575 226 V250"/>
     <path d="M575 308 V354"/>
   </g>

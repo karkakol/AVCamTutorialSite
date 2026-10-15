@@ -8,7 +8,7 @@ Branch `chapter-04`, start `chapter-03`. Full change: `git -C ../AVCamTutorialAp
 - Not verified: the location tag (the simulator permission was granted with `simctl privacy`, the saved location was not inspected), the Photos permission alert, the photo picker that opens on a thumbnail tap.
 
 ## What the chapter adds
-- `Model/MediaLibrary.swift`: the sample's actor without `save(movie:)` (chapter 8) and with a simpler `save(photo:)`: one `.photo` resource, no proxy, no paired video (chapter 7 adds those).
+- `Model/MediaLibrary.swift`: the sample's actor without `save(movie:)` (chapter 10) and with a simpler `save(photo:)`: one `.photo` resource, no proxy, no paired video (chapter 7 adds those).
 - Build settings (target AVCam, Info): `NSLocationWhenInUseUsageDescription` = "AVCam uses your location to tag where photos and videos are taken." and `NSPhotoLibraryUsageDescription` = "To save captured photos and videos." (Xcode names: "Privacy - Location When In Use Usage Description", "Privacy - Photo Library Usage Description"). These are in `project.pbxproj`, so list that file in `uncovered:` and use `settings` steps.
 - `Camera`, `CameraModel`, `PreviewCameraModel`: `thumbnail`. `CameraModel`: `mediaLibrary`, the save call, the thumbnail task in `observeState()`.
 - Views: `ThumbnailButton.swift` (sample without the `.disabled(...isRecording)` line), the `Image(CGImage)` extension in `ViewExtensions.swift`, `MainToolbar` (the placeholder is replaced by `ThumbnailButton`).

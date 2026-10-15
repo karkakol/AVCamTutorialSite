@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350">
   <title>Which hardware control sends which capture event: four controls send a primary event, the volume up button sends a secondary event, and AVCam handles the two kinds in one closure</title>
   <defs>
-    <marker id="ch11-sources-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch13-sources-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -44,7 +44,7 @@
     <text x="630" y="252" fill="var(--muted)" font-size="13">video mode: start</text>
     <text x="630" y="270" fill="var(--muted)" font-size="13">or stop a movie</text>
   </g>
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch11-sources-arrow)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch13-sources-arrow)">
     <path d="M230 54 L318 112"/>
     <path d="M230 108 L318 126"/>
     <path d="M230 162 L318 144"/>
@@ -53,5 +53,5 @@
     <path d="M480 135 L558 190"/>
     <path d="M480 296 L558 240"/>
   </g>
-  <path d="M400 259 L400 174" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#ch11-sources-arrow)"/>
+  <path d="M400 259 L400 174" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#ch13-sources-arrow)"/>
 </svg>

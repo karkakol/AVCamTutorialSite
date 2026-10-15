@@ -871,7 +871,7 @@ The last section connects the parts. `CameraView` puts the preview and a status 
 ### Step
 In the `Views` group, create a group with the name `Overlays`. In it, create the file `StatusOverlayView.swift`, and replace its contents.
 
-The view is empty for the `unknown` and `running` statuses. For the other two statuses, it makes the preview darker and shows a message: red when the person denied access, orange when the camera did not start. The test for yellow is for a status that chapter 10 adds. The message texts come from the sample, so copy this file as it is.
+The view is empty for the `unknown` and `running` statuses. For the other two statuses, it makes the preview darker and shows a message: red when the person denied access, orange when the camera did not start. The test for yellow is for a status that chapter 12 adds. The message texts come from the sample, so copy this file as it is.
 
 The view has the constant `status: CameraStatus` and the array `handled` with `.unauthorized` and `.failed`. When `handled` contains the status, the body shows a `Rectangle` with the fill `Color(white: 0.0, opacity: 0.5)`, and a `Text` with the message: font `.headline`, white text, `.padding()`, the color as background, a corner radius of 8, and a maximum width of 600. The computed properties `color` (`.red`, `.orange`, or `.clear`) and `message` (the two texts, or an empty string) switch on the status. Two `#Preview` blocks, "Failed" and "Unauthorized", show `CameraView` with a `PreviewCameraModel` inside a `PreviewBackground`.
 

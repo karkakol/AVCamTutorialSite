@@ -55,7 +55,7 @@ In this chapter, `PreviewContainer` gives the preview the aspect ratio 3:4 on an
 - **The app owns the frame.** The frame is a normal SwiftUI view. The app can move it, and can put controls above and below it, not on top of the image.
 - **The layer and the image have the same bounds.** A point in the frame is always a point of the image. Thus it is simple to put a grid or a focus square at the correct place.
 
-The frame must follow the capture format. In this chapter, the app has only a photo format, so the ratio is always 3:4. In chapter 8, the app gets a video mode, and the frame changes to 9:16 when the mode changes.
+The frame must follow the capture format. In this chapter, the app has only a photo format, so the ratio is always 3:4. In chapter 10, the app gets a video mode, and the frame changes to 9:16 when the mode changes.
 
 ### Interface orientation and capture orientation
 
@@ -139,7 +139,7 @@ Two more points for the layout of a camera screen:
 
 **The frame moves up by 44 points.** A frame in the center of the screen leaves two equal bars. But the main toolbar at the bottom is larger than the controls that later chapters put at the top. So the container moves the frame up by a fixed value. The value is a design decision of the sample, not the result of a calculation.
 
-**The toolbar position comes from the window.** `CameraUI` calculates the space below the toolbar from the size of the window and the 9:16 ratio. The function `AVMakeRect(aspectRatio:insideRect:)` from AVFoundation returns the largest rectangle with a given ratio that fits in the center of a second rectangle. The top edge of that rectangle is the height of the bar above a 9:16 video. The space below the toolbar is half of that height plus 12 points. So the space is larger in a tall window and smaller in a short one. The calculation always uses the video ratio. Thus the toolbar does not move when the capture mode changes in chapter 8.
+**The toolbar position comes from the window.** `CameraUI` calculates the space below the toolbar from the size of the window and the 9:16 ratio. The function `AVMakeRect(aspectRatio:insideRect:)` from AVFoundation returns the largest rectangle with a given ratio that fits in the center of a second rectangle. The top edge of that rectangle is the height of the bar above a 9:16 video. The space below the toolbar is half of that height plus 12 points. So the space is larger in a tall window and smaller in a short one. The calculation always uses the video ratio. Thus the toolbar does not move when the capture mode changes in chapter 10.
 
 **The app measures the window, not the screen.** `CameraUI` uses the `onGeometryChange` modifier to read its size, and adds the safe area insets, to get the size of the window. The older solution, the bounds of the main screen, is wrong on iPad when the window is smaller than the screen.
 

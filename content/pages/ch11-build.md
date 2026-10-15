@@ -1,292 +1,720 @@
 ---
 kind: tutorial
 chapter: 11
-title: Build: hardware buttons and AirPods
-abstract: Handle capture events from the hardware buttons and from AirPods, play the correct sound for each action, keep the capture button in the correct state, and make AirPods available as a high-quality microphone.
-estimatedMinutes: 20
+title: Build: HDR video
+abstract: Find the 10-bit variant of the active camera format, let the capture service change to it, and add an HDR button to video mode.
+estimatedMinutes: 30
 startBranch: chapter-10
 branch: chapter-11
 ---
 
-At the end of chapter 10, the only way to capture is the button on the screen. In this tutorial, you connect the hardware of the iPhone to the same capture code: the volume buttons, the Action button, the full press of the Camera Control, and the stem click of AirPods. You also make AirPods available as a microphone with a good sound quality.
+In this tutorial, you add HDR video to the app. In video mode, an HDR button appears when the camera has a 10-bit format. A tap on the button changes the camera to that format, and the movies that the app records are then HDR movies.
 
-You add no new files. You add 31 lines to three files. Most of them are one closure, and you write it slowly: a few lines in each step.
+You write three small properties that find the 10-bit format. Then you send the answer "this camera supports HDR" from the movie service to the interface, you write the method that changes the format, and you add the button.
 
-Read [Concepts: hardware buttons and AirPods](ch11-concepts.md) first. It explains capture events, their phases, the sound rules, and the two AirPods features.
+This chapter has a special condition. In the Simulator with SimCam, the camera has no 10-bit format, so the HDR button does not appear. That is the correct result, and it is what you see at the end of this tutorial. To record HDR video, you need a real iPhone. Read [Concepts: HDR video](ch11-concepts.md) first: this chapter has little code, and the concepts page explains the ideas behind each line.
 
-> [!IMPORTANT]
-> The Simulator has no hardware buttons that send capture events, no Camera Control, and no AirPods. You can build and run all steps there, but you see nothing new. To use the features of this chapter, you need a real iPhone. This tutorial did not run the code on one, so it gives you the expected results in words. The two AirPods features are also not available in the European Union at this time.
+## Find the 10-bit variant of a format
 
-## Handle the capture event
+A camera has a list of formats. Each format is one combination of a frame size, frame rates, a pixel format, and more. "Turn HDR on" means "change to a format that stores 10 bits for each value, with the same size and the same frame rate as now".
 
-A capture event is the message that the system sends to a camera app when a person presses a hardware control. In SwiftUI, you get the events with the `onCameraCaptureEvent` modifier on a view of the camera interface. While the modifier is active and the capture session runs, the volume buttons do not change the volume. They send events to your closure.
+In this section, you write the search for that format. You add it to `CaptureExtensions.swift`, the file with the `CMVideoDimensions` extension from chapter 3.
 
-In this section, you write that closure. It takes a photo or toggles a recording, and it plays a sound for a person who used AirPods.
-
-![Four hardware controls send a primary event. The volume up button sends a secondary event, or a primary event when the app has no secondary handler. AVCam handles the two kinds in one closure.](../images/ch11-event-sources.svg)
+![An example format list: the search keeps the formats with the size and rate of the active format and returns the first 10-bit one](../images/ch11-format-search.svg)
 
 ### Step
-Open `CameraView.swift`, and make sure that the file imports `SwiftUI`, `AVFoundation`, and `AVKit`.
+In `CaptureExtensions.swift`, add an extension on `AVCaptureDevice.Format` with the `isTenBitFormat` property at the end of the file.
 
-You add nothing in this step. The modifier and the event types are in the AVKit framework, not in AVFoundation. The modifier is available only in a file that imports `SwiftUI` and `AVKit` together. The file has the `AVKit` import since chapter 8.
+The format description of a format holds the pixel format in `mediaSubType`, as a four-character code. The constant [`kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange`](https://developer.apple.com/documentation/corevideo/kcvpixelformattype_420ypcbcr10biplanarvideorange) is the code `x420`: 10 bits for each value. AVCam uses this pixel format as the sign of an HDR format. `isTenBitFormat` is a computed `Bool` property. It compares `formatDescription.mediaSubType.rawValue` with the constant.
 
-```swift file=AVCam/CameraView.swift
-import SwiftUI
-import AVFoundation
-import AVKit
+```swift file=AVCam/Support/CaptureExtensions.swift highlight=6-10
+    public static func < (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
+        lhs.width < rhs.width && lhs.height < rhs.height
+    }
+}
 
-@MainActor
-struct CameraView<CameraModel: Camera>: PlatformView {
+extension AVCaptureDevice.Format {
+    var isTenBitFormat: Bool {
+        formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+    }
+}
 ```
 
 ### Step
-Add the `onCameraCaptureEvent` modifier to `CameraPreview`, as its first modifier, with `defaultSoundDisabled` set to `true` and an empty closure.
+Below `isTenBitFormat`, add the `maxFrameRate` property, which reads the highest frame rate of a format.
 
-- The modifier is on the preview, because capture events belong to a view that shows the camera. The system sends events only while the app is in the foreground and its capture session runs.
-- Name the parameter of the closure `event`. The next steps read its properties.
-- With one `action` closure, the closure gets the primary events and the secondary events. So the two volume buttons do the same thing, as in the Camera app.
-- For an AirPods stem click, the system plays a default tone in the AirPods. [`defaultSoundDisabled: true`](https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:action:)) stops that tone. Your code now has the responsibility for the sound. You write that part at the end of this section.
+A format does not have one frame rate. It has a list of ranges in [`videoSupportedFrameRateRanges`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges), and each range has a minimum and a maximum rate. The property has the type `Double`. It reads `maxFrameRate` of the last range (`last?.maxFrameRate`), or 0 when the list is empty (`?? 0`). The code assumes that the last range is the fastest one. The documentation does not promise an order.
 
-```swift file=AVCam/CameraView.swift highlight=4-6
-            PreviewContainer(camera: camera) {
-                // A view that provides a preview of the captured content.
-                CameraPreview(source: camera.previewSource)
-                    // Handle capture events from device hardware buttons.
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-                    }
-                    // Focus and expose at the tapped point.
-                    .onTapGesture { location in
-                        Task { await camera.focusAndExpose(at: location) }
-                    }
+```swift file=AVCam/Support/CaptureExtensions.swift highlight=5-7
+extension AVCaptureDevice.Format {
+    var isTenBitFormat: Bool {
+        formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+    }
+    var maxFrameRate: Double {
+        videoSupportedFrameRateRanges.last?.maxFrameRate ?? 0
+    }
+}
 ```
 
 ### Step
-In the closure, continue only when the phase of the event is `.ended`.
+Above this extension, add an extension on `AVCaptureDevice` with the `activeFormat10BitVariant` property. Start with a filter that compares the frame size.
 
-One press calls the closure more than one time. The [`phase`](https://developer.apple.com/documentation/avkit/avcaptureeventphase) of the [`AVCaptureEvent`](https://developer.apple.com/documentation/avkit/avcaptureevent) is `.began` when the person pushes the control down, and `.ended` when the person releases it. Without this test, one click captures two times. The third phase, `.cancelled`, means that the press must not count, so the closure ignores it too. Write `if event.phase == .ended {` and its closing brace. All later lines of the closure go inside this block.
+[`formats`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/formats) is the list of all formats of the camera, and [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) is the format in use. The type of the property is `AVCaptureDevice.Format?`. The filter keeps the formats whose `formatDescription.dimensions` is equal to that of `activeFormat`. The `==` operator for two `CMVideoDimensions` values comes from the extension at the top of this file.
 
-```swift file=AVCam/CameraView.swift highlight=3-4
-                    // Handle capture events from device hardware buttons.
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-                        if event.phase == .ended {
-                        }
-                    }
+The property does not compile yet. The filter gives an array, and the property must return one optional format. You complete it in the next two steps.
+
+```swift file=AVCam/Support/CaptureExtensions.swift highlight=6-12
+    public static func < (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
+        lhs.width < rhs.width && lhs.height < rhs.height
+    }
+}
+
+extension AVCaptureDevice {
+    var activeFormat10BitVariant: AVCaptureDevice.Format? {
+        formats.filter {
+            $0.formatDescription.dimensions == activeFormat.formatDescription.dimensions
+        }
+    }
+}
+
+extension AVCaptureDevice.Format {
 ```
 
 ### Step
-Declare a constant for the sound, and start a `switch` statement on the capture mode. In the `.photo` case, select the shutter sound.
+In the closure of the filter, add a first condition that compares the maximum frame rate.
 
-Write `let sound: AVCaptureEventSound` without a value. [`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound) is a sound that an event can play through AirPods. The system supplies three sounds, and `.cameraShutter` is the sound for a photo. The constant has no value at its declaration. Each case of the `switch` statement gives it one value, and the Swift compiler makes sure that no case forgets it. Write `switch camera.captureMode {`, then `case .photo:` with the line `sound = .cameraShutter`.
+The size alone does not identify a format. A camera can have two formats with the same size and different frame rates. The variant must keep the frame rate that the camera has now, so that only the number of bits and the color change. The new line compares `$0.maxFrameRate` with `activeFormat.maxFrameRate` and ends with `&&`.
 
-The file does not compile until you add the `.video` case, because a `switch` statement must have a case for each value.
-
-```swift file=AVCam/CameraView.swift highlight=2-6
-                        if event.phase == .ended {
-                            let sound: AVCaptureEventSound
-                            switch camera.captureMode {
-                            case .photo:
-                                sound = .cameraShutter
-                            }
-                        }
+```swift file=AVCam/Support/CaptureExtensions.swift highlight=4
+extension AVCaptureDevice {
+    var activeFormat10BitVariant: AVCaptureDevice.Format? {
+        formats.filter {
+            $0.maxFrameRate == activeFormat.maxFrameRate &&
+            $0.formatDescription.dimensions == activeFormat.formatDescription.dimensions
+        }
+    }
+}
 ```
 
 ### Step
-In the `.photo` case, call `capturePhoto()` of the camera model.
+After the filter, select the first format that is a 10-bit format.
 
-This is the method that the capture button on the screen calls. A hardware control and the screen button thus do the same work, and all rules for a capture stay in the model. The call has `await` and no `Task` around it. Because of the `await`, the compiler selects the overload of the modifier that takes an `async` closure. That overload exists since iOS 26.
+`first(where:)` returns `nil` when no format passes the test. Thus one property answers two questions: "can this camera record HDR in its current configuration?" and "which format must the app set?". The search starts from the active format, so the answer depends on the current session preset. The sample writes the closure inside the parentheses, `first(where: { … })`, not as a trailing closure.
 
-```swift file=AVCam/CameraView.swift highlight=5-6
-                            let sound: AVCaptureEventSound
-                            switch camera.captureMode {
-                            case .photo:
-                                sound = .cameraShutter
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-                            }
+```swift file=AVCam/Support/CaptureExtensions.swift highlight=7
+extension AVCaptureDevice {
+    var activeFormat10BitVariant: AVCaptureDevice.Format? {
+        formats.filter {
+            $0.maxFrameRate == activeFormat.maxFrameRate &&
+            $0.formatDescription.dimensions == activeFormat.formatDescription.dimensions
+        }
+        .first(where: { $0.isTenBitFormat })
+    }
+}
 ```
 
 ### Step
-Add the `.video` case. Select the end sound when a recording is in progress, and the begin sound when it is not.
+Build the project to make sure that the three properties compile.
 
-In video mode, one press has two possible meanings: start or stop. The closure reads `camera.captureActivity.isRecording` to know which one it is. A person who is not near the screen then hears a different sound for each of the two. The two sounds are `.endVideoRecording` and `.beginVideoRecording`. The sample selects them with the `?:` operator on two lines: the first line ends with `?`, and the second line has `.endVideoRecording : .beginVideoRecording` with one more level of indentation.
-
-The file compiles again after this step. Xcode shows one warning, because nothing reads `sound` yet. Step 8 removes the warning.
-
-```swift file=AVCam/CameraView.swift highlight=4-6
-                                sound = .cameraShutter
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-                            case .video:
-                                sound = camera.captureActivity.isRecording ?
-                                    .endVideoRecording : .beginVideoRecording
-                            }
-```
-
-### Step
-After the sound selection in the `.video` case, call `toggleRecording()` of the camera model, with `await`.
-
-The order of these lines is necessary. The closure must read `isRecording` before the toggle. After the toggle, the property can have the opposite value, and the closure would then select the begin sound for a stop and the end sound for a start.
-
-```swift file=AVCam/CameraView.swift highlight=4-5
-                            case .video:
-                                sound = camera.captureActivity.isRecording ?
-                                    .endVideoRecording : .beginVideoRecording
-                                // Toggle video recording when pressing a hardware button.
-                                await camera.toggleRecording()
-                            }
-```
-
-### Step
-After the `switch` statement, play the sound if the event asks for one.
-
-- [`shouldPlaySound`](https://developer.apple.com/documentation/avkit/avcaptureevent/shouldplaysound) is `true` only when the event came from an AirPods stem click and the app disabled the default tone. For a volume button, the Action button, and the Camera Control, it is `false`.
-- [`play(_:)`](https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:)) plays the sound through the AirPods. It does nothing when `shouldPlaySound` is `false`, and it does nothing when the event is more than 15 seconds old.
-- This sound is not the usual shutter sound of the iPhone. The photo output plays that one by itself.
-
-```swift file=AVCam/CameraView.swift highlight=3-6
-                                await camera.toggleRecording()
-                            }
-                            // Play a sound when capturing by clicking an AirPods stem.
-                            if event.shouldPlaySound {
-                                event.play(sound)
-                            }
-                        }
-                    }
-```
-
-### Note
-Look at the place of the `play(_:)` call: it is after `await camera.capturePhoto()`. That method returns after the capture and after the save to the Photos library. So, from the order of the code, the sound comes after the save, not at the moment of the capture. The sample does it in this way, and this tutorial follows the sample. [Concepts: hardware buttons and AirPods](ch11-concepts.md#things-to-know-about-the-sample) describes this limit and a better order.
-
-### Step
-Build the project to make sure that the closure compiles.
-
-The closure is complete. In the Simulator, it never runs, because no capture events arrive there.
+No code uses the properties yet, so the app does not change.
 
 ```settings title="Checkpoint"
 Action: Product > Build (Command-B)
-Result: Build Succeeded, with no errors
+Result: The build succeeds with no errors.
 ```
 
-## Keep the capture button in step
+## Report HDR support
 
-The movie capture button from chapter 8 has its own `isRecording` state. A tap on the button changes that state, and the state changes the form of the button from a circle to a square. A hardware control does not tap the button. Without more code, a volume button starts a recording, and the button on the screen continues to show a circle.
+The interface must know if the camera supports HDR before it shows a button. In chapter 7, you built a path for such answers: each output service has a `capabilities` value, and the capture service publishes the value of the current mode.
 
-In this section, the capture button observes the model and copies each change of the recording state into its own state.
+In this section, you add an HDR flag to that path. The movie service computes the flag each time the configuration of the session changes.
 
 ### Step
-In `CaptureButton.swift`, add an `onChange` modifier to `captureButton` that observes `camera.captureActivity.isRecording`.
+In `DataTypes.swift`, add the `isHDRSupported` property to `CaptureCapabilities`, and add a parameter to its initializer.
 
-The model is the object that knows if a recording is in progress, for each source of the capture: the screen button, a hardware button, or AirPods. The closure of `onChange` gets the old value and the new value. It needs only the new value, so the first parameter is `_` and the second one is `newValue`. Leave the closure empty in this step.
+The property is `let isHDRSupported: Bool`. The parameter `isHDRSupported: Bool = false` goes on its own line below the last parameter, and the initializer stores it in the property. The previous last parameter now ends with a comma instead of the parenthesis. The photo service does not pass it, so in photo mode the flag is `false`, and its code needs no change. The `unknown` value also has the flag `false`.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=5-7
-    var body: some View {
-        captureButton
-            .aspectRatio(1.0, contentMode: .fit)
-            .frame(width: mainButtonDimension)
-            // Respond to recording state changes that occur from hardware button presses.
-            .onChange(of: camera.captureActivity.isRecording) { _, newValue in
-            }
+```swift file=AVCam/Model/DataTypes.swift remove
+         isBayerRAWSupported: Bool = false) {
+```
+
+```swift file=AVCam/Model/DataTypes.swift highlight=8,12-13,17
+/// A structure that represents the capture capabilities of `CaptureService` in
+/// its current configuration.
+struct CaptureCapabilities {
+
+    let isLivePhotoCaptureSupported: Bool
+    let isAppleProRAWSupported: Bool
+    let isBayerRAWSupported: Bool
+    let isHDRSupported: Bool
+
+    init(isLivePhotoCaptureSupported: Bool = false,
+         isAppleProRAWSupported: Bool = false,
+         isBayerRAWSupported: Bool = false,
+         isHDRSupported: Bool = false) {
+        self.isLivePhotoCaptureSupported = isLivePhotoCaptureSupported
+        self.isAppleProRAWSupported = isAppleProRAWSupported
+        self.isBayerRAWSupported = isBayerRAWSupported
+        self.isHDRSupported = isHDRSupported
     }
+
+    static let unknown = CaptureCapabilities()
+}
 ```
 
 ### Step
-In the closure, set the `isRecording` state to the new value, inside an animation.
+In `MovieCapture.swift`, add the `isHDRSupported` property below the two timer properties.
 
-Write `withAnimation(.easeInOut(duration: 0.25)) { isRecording = newValue }` on three lines. `MovieCaptureButton` has a binding to this state. When the value changes, the button draws its other form. The animation has the same curve and the same duration as the animation that the button uses for a tap (`withAnimation` in `MovieCaptureButton`, further down in the same file), so the person sees no difference between a tap and a press of a hardware button. After a tap on the screen button, the state already has the new value, and this closure changes nothing.
+The movie service keeps the answer in a property, because the computed `capabilities` value reads it later. The property is `private var` with the start value `false`. The sample has a comment of two lines above it.
 
-```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=3-6
-            // Respond to recording state changes that occur from hardware button presses.
-            .onChange(of: camera.captureActivity.isRecording) { _, newValue in
-                // Ensure the button animation occurs when toggling recording state from a hardware button.
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    isRecording = newValue
-                }
-            }
+```swift file=AVCam/Capture/MovieCapture.swift highlight=5-7
+    // The interval at which to update the recording time.
+    private let refreshInterval = TimeInterval(0.25)
+    private var timerCancellable: AnyCancellable?
+
+    // A Boolean value that indicates whether the currently selected camera's
+    // active format supports HDR.
+    private var isHDRSupported = false
+
+    // MARK: - Capturing a movie
+```
+
+### Step
+At the start of `updateConfiguration(for:)`, set the property from the device.
+
+The property is `true` when `device.activeFormat10BitVariant` is not `nil`. The capture service calls this method after each change of capture mode and after each change of camera. These are the moments when the active format changes, so they are the moments when the answer can change. The line is above the `guard` statement. The `guard` returns in photo mode, when the movie output has no connection, and this line must not depend on a connection.
+
+```swift file=AVCam/Capture/MovieCapture.swift highlight=2-3
+    func updateConfiguration(for device: AVCaptureDevice) {
+        // The app supports HDR video capture if the active format supports it.
+        isHDRSupported = device.activeFormat10BitVariant != nil
+
+        // The output has a video connection only while the session contains it, which is the
+        // case in video capture mode. Adding the output creates a new connection, so the service
+        // configures it here rather than when recording starts.
+        guard let connection = movieOutput.connection(with: .video) else { return }
+```
+
+### Step
+In the `capabilities` property, pass the flag to the `CaptureCapabilities` value.
+
+In chapter 10, the movie service returned an empty value. Now the value carries the HDR answer to the capture service, which publishes it in video mode.
+
+```swift file=AVCam/Capture/MovieCapture.swift remove
+        CaptureCapabilities()
+```
+
+```swift file=AVCam/Capture/MovieCapture.swift highlight=4
+    // MARK: - Configuration
+    /// Returns the capabilities for this capture service.
+    var capabilities: CaptureCapabilities {
+        CaptureCapabilities(isHDRSupported: isHDRSupported)
     }
-```
-
-## Make AirPods available as a microphone
-
-The usual Bluetooth microphone mode was made for phone calls, and its sound quality is low. iOS 26 has a high-quality recording mode for AirPods that support it. An app must ask for the mode. Because the capture session of AVCam manages the audio session of the app, one property of the capture session is sufficient.
-
-### Step
-In `CaptureService.swift`, in `setUpSession()`, set `configuresApplicationAudioSessionForBluetoothHighQualityRecording` to `true` before the lines that add the inputs.
-
-- [`configuresApplicationAudioSessionForBluetoothHighQualityRecording`](https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessionforbluetoothhighqualityrecording) is `false` by default. With `true`, the capture session includes the high-quality mode when it configures the audio session.
-- The line is before the microphone input and before the start of the session. The session then probably configures the audio one time, with the correct value.
-- The property does not select the AirPods. It makes them available. The person selects the microphone, for example in Control Center. If the person selects nothing, the microphone of the iPhone probably records, as before.
-- The line has no availability test, because the deployment target of the project is iOS 26.
-- The property belongs to `captureSession`. Put an empty line after the new line, so that the "Add inputs" comment keeps its own group.
-
-```swift file=AVCam/CaptureService.swift highlight=5-6
-            // Retrieve the default camera and microphone.
-            let defaultCamera = try deviceLookup.defaultCamera
-            let defaultMic = try deviceLookup.defaultMic
-
-            // Enable using AirPods as a high-quality lapel microphone.
-            captureSession.configuresApplicationAudioSessionForBluetoothHighQualityRecording = true
-
-            // Add inputs for the default camera and microphone devices.
-            activeVideoInput = try addInput(for: defaultCamera)
-            try addInput(for: defaultMic)
+}
 ```
 
 ### Step
-Build and run the app. Take a photo and record a short movie with the button on the screen.
+Build the project to make sure that the changes compile.
 
-The project builds with no errors and no warnings. In the Simulator, expect the same behavior as at the end of chapter 10: nothing that you added in this chapter can run there. This step only makes sure that the new code did not break the screen button.
+The capture service now publishes the HDR flag as part of `captureCapabilities`. No code reads the flag yet.
 
 ```settings title="Checkpoint"
-Action: Product > Run (Command-R), then take a photo and record a movie with the screen button
-Expected in the Simulator: the app behaves as at the end of chapter 10
-Needs a real iPhone: capture with the hardware buttons and with AirPods, the AirPods sounds, the AirPods microphone
-Note: This tutorial did not test this chapter on a real iPhone.
+Action: Product > Build (Command-B)
+Result: The build succeeds with no errors.
+```
+
+## Change the format in the capture service
+
+The capture service owns the session and the camera. In this section, you give it the method that turns HDR on and off.
+
+There are two ways to select a camera format. Until now, the app set a session preset, and the session selected the format. To turn HDR on, the app sets the format itself. To turn HDR off, the app sets the preset again.
+
+![With the high preset the session selects the format; after the app sets the active format, the preset is inputPriority](../images/ch11-format-control.svg)
+
+### Step
+In `CaptureService.swift`, add the published `isHDRVideoEnabled` property below `captureCapabilities`.
+
+The service keeps the HDR state itself. It needs the state later, when the capture mode changes. The property has the `@Published` attribute as in the Apple sample, no `private(set)`, and the start value `false`. In this chapter, no code reads the publisher.
+
+```swift file=AVCam/CaptureService.swift highlight=7-8
+actor CaptureService {
+
+    /// A value that indicates whether the capture service is idle or capturing a photo or movie.
+    @Published private(set) var captureActivity: CaptureActivity = .idle
+    /// A value that indicates the current capture capabilities of the service.
+    @Published private(set) var captureCapabilities = CaptureCapabilities.unknown
+    /// A Boolean value that indicates whether the user enables HDR video capture.
+    @Published var isHDRVideoEnabled = false
+
+    /// A type that connects a preview destination with the capture session.
+    nonisolated let previewSource: PreviewSource
+```
+
+### Step
+Below `stopRecording()`, add the `setHDRVideoEnabled(_:)` method with a configuration pair.
+
+A format change is a change of the session configuration. The session applies all changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) together. The `defer` statement makes sure that the commit runs on each path out of the method. These pairs can be nested, which is important later in this section. The method is `func setHDRVideoEnabled(_ isEnabled: Bool)`. It is not `async` and does not throw: it handles the error of the next step itself. In Try first mode, the first placeholder stands for the method head, and the second one for the two lines of the pair and the closing brace of the method.
+
+```swift file=AVCam/CaptureService.swift highlight=7-12
+    /// Stops the recording and returns the captured movie.
+    func stopRecording() async throws -> Movie {
+        try await movieCapture.stopRecording()
+    }
+
+
+    /// Sets whether the app captures HDR video.
+    func setHDRVideoEnabled(_ isEnabled: Bool) {
+        // Bracket the following configuration in a begin/commit configuration pair.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+    }
+
+    // MARK: - Internal state management
+```
+
+### Step
+Add a `do` statement with the two branches of the decision, and a `catch` block that writes an error to the log.
+
+The condition has two parts. The person must want HDR, and the camera must have a 10-bit variant of its active format. If one part is not true, the `else` branch runs. The condition is `if isEnabled, let format = currentDevice.activeFormat10BitVariant`. The `catch` block is for an error from the device lock, which you add in the next step. After such an error, the method changes nothing. It writes `logger.error("Unable to obtain lock on device and can't enable HDR video capture.")`. Until the next step, Xcode shows two warnings: `format` is not used, and the `catch` block cannot run.
+
+```swift file=AVCam/CaptureService.swift highlight=6-13
+    /// Sets whether the app captures HDR video.
+    func setHDRVideoEnabled(_ isEnabled: Bool) {
+        // Bracket the following configuration in a begin/commit configuration pair.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+        do {
+            // If the current device provides a 10-bit HDR format, enable it for use.
+            if isEnabled, let format = currentDevice.activeFormat10BitVariant {
+            } else {
+            }
+        } catch {
+            logger.error("Unable to obtain lock on device and can't enable HDR video capture.")
+        }
+    }
+```
+
+### Step
+In the first branch, lock the device, set the active format to the 10-bit variant, unlock the device, and keep the new state.
+
+You can set `activeFormat` only between [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) and `unlockForConfiguration()`. You used this lock in chapter 6 for focus and exposure. When the app sets the format, the session changes its preset to [`.inputPriority`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/inputpriority) by itself. This preset means that the app selected the format and the session does not change it. `lockForConfiguration()` throws, so write `try`. The last line sets `isHDRVideoEnabled` to `true`.
+
+```swift file=AVCam/CaptureService.swift highlight=9-12
+    /// Sets whether the app captures HDR video.
+    func setHDRVideoEnabled(_ isEnabled: Bool) {
+        // Bracket the following configuration in a begin/commit configuration pair.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+        do {
+            // If the current device provides a 10-bit HDR format, enable it for use.
+            if isEnabled, let format = currentDevice.activeFormat10BitVariant {
+                try currentDevice.lockForConfiguration()
+                currentDevice.activeFormat = format
+                currentDevice.unlockForConfiguration()
+                isHDRVideoEnabled = true
+            } else {
+            }
+        } catch {
+            logger.error("Unable to obtain lock on device and can't enable HDR video capture.")
+        }
+    }
+```
+
+### Step
+In the `else` branch, set the session preset to `.high` again, and keep the new state.
+
+The method did not keep the old format, and it does not need it. A preset gives the control of the format back to the session, and the session selects its normal format for video. This branch also runs when the person asks for HDR and the camera has no 10-bit variant.
+
+```swift file=AVCam/CaptureService.swift highlight=14-15
+    /// Sets whether the app captures HDR video.
+    func setHDRVideoEnabled(_ isEnabled: Bool) {
+        // Bracket the following configuration in a begin/commit configuration pair.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+        do {
+            // If the current device provides a 10-bit HDR format, enable it for use.
+            if isEnabled, let format = currentDevice.activeFormat10BitVariant {
+                try currentDevice.lockForConfiguration()
+                currentDevice.activeFormat = format
+                currentDevice.unlockForConfiguration()
+                isHDRVideoEnabled = true
+            } else {
+                captureSession.sessionPreset = .high
+                isHDRVideoEnabled = false
+            }
+        } catch {
+            logger.error("Unable to obtain lock on device and can't enable HDR video capture.")
+        }
+    }
+```
+
+### Step
+In `setCaptureMode(_:)`, turn HDR on again in the video case when the state says so.
+
+The line `captureSession.sessionPreset = .high` in this case takes the control of the format away from the app. Without the new lines, HDR is lost each time the person goes to photo mode and comes back. Write `if isHDRVideoEnabled {`, `setHDRVideoEnabled(true)`, and `}` on three lines after `try addOutput(movieCapture.output)`. Do not write `setHDRVideoEnabled(isHDRVideoEnabled)` without the `if`: that compiles, but it is a different line than in the sample. The call is inside the configuration pair of `setCaptureMode(_:)`, so the pair of `setHDRVideoEnabled(_:)` is a nested pair. The session applies all changes at the outer commit.
+
+```swift file=AVCam/CaptureService.swift highlight=21-23
+    /// Changes the mode of capture, which can be `photo` or `video`.
+    ///
+    /// - Parameter `captureMode`: The capture mode to enable.
+    func setCaptureMode(_ captureMode: CaptureMode) throws {
+        // Update the internal capture mode value before performing the session configuration.
+        self.captureMode = captureMode
+
+        // Change the configuration atomically.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+
+        // Configure the capture session for the selected capture mode.
+        switch captureMode {
+        case .photo:
+            // The app needs to remove the movie capture output to perform Live Photo capture.
+            captureSession.sessionPreset = .photo
+            captureSession.removeOutput(movieCapture.output)
+        case .video:
+            captureSession.sessionPreset = .high
+            try addOutput(movieCapture.output)
+            if isHDRVideoEnabled {
+                setHDRVideoEnabled(true)
+            }
+        }
+
+        // Update the advertised capabilities after reconfiguration.
+        updateCaptureCapabilities()
+    }
+```
+
+### Step
+Build the project to make sure that the capture service compiles.
+
+The service can change the format now, but nothing calls the new method from outside.
+
+```settings title="Checkpoint"
+Action: Product > Build (Command-B)
+Result: The build succeeds with no errors.
+```
+
+## Add the HDR state to the model
+
+The views do not talk to the capture service. They use the `Camera` protocol. In this section, you add two members to the protocol and to its two implementations: one says if HDR is possible, and one says if HDR is on.
+
+### Step
+In `Camera.swift`, add the `isHDRVideoSupported` and `isHDRVideoEnabled` properties to the protocol, above `toggleRecording()`.
+
+The first property is read-only for a view: only the camera knows the answer. The second property has `get set`, because the HDR button changes it. Both properties are `Bool`, each with a `///` comment line.
+
+```swift file=AVCam/Model/Camera.swift highlight=4-5,7-8
+    /// A Boolean value that indicates whether to show visual feedback when capture begins.
+    var shouldFlashScreen: Bool { get }
+
+    /// A Boolean that indicates whether the camera supports HDR video recording.
+    var isHDRVideoSupported: Bool { get }
+
+    /// A Boolean value that indicates whether camera enables HDR video recording.
+    var isHDRVideoEnabled: Bool { get set }
+
+    /// Starts or stops recording a movie, and writes it to the user's photo library when complete.
+    func toggleRecording() async
 ```
 
 ### Note
-If you have a real iPhone, run the app there. This is what the code asks the system to do. Nobody verified these results for this tutorial.
+The project does not compile at this time, because `CameraModel` and `PreviewCameraModel` do not have the new members. You add them in the next steps. The project compiles again after step 6 of this section.
 
-- **Volume buttons.** In photo mode, a press and release of the volume up button or the volume down button takes a photo. The volume does not change, and no volume indicator appears. In video mode, the first press starts a recording, and the capture button on the screen changes to a square. The second press stops the recording.
-- **Action button and Camera Control.** The Action button and a full press of the Camera Control do the same as a volume button.
-- **AirPods stem click.** First turn on the Camera Remote setting of the AirPods in the Settings app. Then a stem click captures, and you hear the shutter sound, the begin sound, or the end sound in the AirPods.
-- **AirPods microphone.** In video mode, open Control Center, select the AirPods as the audio input, and record a movie. Compare the sound with a movie from the microphone of the iPhone.
+### Step
+In `CameraModel.swift`, add the `isHDRVideoSupported` property with a private setter below `previewSource`.
 
-In the European Union, the last two tests are not possible at this time.
+A view can read the value but cannot change it. The value comes only from the capture service. The property is `private(set) var` with the start value `false`.
+
+```swift file=AVCam/CameraModel.swift highlight=4-5
+    /// An object that provides the connection between the capture session and the video preview layer.
+    var previewSource: PreviewSource { captureService.previewSource }
+
+    /// A Boolean that indicates whether the camera supports HDR video recording.
+    private(set) var isHDRVideoSupported = false
+
+    /// An object that saves captured media to a person's Photos library.
+    private let mediaLibrary = MediaLibrary()
+```
+
+### Step
+In `observeState()`, add a third task that reads the capabilities of the capture service.
+
+The capture service publishes a new `CaptureCapabilities` value after each change of mode and each change of camera. The task copies the HDR flag to the model, and the views update. The loop is `for await capabilities in await captureService.$captureCapabilities.values`, and its body is `isHDRVideoSupported = capabilities.isHDRSupported`. This is the same pattern as the task for the capture activity: `values` turns a publisher into an asynchronous sequence, and the task runs on the main actor.
+
+```swift file=AVCam/CameraModel.swift highlight=23-28
+    // Set up camera's state observations.
+    private func observeState() {
+        Task {
+            // Await new thumbnails that the media library generates when saving a file.
+            for await thumbnail in mediaLibrary.thumbnails.compactMap({ $0 }) {
+                self.thumbnail = thumbnail
+            }
+        }
+
+        Task {
+            // Await new capture activity values from the capture service.
+            for await activity in await captureService.$captureActivity.values {
+                if activity.willCapture {
+                    // Flash the screen to indicate capture is starting.
+                    flashScreen()
+                } else {
+                    // Forward the activity to the UI.
+                    captureActivity = activity
+                }
+            }
+        }
+
+        Task {
+            // Await updates to the capabilities that the capture service advertises.
+            for await capabilities in await captureService.$captureCapabilities.values {
+                isHDRVideoSupported = capabilities.isHDRSupported
+            }
+        }
+    }
+}
+```
+
+### Step
+Below the `// MARK: - Video capture` line, add the `isHDRVideoEnabled` property with an empty `didSet` observer.
+
+This property has no private setter, because the HDR button changes it. A view only sets a Boolean value. The observer runs after each change, and it is the place where the model reacts.
+
+```swift file=AVCam/CameraModel.swift highlight=3-7
+    // MARK: - Video capture
+
+    /// A Boolean value that indicates whether the camera captures video in HDR format.
+    var isHDRVideoEnabled = false {
+        didSet {
+        }
+    }
+
+    /// Toggles the state of recording.
+    func toggleRecording() async {
+```
+
+### Step
+In the observer, send the new value to the capture service when the session runs in video mode.
+
+The capture service is a different actor, so the call needs `await` and a task. The `guard` statement stops the call when `status` is not `.running` or when `captureMode` is not `.video`. The model does not read the result. If the service cannot turn HDR on, this property keeps the value `true`.
+
+```swift file=AVCam/CameraModel.swift highlight=6-9
+    // MARK: - Video capture
+
+    /// A Boolean value that indicates whether the camera captures video in HDR format.
+    var isHDRVideoEnabled = false {
+        didSet {
+            guard status == .running, captureMode == .video else { return }
+            Task {
+                await captureService.setHDRVideoEnabled(isHDRVideoEnabled)
+            }
+        }
+    }
+
+    /// Toggles the state of recording.
+    func toggleRecording() async {
+```
+
+### Step
+In `PreviewCameraModel.swift`, add the two properties with the value `false`.
+
+SwiftUI previews use this class in place of the real model. It has no camera, so the two properties are simple stored values.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=7-8
+@Observable
+class PreviewCameraModel: Camera {
+
+    var isLivePhotoEnabled = true
+    var qualityPrioritization = QualityPrioritization.quality
+    var shouldFlashScreen = false
+    var isHDRVideoSupported = false
+    var isHDRVideoEnabled = false
+
+```
+
+### Step
+Build the project to make sure that the two models conform to the protocol again.
+
+The model now knows if HDR is possible, and it can turn HDR on. The interface does not show this yet.
+
+```settings title="Checkpoint"
+Action: Product > Build (Command-B)
+Result: The build succeeds with no errors.
+```
+
+## Add the HDR button
+
+On an iPhone, the features toolbar is at the top of the screen. In chapter 7, you filled it for photo mode. In chapter 10, its video case was empty. In this last section, you add the HDR button to the video case.
+
+### Step
+In `FeatureToolbar.swift`, add the `hdrToggleButton` property at the end of the structure.
+
+The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer from the last section does the rest. The label is text, "HDR On" or "HDR Off", so the person always sees the current state. The property is `var hdrToggleButton: some View`. It returns a `Button` with two trailing closures: the action calls `toggle()` on `camera.isHDRVideoEnabled`, and the label is `Text("HDR \(camera.isHDRVideoEnabled ? "On" : "Off")")` with the modifier `.font(.body.weight(.semibold))`. The interpolation `\( … )` is inside the string. The "texts in this code" line of the cover shows this string in three parts, because the cover cannot read a string inside a string.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=13-20
+        } label: {
+            switch camera.qualityPrioritization {
+            case .speed:
+                Image(systemName: "dial.low")
+            case .balanced:
+                Image(systemName: "dial.medium")
+            case .quality:
+                Image(systemName: "dial.high")
+            }
+        }
+    }
+
+    var hdrToggleButton: some View {
+        Button {
+            camera.isHDRVideoEnabled.toggle()
+        } label: {
+            Text("HDR \(camera.isHDRVideoEnabled ? "On" : "Off")")
+                .font(.body.weight(.semibold))
+        }
+    }
+}
+```
+
+### Step
+In `hdrToggleButton`, disable the button while the app records a movie.
+
+A format change builds the capture pipeline again, and that ends a recording. For the same reason, chapter 10 disabled the mode picker during a recording. Add the modifier `.disabled(camera.captureActivity.isRecording)` to the `Button`.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=8
+    var hdrToggleButton: some View {
+        Button {
+            camera.isHDRVideoEnabled.toggle()
+        } label: {
+            Text("HDR \(camera.isHDRVideoEnabled ? "On" : "Off")")
+                .font(.body.weight(.semibold))
+        }
+        .disabled(camera.captureActivity.isRecording)
+    }
+}
+```
+
+### Step
+Above `hdrToggleButton`, add the `hdrButton` property, which shows the toggle button in each of its two branches.
+
+`isCompactSize` comes from the `PlatformView` protocol from chapter 5. It is `true` in a compact layout, as on an iPhone. There, the button keeps the default style of the toolbar. The two branches are equal at this time. You make them different in the next step. Write `@ViewBuilder` on the line above `var hdrButton: some View`. The next step needs it.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=13-20
+        } label: {
+            switch camera.qualityPrioritization {
+            case .speed:
+                Image(systemName: "dial.low")
+            case .balanced:
+                Image(systemName: "dial.medium")
+            case .quality:
+                Image(systemName: "dial.high")
+            }
+        }
+    }
+
+    @ViewBuilder
+    var hdrButton: some View {
+        if isCompactSize {
+            hdrToggleButton
+        } else {
+            hdrToggleButton
+        }
+    }
+
+    var hdrToggleButton: some View {
+```
+
+### Step
+In the `else` branch, give the button a border in the form of a capsule.
+
+The `else` branch is for a layout that is not compact, as on an iPad. A text button with no border is hard to see as a button on a large screen. The two branches now return different view types, and `@ViewBuilder` permits that. The two modifiers are `.buttonStyle(.bordered)` and `.buttonBorderShape(.capsule)`.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=7-8
+    @ViewBuilder
+    var hdrButton: some View {
+        if isCompactSize {
+            hdrToggleButton
+        } else {
+            hdrToggleButton
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+        }
+    }
+
+    var hdrToggleButton: some View {
+```
+
+### Step
+In `body`, replace `EmptyView()` in the video case with `hdrButton`, and show it only when the camera supports HDR.
+
+A control for a feature that the camera does not have confuses the person. The condition reads `isHDRVideoSupported`, which follows the capabilities of the capture service. When the person changes the camera or the mode, the button appears or goes away by itself.
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift remove
+                EmptyView()
+```
+
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=9-11
+    var body: some View {
+        HStack(spacing: 30) {
+            Spacer()
+            switch camera.captureMode {
+            case .photo:
+                livePhotoButton
+                prioritizePicker
+            case .video:
+                if camera.isHDRVideoSupported {
+                    hdrButton
+                }
+            }
+        }
+        .buttonStyle(DefaultButtonStyle(size: isRegularSize ? .large : .small))
+        .padding([.leading, .trailing])
+    }
+```
+
+### Step
+Build and run the app in the Simulator. Change to video mode, and look at the features toolbar at the top of the screen.
+
+No HDR button appears. This is the correct result in the Simulator with SimCam: the search finds no 10-bit variant for the SimCam camera, so `isHDRVideoSupported` stays `false`, and the features toolbar has no button in video mode. Record a short movie to make sure that video mode works as in chapter 10.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R), then change to video mode
+Result: The features toolbar has no HDR button in video mode. The other controls are the same as in chapter 10.
+Then: Record a short movie. The recording and the save to Photos work as before.
+```
+
+### Note
+HDR recording needs a real iPhone. Nobody verified it for this tutorial. This is what the code does on a camera that has a 10-bit variant of its video format: the button appears in video mode with the text "HDR Off", a tap changes the text to "HDR On" and the camera to the 10-bit format, and a movie that you record then is a 10-bit HDR movie. If you have an iPhone, run the app on it and examine a recorded movie in the Photos app.
 
 ### Experiment
-On a real iPhone with AirPods, move the three lines that play the sound to a position before the `switch` statement. The compiler then stops you, because `sound` has no value there. Find a way to select the sound first, to play it second, and to capture third. Listen for the difference in photo mode: the sound must now come at the moment of the click. Put the code back when you finish, so that your code stays equal to the branch `chapter-11`.
-
-### Experiment
-On a real iPhone, add the argument `isEnabled: !camera.isSwitchingModes` in front of `defaultSoundDisabled: true`. While the app changes between photo mode and video mode, the volume buttons then change the volume again. This shows the rule of the API: when the app cannot capture, it gives the buttons back to the system. Remove the argument when you finish.
+In `updateConfiguration(for:)` of `MovieCapture.swift`, add the temporary line `device.formats.forEach { print($0) }`. Run the app, change to video mode, and read the list of formats in the Xcode console. Try to find the size, the frame rates, and the pixel format code of each format. Then delete the line, so that your code stays equal to the branch `chapter-11`.
 
 ### Text
-Your code is now the same as the `chapter-11` branch. Chapters 12 and 13 add nothing to `CameraView` and `CaptureButton`. One closure connects four hardware controls and the AirPods to the capture methods of the model. In chapter 12, you use the other functions of the Camera Control: the light press and the slide, which change the zoom, the exposure, and the focus.
+The app has all its capture features now. In the next chapter, you make the session robust: the app reacts to interruptions, recovers from errors, and starts faster.
 
 ## Check your understanding
 
-### In the `.video` case, a developer puts the `toggleRecording()` call before the line that selects the sound. A person starts a recording with an AirPods stem click. What does the closure select?
+### To turn HDR off, `setHDRVideoEnabled(_:)` sets `captureSession.sessionPreset = .high`. Why does this turn HDR off?
 
-- [ ] The begin sound, because the model knows that a recording started.
-  > The line selects `.endVideoRecording` when `isRecording` is `true`. If the model already reports the new recording, the result is the end sound.
-- [x] Possibly the end sound, because the closure reads the recording state after the toggle and not before it.
-  > Correct. The sound must describe the action that the press starts. Only the state from before the toggle tells the closure which action that is.
-- [ ] No sound, because `play(_:)` works only before a capture.
-  > `play(_:)` has a time limit of 15 seconds from the event. It has no rule about the order of the capture and the sound.
+- [ ] The `.high` preset sets `isVideoHDREnabled` of the device to `false`.
+  > The sample never uses `isVideoHDREnabled`. That property belongs to a different, older feature that merges two exposures into one frame.
+- [x] When the app set `activeFormat`, the preset became `.inputPriority`. A new preset gives the control back to the session, which selects its normal 8-bit format.
+  > Correct. The app does not need to keep the old format. The preset replaces the 10-bit format that the app selected.
+- [ ] The `.high` preset removes the movie output, and the output comes back without HDR.
+  > A preset does not add or remove outputs. It only tells the session which quality level to use, and the session selects a format for it.
 
-### A person without AirPods takes a photo with the volume down button. The modifier has `defaultSoundDisabled: true`. What does `event.play(sound)` do?
+### In the Simulator with SimCam, the HDR button does not appear. Which value is the cause?
 
-- [ ] It plays the shutter sound through the speaker of the iPhone.
-  > The sounds of a capture event are for AirPods only. The usual shutter sound of the iPhone comes from the photo output.
-- [ ] It stops the app, because no AirPods are connected.
-  > `play(_:)` is safe to call. When the event does not ask for a sound, the method does nothing.
-- [x] The line does not run, because `shouldPlaySound` is `false` for a volume button.
-  > Correct. `shouldPlaySound` is `true` only for an AirPods stem click with the default tone disabled. For the buttons of the iPhone, the closure skips the call.
+- [ ] `camera.captureActivity.isRecording` is `true`, so the toolbar hides the button.
+  > A recording only disables the button. It does not hide it.
+- [ ] `isHDRVideoEnabled` of the model is `false`.
+  > This is the state of the button, "On" or "Off". It does not decide if the button is visible.
+- [x] `activeFormat10BitVariant` returns `nil`, so `isHDRSupported` and then `isHDRVideoSupported` are `false`.
+  > Correct. The answer of the format search goes through `CaptureCapabilities` to the model, and the toolbar shows the button only when the value is `true`.
 
-### You remove the `onChange` modifier from `CaptureButton`. In video mode, a person presses a volume button. What is the result?
+### The model has an `isHDRVideoEnabled` property. Why does the capture service keep its own `isHDRVideoEnabled` flag?
 
-- [ ] Nothing occurs, because the capture button starts each recording.
-  > The event closure in `CameraView` calls `toggleRecording()` of the model directly. It does not need the button.
-- [x] The recording starts, but the button on the screen continues to show a circle.
-  > Correct. The button draws its form from its own `isRecording` state. Only a tap, or the `onChange` closure, changes that state.
-- [ ] The app does not compile, because `MovieCaptureButton` needs the modifier.
-  > `MovieCaptureButton` needs only the binding to `isRecording`. The modifier is an addition that keeps the state equal to the model.
+- [ ] An actor cannot read a property of the model, so it must have a copy.
+  > The model sends the value to the service as a parameter. The reason for the flag is a different one.
+- [x] Each change to video mode sets the `.high` preset, which removes the 10-bit format. The service uses the flag to turn HDR on again in the same configuration change.
+  > Correct. `setCaptureMode(_:)` reads the flag and calls `setHDRVideoEnabled(true)` before the commit, so HDR stays on after a visit to photo mode.
+- [ ] The session reads the flag to decide which color space to use.
+  > The session knows nothing about this property. The session selects the color space from the active format.

@@ -110,7 +110,7 @@ A Live Photo is two files with one identity: a still photo, and a short movie of
 The movie comes from a buffer of video that the photo output keeps all the time while Live Photo capture is enabled. This explains two rules:
 
 - You must enable Live Photo capture on the output before a capture, because the output must already have the video from before the tap.
-- Live Photo capture and an [`AVCaptureMovieFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput) cannot be in one session. When a movie file output is in the session, [`isLivePhotoCaptureSupported`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesupported) is `false`. In chapter 8, you see how AVCam obeys this rule: it removes the movie output in photo mode and adds it again in video mode.
+- Live Photo capture and an [`AVCaptureMovieFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput) cannot be in one session. When a movie file output is in the session, [`isLivePhotoCaptureSupported`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/islivephotocapturesupported) is `false`. In chapter 10, you see how AVCam obeys this rule: it removes the movie output in photo mode and adds it again in video mode.
 
 For one capture, you ask for a Live Photo when you set `livePhotoMovieFileURL` to the URL of a new file. The output writes the movie there. AVCam gives each capture its own URL.
 
@@ -130,7 +130,7 @@ The delegate reads "is this a Live Photo?" from the resolved settings, not from 
 To save a Live Photo, you add the movie as a [`.pairedVideo`](https://developer.apple.com/documentation/photos/phassetresourcetype/pairedvideo) resource to the same [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest) object that gets the photo. You learned about asset resources in [chapter 4](ch04-concepts.md).
 
 > [!NOTE]
-> The movie of a Live Photo has sound only when the session has a microphone input. The app of this tutorial gets its microphone input in chapter 8.
+> The movie of a Live Photo has sound only when the session has a microphone input. The app of this tutorial gets its microphone input in chapter 10.
 
 ### The badge logic
 
@@ -144,7 +144,7 @@ With responsive capture, two Live Photo captures can overlap. If each capture sw
 
 The interface must not offer a feature that the camera does not have. AVCam collects the "supported" values in a small structure, `CaptureCapabilities`. `PhotoCapture` fills it after each configuration. `CaptureService` publishes it as `captureCapabilities`, in the same way as it publishes the capture activity.
 
-In this chapter, the structure has one value, `isLivePhotoCaptureSupported`, and no code reads it yet. In chapter 9, you add a value for HDR video, and the model starts to observe the capabilities.
+In this chapter, the structure has one value, `isLivePhotoCaptureSupported`, and no code reads it yet. In chapter 11, you add a value for HDR video, and the model starts to observe the capabilities.
 
 ## What the camera can do
 

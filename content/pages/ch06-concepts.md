@@ -152,7 +152,7 @@ You can find all four operations in this method: the support tests, the lock, th
 
 ## What the camera can do
 
-Tap to focus is the only device control in the interface of AVCam at this time. In chapter 12, the Camera Control adds zoom, exposure bias, and the lens position. A device has many more controls. This is the map. All of them use the same four operations.
+Tap to focus is the only device control in the interface of AVCam at this time. In chapter 14, the Camera Control adds zoom, exposure bias, and the lens position. A device has many more controls. This is the map. All of them use the same four operations.
 
 > [!NOTE]
 > This tutorial did not operate these controls on a real device. The descriptions come from the SDK and its documentation. Test each control on hardware before you rely on it.
@@ -213,7 +213,7 @@ The torch is the continuous light on the back of the device. It is not the photo
 
 All limits above come from one object: the [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) of the device. An [`AVCaptureDevice.Format`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format) describes one mode of operation of the sensor: the dimensions of the video, the frame rate ranges ([`videoSupportedFrameRateRanges`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges)), the photo sizes, the maximum zoom, the ISO range, and more. The [`formats`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/formats) property lists all formats of a device.
 
-A session preset selects a format for you. That is what the `.photo` preset did in chapter 3. You can also set `activeFormat` yourself, with the device lock. You do that in chapter 9, for HDR video.
+A session preset selects a format for you. That is what the `.photo` preset did in chapter 3. You can also set `activeFormat` yourself, with the device lock. You do that in chapter 11, for HDR video.
 
 > [!IMPORTANT]
 > A new format sets many values back to their defaults: the frame durations, the points of interest, and more. Apply your settings again after each change of the format or of the session preset.

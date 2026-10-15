@@ -1,6 +1,6 @@
 # Chapter 11 (was chapter 9 before the RAW and fast capture chapters) hand-off notes (code by the coordinator)
 
-Branch `chapter-09`, start `chapter-08`. Full change: `git -C ../AVCamTutorialApp diff chapter-08 chapter-09` (about 100 added lines; plan about 25 steps, 30 minutes; the concept page carries more weight).
+Branch `chapter-11`, start `chapter-10`. Full change: `git -C ../AVCamTutorialApp diff chapter-10 chapter-11` (about 100 added lines; plan about 25 steps, 30 minutes; the concept page carries more weight).
 
 ## Result and verification
 - Build succeeded, no warnings. Run with SimCam: video mode works as before. The HDR button does NOT appear in the Simulator, because the SimCam camera has no 10-bit format (`isHDRVideoSupported` is false). This is the correct behaviour of the code. HDR recording needs a real iPhone and was not verified.

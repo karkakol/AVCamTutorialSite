@@ -112,8 +112,8 @@ PhotoKit has more features than this chapter uses.
 | System photo picker | [`PhotosPicker`](https://developer.apple.com/documentation/photosui/photospicker) lets the person look at the library and select items. It needs no permission. | Chapter 4 |
 | Live Photo asset | A `.photo` resource and a `.pairedVideo` resource in one request. | Chapter 7 |
 | Deferred photo | A `.photoProxy` resource. The system makes the final photo later. | Chapter 7 |
-| Create an asset from a file | `addResource(with:fileURL:options:)`. With `shouldMoveFile`, the library moves the file and makes no copy. | Chapters 7 and 8 |
-| Save from the Lock Screen extension | The capture extension saves with PhotoKit and uses the permission of the app. | Chapter 13 |
+| Create an asset from a file | `addResource(with:fileURL:options:)`. With `shouldMoveFile`, the library moves the file and makes no copy. | Chapters 7 and 10 |
+| Save from the Lock Screen extension | The capture extension saves with PhotoKit and uses the permission of the app. | Chapter 15 |
 | Read-write access and the limited library | Read assets, build a gallery in the app, and work with a selection that the person made. | Not in AVCam |
 | RAW with a processed image | A `.photo` resource and an `.alternatePhoto` resource in one asset. | Not in AVCam |
 | Albums | `PHAssetCollectionChangeRequest` adds the placeholder to an album in the same change block. | Not in AVCam |
@@ -132,9 +132,9 @@ PhotoKit has more features than this chapter uses.
 
 **Permission at the first save, not at launch.** `MediaLibrary` asks for access when the person takes the first photo. At that moment, the person understands why the app asks.
 
-**A stream for thumbnails.** The image manager can call its closure more than one time, and at a later time. A return value can carry only one image. A stream can carry each image when it is ready. The stream also stays the same when chapter 8 adds movies: each kind of media sends its thumbnail through the same stream.
+**A stream for thumbnails.** The image manager can call its closure more than one time, and at a later time. A return value can carry only one image. A stream can carry each image when it is ready. The stream also stays the same when chapter 10 adds movies: each kind of media sends its thumbnail through the same stream.
 
-**A template method.** `performChange` contains the steps that each save needs: the authorization check, the change block, the fetch of the new asset, and the thumbnail. `save(photo:)` only says what the change is. Chapter 8 adds `save(movie:)` with a few lines.
+**A template method.** `performChange` contains the steps that each save needs: the authorization check, the change block, the fetch of the new asset, and the thumbnail. `save(photo:)` only says what the change is. Chapter 10 adds `save(movie:)` with a few lines.
 
 ## Things to know about the sample
 

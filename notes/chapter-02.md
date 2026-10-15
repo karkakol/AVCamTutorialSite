@@ -8,7 +8,7 @@ Branch `chapter-02`, start `chapter-01`. See the full change with `git -C ../AVC
 - Not verified: the system-preferred camera path (needs an iPad with an external camera) and the rotation of the preview on a real device.
 
 ## What the chapter adds
-- New files copied from the sample: `Capture/SPCObserver.swift` (unchanged), `Capture/DeviceLookup.swift` (without `defaultMic`, which chapter 8 adds), `Views/Toolbars/MainToolbar/SwitchCameraButton.swift` (without the `.disabled(...isRecording)` line, chapter 8).
+- New files copied from the sample: `Capture/SPCObserver.swift` (unchanged), `Capture/DeviceLookup.swift` (without `defaultMic`, which chapter 10 adds), `Views/Toolbars/MainToolbar/SwitchCameraButton.swift` (without the `.disabled(...isRecording)` line, chapter 10).
 - New files in reduced form: `Support/ViewExtensions.swift` (`largeButtonSize`, `DefaultButtonStyle` only), `Views/Toolbars/MainToolbar/MainToolbar.swift` (switch button only, conforms to `View`), `Views/CameraUI.swift` (toolbar at the bottom plus the status overlay), `Views/PreviewContainer.swift` (blur while `isSwitchingVideoDevices`).
 - `CaptureService`: `activeVideoInput`, `deviceLookup`, `systemPreferredCamera`, rotation coordinator properties; `setUpSession()` now uses `deviceLookup.defaultCamera`; `currentDevice`; `selectNextVideoDevice()`; `changeCaptureDevice(to:)`; `monitorSystemPreferredCamera()`; `createRotationCoordinator(for:)` with the preview observer only; `updatePreviewRotation(_:)`; `videoPreviewLayer`.
 - `Camera`, `CameraModel`, `PreviewCameraModel`: `switchVideoDevices()`, `isSwitchingVideoDevices`.

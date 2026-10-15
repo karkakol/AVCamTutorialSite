@@ -1,229 +1,246 @@
 ---
 kind: article
 chapter: 12
-title: Concepts: Camera Control
-abstract: How an app supplies controls to the Camera Control, which control classes exist, where their actions run, and why the app reduces its interface while the system overlay is on the screen.
+title: Concepts: a robust session
+abstract: How a capture session stops and starts again, how deferred start makes the preview appear sooner, and how the interface hides the moments when the camera is not ready.
 estimatedMinutes: 12
 branch: chapter-12
 ---
 
-The Camera Control is a hardware control on the side of iPhone 16 and later iPhone models. A person can click it, press it lightly, and slide a finger on it. With it, a person changes camera settings without a touch on the screen.
+Until now, the app assumed a simple world: the session starts, and then it runs until the app ends. A real iPhone is not that simple. A phone call takes the microphone. The person goes to the Home Screen and comes back. A system service starts again. And at each launch, the person waits for the first picture.
 
-The system does not know which settings your app has. Your app must supply them. This article explains how you supply controls, which controls exist, where their code runs, and what the app must do while the system shows its overlay. In [Build: Camera Control](ch12-build.md), you write the code.
-
-> [!IMPORTANT]
-> The Camera Control does not exist in the Simulator, and nobody ran the code of this chapter on an iPhone that has one. The facts in this article come from the Apple SDK, the Apple documentation, the WWDC session, and the code of the sample. Where a fact is a conclusion from the code only, the text tells you.
+This article explains what happens to a capture session in these moments, and what a camera app must do. In [Build: a robust session](ch12-build.md), you write the code.
 
 ## How it works
 
-### One control, three jobs
+### The life of a session
 
-The Camera Control does three jobs. Each job uses a different API.
+An [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession) is in one of a small number of states.
 
-| Job | Gesture | API | Chapter |
-|---|---|---|---|
-| Capture | A full click | `onCameraCaptureEvent`, the primary action | 11 |
-| Change a setting | A light press, then a slide | Control objects on the capture session | 12 (this chapter) |
-| Start the app, also from a locked iPhone | A click when the app does not run | A capture extension | 13 |
+![The states of a capture session: not running, running, interrupted, and stopped by an error, with the events that move the session between them](../images/ch12-session-states.svg)
 
-This chapter is about the second job only. The click already works: you added the capture events in [chapter 11](ch11-concepts.md). The launch from a locked iPhone is the subject of [chapter 13](ch13-concepts.md).
+- **Not running.** You created the session, but you did not call [`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) yet, or you called [`stopRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/stoprunning()).
+- **Running.** Data flows from the inputs to the outputs and to the preview. [`isRunning`](https://developer.apple.com/documentation/avfoundation/avcapturesession/isrunning) is `true`.
+- **Interrupted.** The system took the camera or the microphone away for some time. [`isInterrupted`](https://developer.apple.com/documentation/avfoundation/avcapturesession/isinterrupted) is `true`. The system starts the session again when the interruption ends.
+- **Stopped by an error.** Something failed while the session ran. The session does not start again by itself.
 
-### What a person does
+The difference between the last two states is the most important idea of this chapter:
 
-The [guidelines for the Camera Control](https://developer.apple.com/design/human-interface-guidelines/camera-control) and the [user guide](https://support.apple.com/guide/iphone/use-the-camera-control-iph0c397b154/ios) describe these gestures:
+- After an **interruption**, the system repairs the session. Your job is to tell the person what happens.
+- After a **runtime error**, your app must decide what to do. Nothing happens if you do nothing.
 
-- **Light press.** The system shows an overlay next to the Camera Control. The overlay shows one setting and its current value.
-- **Slide.** The value of the selected setting changes.
-- **Light double press.** The overlay shows the list of all controls. A slide moves through the list, and a light press selects a control.
+The session tells you about each change with a notification. The session is the object of each notification.
 
-The system draws the overlay. Your app does not draw it and cannot change its appearance. Your app supplies only the list of controls: a title, a symbol, and a range of values for each control. The system also remembers the control that the person used last in your app.
-
-### Controls belong to the session
-
-A control is an object of a subclass of [`AVCaptureControl`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol). You add controls to the [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession), in the same manner as inputs and outputs.
-
-![The Camera Control changes the controls of the capture session. The system sliders set a device property themselves, a custom slider calls your action, and the controls delegate receives four callbacks.](../images/ch12-controls.svg)
-
-The session has a small API for controls:
-
-| Member | Use |
+| Notification | Meaning |
 |---|---|
-| [`supportsControls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/supportscontrols) | `true` only on hardware that has a Camera Control. Read it first. |
-| [`maxControlsCount`](https://developer.apple.com/documentation/avfoundation/avcapturesession/maxcontrolscount) | The largest number of controls that the session accepts. |
-| [`controls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/controls) | The controls that are on the session now. |
-| [`canAddControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddcontrol(_:)) | Tells you if the session accepts a control. |
-| [`addControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addcontrol(_:)) | Adds a control. It raises an exception if the session cannot accept the control. |
-| [`removeControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/removecontrol(_:)) | Removes a control. |
+| [`wasInterruptedNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/wasinterruptednotification) | An interruption starts. The `userInfo` dictionary contains the reason. |
+| [`interruptionEndedNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionendednotification) | The interruption is over. |
+| [`runtimeErrorNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/runtimeerrornotification) | The session failed. The `userInfo` dictionary contains the error. |
+| [`didStartRunningNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/didstartrunningnotification) and [`didStopRunningNotification`](https://developer.apple.com/documentation/avfoundation/avcapturesession/didstoprunningnotification) | The running state changed. AVCam does not use them. |
 
-The rules are the rules of inputs and outputs, which you know from chapter 1:
+### Interruption reasons
 
-- Ask before you add. `addControl(_:)` raises an Objective-C exception when `canAddControl(_:)` is `false`. Swift cannot catch this exception.
-- Put a group of changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()). Then the session applies all changes as one operation.
+The value for [`AVCaptureSessionInterruptionReasonKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessioninterruptionreasonkey) in `userInfo` is a number. It is the raw value of an [`AVCaptureSession.InterruptionReason`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason).
 
-`canAddControl(_:)` returns `false` in these cases:
-
-- The session already has `maxControlsCount` controls.
-- A custom control has no action.
-- The control is a second system zoom control for a camera that already has one.
-
-### The control classes
-
-The iOS SDK has four control classes that you can use. They arrived with iOS 18. The iOS 26 and iOS 27 SDKs added no new control classes.
-
-| Class | Kind | What it changes |
+| Reason | Typical cause | AVCam shows a status |
 |---|---|---|
-| [`AVCaptureSystemZoomSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider) | System | The [`videoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor) of one camera. |
-| [`AVCaptureSystemExposureBiasSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemexposurebiasslider) | System | The [`exposureTargetBias`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposuretargetbias) of one camera. |
-| [`AVCaptureSlider`](https://developer.apple.com/documentation/avfoundation/avcaptureslider) | Custom | One `Float` value. Your code decides what the value means. |
-| [`AVCaptureIndexPicker`](https://developer.apple.com/documentation/avfoundation/avcaptureindexpicker) | Custom | One index into a list of choices. Your code decides what each choice means. |
+| [`videoDeviceNotAvailableInBackground`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason/videodevicenotavailableinbackground) | The app goes to the background. | No. This is normal. |
+| `audioDeviceInUseByAnotherClient` | A phone call or an alarm uses the microphone. | Yes |
+| `videoDeviceInUseByAnotherClient` | A different app or a different session takes the camera. | Yes |
+| [`videoDeviceNotAvailableWithMultipleForegroundApps`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason/videodevicenotavailablewithmultipleforegroundapps) | The app shares the screen with other apps on iPad. | No |
+| [`videoDeviceNotAvailableDueToSystemPressure`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason/videodevicenotavailableduetosystempressure) | The device is too hot, or it needs too much power. | No |
+| [`sensitiveContentMitigationActivated`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason/sensitivecontentmitigationactivated) | A video stream analyzer found sensitive content (iOS 26). | No |
 
-**System controls** do the work for you. You create one with a camera device, and the control is bound to that device.
+The sample handles two reasons only. It uses one line for this:
 
-- The control takes its range from the active format of the device: [`systemRecommendedVideoZoomRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange) for zoom, and [`systemRecommendedExposureBiasRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedexposurebiasrange) for the exposure bias. When the active format changes, the control updates its range.
-- The control sets the device property itself. You write no code for the change.
-- The initializer raises an exception when the device does not support the property.
+```swift file=AVCam/CaptureService.swift
+                isInterrupted = [.audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient].contains(reason)
+```
 
-A system control can have an optional action. The action runs on the main actor, and only when this control changed the value. Its purpose is to keep your own interface up to date, for example a zoom label. Do not set the device property in this action. The control already did that.
+The probable reason for this choice is the background case. Each time the person leaves the app, the session gets an interruption with the background reason. That is not a problem that the person must know about. So the code sets `isInterrupted` to `true` only when a different client uses the microphone or the camera.
 
-**Custom controls** are for the settings that only your app has.
+The session also starts again by itself after the background. This works only if your code did not call `stopRunning()`. AVCam never calls it. An app in which the camera is only one of many screens is different: it must stop the session when the camera screen closes.
 
-- A slider can be continuous (a range), or discrete (a range with a step, or a list of values).
-- A picker shows a list of titles, and reports the index of the selected title.
-- Each custom control has a title and a symbol. The symbol must be the name of a symbol from [SF Symbols](https://developer.apple.com/sf-symbols/). Custom symbols do not work.
-- A custom control must have an action before you add it to the session. The session refuses a custom control that has no action.
+### Runtime errors and the media services reset
 
-### Action queues
+The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in `userInfo` is an error that you can read as an `AVError`. Its code tells you what failed.
 
-You give a custom control its action with [`setActionQueue(_:action:)`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/setactionqueue(_:action:)). The method takes a dispatch queue and a closure. The system calls the closure on that queue each time the person changes the value.
+AVCam handles one code: [`mediaServicesWereReset`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset). The camera and the audio hardware belong to a system process, not to your app. On rare occasions, this process starts again. After that, the session is stopped. The sample keeps its session, its inputs, and its outputs. The repair in the sample is small: if the session does not run, call `startRunning()` again.
 
-The choice of the queue is the important part. The SDK has this rule: if the action changes a property of the camera system, the queue must be the same exclusive execution context as the camera system. In plain words: the action must run where all your other camera code runs. If it runs somewhere else, two pieces of code can configure the camera at the same time.
+Other codes exist. For example, [`sessionHardwareCostOverage`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/sessionhardwarecostoverage) tells you that the configuration needs more than the hardware can supply. The sample ignores them.
 
-In AVCam, this place is the session queue. In chapter 1, you made this serial queue the executor of the `CaptureService` actor. Thus each method of the actor runs on the session queue. When the slider action also runs on the session queue, the action and the actor methods can never run at the same time.
+### What happens at launch
 
-The same rule applies in the opposite direction. If your code changes the `value` of a slider or the `selectedIndex` of a picker, it must do that on the action queue.
+Apple divides the launch of a camera app into four stages:
 
-### The controls delegate and the overlay
+1. The app launches.
+2. The app configures the session and starts it.
+3. The capture outputs prepare themselves. This is the most expensive stage.
+4. The preview shows its first frame.
 
-The session reports the state of the overlay to an [`AVCaptureSessionControlsDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate) object. You set it with [`setControlsDelegate(_:queue:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/setcontrolsdelegate(_:queue:)). The queue must be a serial queue.
+The person looks at the screen and waits for stage 4. But the preview does not need the photo output or the movie output. These outputs are necessary only when the person captures something.
 
-The delegate has four methods, and all four are required:
+**Deferred start** (iOS 26) changes the order. The session starts, the preview appears, and then the session prepares the outputs that you marked.
 
-| Callback | Meaning | AVCam |
-|---|---|---|
-| `sessionControlsDidBecomeActive(_:)` | The controls are available for interaction. | Writes a log line. |
-| [`sessionControlsWillEnterFullscreenAppearance(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate/sessioncontrolswillenterfullscreenappearance(_:)) | The overlay is about to use the full screen. Hide parts of your interface. | Sets a Boolean value to `true`. |
-| `sessionControlsWillExitFullscreenAppearance(_:)` | The fullscreen appearance is about to end. Show your interface again. | Sets the value to `false`. |
-| `sessionControlsDidBecomeInactive(_:)` | The person dismissed the controls. | Writes a log line. |
+![Two launch timelines: without deferred start the preview appears after the outputs are ready, and with deferred start the preview appears before the session prepares the outputs](../images/ch12-deferred-start.svg)
 
-Two facts about the delegate are important:
+Two properties control it:
 
-- **No delegate, no controls.** The SDK says that the controls become active only when the session has a controls delegate. An app that adds controls but sets no delegate gets no overlay.
-- **The exit comes first.** `sessionControlsWillExitFullscreenAppearance(_:)` arrives before `sessionControlsDidBecomeInactive(_:)`.
+- [`isDeferredStartEnabled`](https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartenabled) on an output marks the output as "prepare this later". Read [`isDeferredStartSupported`](https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartsupported) first: if you set `true` on an output that does not support it, the output raises an exception.
+- [`automaticallyRunsDeferredStart`](https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyrunsdeferredstart) on the session selects who decides the moment. With `true`, the session decides: a short time after the preview layer shows its first frame.
+
+For an app that you build with the iOS 26 SDK or later, these values are the default: the session is in automatic mode, and the photo output and the file outputs (such as the movie output) are deferred when they support it. A preview layer and a video data output are not deferred by default. So the lines in the sample do not change the behavior. They are there to show you the properties:
+
+```swift file=AVCam/CaptureService.swift
+            // Deferred start brings up the preview first, and prepares the capture outputs a moment
+            // later. An app that links the iOS 26 SDK gets this behavior by default; these
+            // assignments show the properties that control it.
+            captureSession.automaticallyRunsDeferredStart = true
+
+            // Add the photo capture output as the default output type.
+            photoCapture.output.isDeferredStartEnabled = photoCapture.output.isDeferredStartSupported
+            try addOutput(photoCapture.output)
+```
+
+What if the person presses the capture button before the outputs are ready? The session then runs the deferred start immediately for that request. For more than one early request, Apple tells you to enable responsive capture on the photo output. You did that in chapter 7 with [`isResponsiveCaptureEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isresponsivecaptureenabled).
 
 > [!NOTE]
-> Apple does not document exactly which gesture causes the "active" callbacks and which gesture causes the "fullscreen" callbacks. AVCam writes a log line in each callback. On an iPhone with a Camera Control, you can read the Xcode console and find out.
+> Deferred start makes the preview appear sooner. It does not make the first photo arrive sooner. In the WWDC26 session about this subject, Apple reports a launch that is approximately two times faster for its example. This tutorial did not measure the launch time of AVCam.
 
-### Why the app reduces its interface
+### The stale preview frame
 
-In the fullscreen appearance, the system draws its overlay on top of your app. The person looks at two things: the value in the overlay and the preview. Buttons of the app that stay on the screen take attention away.
+When the app goes to the background, the session stops. The preview layer keeps the last frame that it showed. When the app returns, the person sees this old frame for a moment, and then the picture jumps to the live scene.
 
-The Apple guidelines ask for a viewfinder with few distractions, and they ask you not to show the same control two times. For example, an app that has its own zoom slider hides it while the system zoom slider is on the screen.
+AVCam hides the old frame with a black cover:
 
-AVCam hides four views during the fullscreen appearance: the thumbnail button, the button that changes the camera, the capture mode picker, and the features toolbar. The value travels from the delegate to the views through the same layers as each other state of the capture service.
+- When the scene goes to the background, the cover becomes opaque immediately, with no animation. There is no time for an animation while the app leaves the screen.
+- When the scene becomes active again, the cover fades out in 0.3 seconds, while the live frames come back.
 
-![The fullscreen state of the controls goes from the controls delegate through the capture service to the model, and four views read it to set their opacity.](../images/ch12-overlay-state.svg)
+The signal is the SwiftUI [`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase), not the interruption notifications. The code ignores the `inactive` phase. Thus the cover does not appear while the scene is only inactive, for example when the person looks at the app switcher.
+
+### Controls wait for the session
+
+Apple gives one rule for the launch: divide your work into "necessary for the first preview frame" and "all other work". Only the preview and the capture button are in the first group.
+
+So AVCam keeps most controls invisible until the camera status is `running`: the thumbnail, the button that changes the camera, the mode picker, and the features toolbar. Then they fade in. The preview is the first thing that the person sees, and no control is on the screen before it can work.
+
+The capture button is the exception. It is visible from the start, because a capture request before the end of the deferred start is legal, and responsive capture handles it.
+
+The controls are hidden with an opacity of zero. They are not removed from the view tree. Thus the layout does not move when they appear.
 
 ## What the camera can do
 
-AVCam uses three controls. The API permits much more.
+AVCam uses a small part of what the system offers for a robust session.
 
 | Capability | What it does | In this tutorial |
 |---|---|---|
-| System zoom slider | Zoom for one camera, in the range that the system recommends. | This chapter |
-| System exposure bias slider | Makes the picture brighter or darker. | This chapter |
-| Continuous custom slider | One value in a range. AVCam uses it for the lens position. | This chapter |
-| Discrete custom slider | Values with a fixed step, or values from a list. For example a frame rate. | Not in AVCam |
-| [`prominentValues`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/prominentvalues-199dz) | Values at which a slider stops more easily. | Not in AVCam |
-| [`localizedValueFormat`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/localizedvalueformat) | A format for the value label, for example a unit. It accepts only the `%@` placeholder. | Not in AVCam |
-| Index picker | A list of named choices: flash modes, filters, aspect ratios, or cameras. | Not in AVCam |
-| [`isEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol/isenabled) | Disables a control but keeps it in the list. For a control that does not apply to the current mode. | Not in AVCam |
-| Action on a system slider | [`init(device:action:)`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider/init(device:action:)) reports each change, so that a zoom label in the app stays correct. | Not in AVCam |
-| [`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) | Changes a zoom factor into the number that the system shows, for a label in your interface. | Not in AVCam |
-| The click as a shutter | The primary action of a capture event. | Chapter 11 |
-| Launch from a locked iPhone | A capture extension. | Chapter 13 |
+| Interruption notifications | Report when the system takes the camera or the microphone, and why. | This chapter |
+| Recovery after a media services reset | Start the session again after the system media process starts again. | This chapter |
+| Automatic deferred start | The session prepares the marked outputs after the first preview frame. | This chapter |
+| Manual deferred start | Set `automaticallyRunsDeferredStart` to `false` and call [`runDeferredStartWhenNeeded()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/rundeferredstartwhenneeded()). For apps that draw the preview themselves, for example with Metal. Test [`isManualDeferredStartSupported`](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismanualdeferredstartsupported) first. | Explained here only |
+| Deferred start delegate | [`AVCaptureSessionDeferredStartDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturesessiondeferredstartdelegate) tells you when the deferred start begins and when all outputs are ready. A good moment to show the capture controls. | Not in AVCam |
+| Running state | Key-value observation of `isRunning`, or the "did start" and "did stop" notifications, give the true state of the session. | Not in AVCam |
+| Preview state | [`isPreviewing`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/ispreviewing) on the preview layer tells you when frames are on the screen. You can remove a cover at exactly that moment. | Not in AVCam |
+| Multitasking camera access | On iPad, [`isMultitaskingCameraAccessEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccessenabled) lets the camera run while the app shares the screen with other apps. Test [`isMultitaskingCameraAccessSupported`](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) first. | Not in AVCam |
+| System pressure | [`systemPressureState`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/systempressurestate-swift.property) on the device reports heat and power limits. An app can decrease the frame rate or the resolution before the system interrupts the session. | Not in AVCam |
+| Hardware cost | [`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturesession/hardwarecost) tells you how much of the hardware budget a configuration uses. A value above 1.0 does not run. | Not in AVCam |
+| A "resume" button | For the reason "a different client uses the camera", an app can offer a button that calls `startRunning()` again. Older versions of AVCam did this. | Not in AVCam |
 
-The system Camera app also has controls for depth, styles, tone, and the camera selection. These controls are not public API. To make something similar, you use a custom slider or a picker.
-
-The guidelines recommend that you put the controls that people use most in the middle of the list. They also recommend that the layout of your app leaves space for the overlay, in portrait and in landscape.
+> [!NOTE]
+> Multitasking camera access has conditions. Apple does not recommend it for apps with heavy capture work, and the rules for which apps can use it changed in iOS 18. Read the Apple article in the documentation list before you use it.
 
 ## Why AVCam does it this way
 
-**One queue for all camera code.** The slider action, the delegate callbacks, and the methods of the actor all run on the session queue. This obeys the queue rule of the SDK, and it keeps the order of events. The alternative is an actor with the default executor. Then the action closure must start a task to get onto the actor. That adds a step, and two fast changes of the slider can arrive in the wrong order.
+**Notifications as asynchronous sequences.** [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an `AsyncSequence`. The sample reads each sequence in a `for await` loop inside a task that the actor starts. The loop body runs on the actor, so it can change `isInterrupted` directly. This is shorter than observers with selectors or closures, and no observer token must be stored.
 
-**System sliders without an action.** AVCam has no zoom control and no exposure control on the screen. Nothing in the interface must stay in step with the sliders, so the sample uses the simple `init(device:)` form.
+**Only two interruption reasons.** The background reason must not show a message. The other reasons are probably less common on iPhone. The cost: on iPad next to a second app, or on a very hot device, the camera stops and the app says nothing.
 
-**Controls are kept for each camera.** `CaptureService` has a dictionary, `controlsMap`. The key is the [`uniqueID`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/uniqueid) of a camera, and the value is the array of controls for that camera. The code of the sample does not say why. These reasons are conclusions from the code:
+**No `stopRunning()`.** AVCam is only a camera. The system stops the session in the background and starts it again in the foreground. The app does not need its own code for this.
 
-1. A system control is bound to one device when you create it. The back camera and the front camera need different control objects. The action of the custom slider also captures one device.
-2. A person can change the camera many times. Without the dictionary, each change makes new control objects and new closures.
-3. The value of a custom slider belongs to the object. The same object keeps its value. A new object starts again at the start of its range.
-4. The session can refuse a second system zoom control for a camera. One set of objects for each camera prevents this.
+**`enabled = supported`.** The line for the photo output copies `isDeferredStartSupported` into `isDeferredStartEnabled`. This form is always safe, because `true` on an output without support raises an exception.
 
-**Remove all, then add.** When the camera changes, `configureControls(for:)` removes each control from the session and adds the controls of the new camera. This is simple, and it is correct for system controls, which are bound to a device.
+**Automatic mode.** The preview layer is the only part of the session that is not deferred. So the session knows the correct moment by itself: a short time after the first frame is on the screen.
 
-**Opacity, not removal.** The four views get an opacity of zero. They stay in the layout, so the capture button and the preview do not move when the overlay appears. The model changes the value in an animation block, so the views fade.
+**A cover that depends on the scene phase only.** The cover needs no signal from the capture pipeline. The fade is long enough to hide the moment in which the live frames come back. An alternative is to observe `isPreviewing` and to remove the cover exactly then. That is more exact, and it is more code.
 
-**The capture button stays.** The SDK text about the fullscreen appearance names sliders and shutter buttons as things that an app can hide. AVCam keeps its capture button on the screen. The name of the property tells you the idea: `prefersMinimizedUI`, a minimal interface, not an empty one.
+**`hidden(until:)` with opacity.** One small modifier does the same thing for four views. The alternative, an `if` statement around each control, changes the layout when the control appears.
 
-**A delegate class of its own.** The delegate protocol is an Objective-C protocol, so the delegate is an `NSObject` subclass. The sample uses a small class, `CaptureControlsDelegate`, that publishes one Boolean value. This keeps the delegate methods out of the actor, as the photo capture delegate does in chapter 3. The actor publishes the value again, as it does for the capture activity.
+### The gap in the sample, and what this tutorial adds
+
+The Apple sample has all the parts of an interruption status:
+
+- `CaptureService` publishes `isInterrupted`.
+- `CameraStatus` has an `interrupted` case.
+- `StatusOverlayView` has a yellow message for this case.
+
+But no code connects the first part to the second. The model in the sample never reads `isInterrupted`, so `status` never becomes `interrupted`. In the sample, the yellow message appears only in a SwiftUI preview.
+
+This tutorial adds the connection. It is one task in `CameraModel.observeState()`, of the same form as the other tasks in that method:
+
+```swift file=AVCam/CameraModel.swift
+        Task {
+            // Await updates to the interruption state of the capture service.
+            for await isInterrupted in await captureService.$isInterrupted.values {
+                // Show a status message while a higher-priority event interrupts the camera.
+                status = isInterrupted ? .interrupted : .running
+            }
+        }
+```
+
+> [!IMPORTANT]
+> These lines are not in the Apple sample. They are the only code in this chapter that Apple did not write. All other code of the chapter is equal to the sample.
+
+The addition has a second effect. The controls are visible only while the status is `running`. So during an interruption, the controls fade out, and they fade in again when the interruption ends. That is the correct behavior: the controls cannot work without the camera.
 
 ## Things to know about the sample
 
-These points come from a careful read of the Apple sample. Nobody verified them on an iPhone for this tutorial. They do not stop the app from working.
+These points come from a careful read of the code. Nobody tested them on an iPhone for this tutorial.
 
-- **The lens slider can show an old value.** The slider locks the focus at a lens position. A tap on the preview (chapter 6) then starts automatic focus again, and the lens moves. The slider object keeps its old `value`. Apple's article about the Camera Control says to update the value of a control when the setting changes in a different place. AVCam does not do that.
-- **The lens slider does not return to automatic focus.** After a person uses the slider, the focus stays locked. The slider has no "automatic" position. The focus code of chapter 6 is the only code that starts automatic focus again, and it runs after a tap on the preview.
-- **The published value has no compiler check.** `CaptureControlsDelegate` is a plain class with a `@Published` property. The delegate callbacks change the property on the session queue, and the actor reads it on the same queue. This is safe only because the two queues are one queue. The project uses minimal concurrency checking, so the compiler does not examine it.
-- **The begin and commit pairs nest.** `changeCaptureDevice(to:)` calls `configureControls(for:)` between its own `beginConfiguration()` and `commitConfiguration()` calls. `configureControls(for:)` has a pair of its own. The session permits this.
-- **Each call sets the delegate again.** `configureControls(for:)` sets the same delegate object each time the camera changes. One time is sufficient. The repeat does no harm.
-- **`createControls(for:)` is not private.** All other helper methods of the actor are private. No code outside the actor calls this method.
-- **Controls change at run time.** The guidelines advise against a control list that changes while a person uses the app, because the system must then select a different control. AVCam replaces the list when the camera changes. For a setting that does not apply for some time, `isEnabled` is the better tool.
+- **`status == .running` is not the state of the session.** The model sets the status to `running` after `start()` returns. After that, only the interruption task changes it. The model does not observe `isRunning`. If the session stops for a reason that the app does not handle, the status stays `running`.
+- **Only one runtime error is handled.** All other errors are dropped, and the code does not write them to the log.
+- **The observers do not name the session.** The code does not give an `object:` argument, so it accepts notifications from each session in the process. With one session, that is correct. In an app with more sessions, give the session as the object.
+- **An unknown reason is dropped.** `InterruptionReason(rawValue:)` gives `nil` for a number that it does not know. `compactMap` then removes the event. A reason that a later iOS version adds is ignored.
+- **The tasks never end.** Nothing stores or cancels the three notification tasks. The capture service lives as long as the app, so this is acceptable here.
 
 ## Common mistakes
 
-- **You set no controls delegate.** The controls do not become active, and the person sees no overlay.
-- **You call `addControl(_:)` without `canAddControl(_:)`.** When the session refuses the control, the app stops with an exception that Swift cannot catch.
-- **You add a custom control that has no action.** The session refuses it.
-- **You run the action on the wrong queue.** The action changes the camera while other camera code runs. Use the queue that your camera code uses.
-- **You set the device property in the action of a system slider.** The system already set it. The action is for your interface only.
-- **You use the action of a system slider as the only source of the zoom value.** The action runs only for changes that come from this control. A pinch gesture or a zoom ramp does not call it. Observe the device property for those.
-- **You use one set of controls for all cameras.** A system control changes the device that it got at creation, not the camera that is active now.
-- **You keep your full interface on the screen.** The overlay then competes with your buttons. Reduce the interface between the "will enter" and the "will exit" callbacks.
-- **You use a symbol that is not in SF Symbols,** or a value format with a placeholder other than `%@`.
-- **You start a capture session only to get the Camera Control.** The WWDC session tells you not to do this.
-- **You test in the Simulator or on an iPad.** `supportsControls` is `false` there, and no control code runs.
+- **You show an error each time an interruption starts.** The move to the background is also an interruption. Read the reason first.
+- **You start the session yourself after an interruption.** The system does it. You only update the interface.
+- **You do nothing after a runtime error.** Then the session stays stopped. After a media services reset, start the session again.
+- **You call `stopRunning()` in the background "to be safe".** Then the system does not start the session again for you, and your app must do it.
+- **You call `startRunning()` or `stopRunning()` on the main thread.** The two methods block until the work is done. Call them on the session queue. In AVCam, the actor does this.
+- **You set `isDeferredStartEnabled` to `true` with no test for support.** The output raises an exception when it does not support deferred start.
+- **You call `runDeferredStartWhenNeeded()` in automatic mode.** The session raises an exception. The method is for manual mode only.
+- **You expect deferred start to help an app that draws its own preview.** A video data output is not deferred by default, and automatic mode waits for its first frame. Such an app needs manual mode.
+- **You hide the capture button with the other controls.** The person can then not take a photo in the first moments, although the session accepts the request.
+- **You animate the cover on the way to the background.** The app has no time to show the animation. Set the cover immediately.
+- **You change the deferred start values while the session runs.** A change makes the session build its pipeline again, which is slow. Set the values during the first configuration.
 
 > [!NOTE]
-> In the Simulator with SimCam, `supportsControls` is `false`. The app builds and runs, but the new capture service code returns early. To see the overlay, you need an iPhone that has a Camera Control.
+> The Simulator with SimCam shows the result of two parts of this chapter: the app starts, and the controls fade in. Interruptions, the media services reset, the cover, and the real gain in launch time need a real iPhone. The tutorial page tells you how to test them.
 
 ## Documentation
 
 ```links
-Enhancing your app experience with the Camera Control | https://developer.apple.com/documentation/avfoundation/enhancing-your-app-experience-with-the-camera-control | The main Apple article: system controls, custom controls, session setup, and the delegate.
-HIG: Camera Control | https://developer.apple.com/design/human-interface-guidelines/camera-control | The design rules for controls and for the interface below the overlay.
-Use the Camera Control on iPhone | https://support.apple.com/guide/iphone/use-the-camera-control-iph0c397b154/ios | The gestures, as Apple explains them to people who use an iPhone.
-WWDC25: Enhancing your camera experience with capture controls | https://developer.apple.com/videos/play/wwdc2025/253/ | Capture events and the Camera Control in one session.
-AVCaptureControl | https://developer.apple.com/documentation/avfoundation/avcapturecontrol | The base class of all controls.
-AVCaptureSystemZoomSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider | The system control for zoom.
-AVCaptureSystemExposureBiasSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemexposurebiasslider | The system control for the exposure bias.
-AVCaptureSlider | https://developer.apple.com/documentation/avfoundation/avcaptureslider | The custom slider.
-AVCaptureIndexPicker | https://developer.apple.com/documentation/avfoundation/avcaptureindexpicker | The custom picker.
-setActionQueue(_:action:) | https://developer.apple.com/documentation/avfoundation/avcaptureslider/setactionqueue(_:action:) | The action of a custom slider and the queue that it runs on.
-AVCaptureSessionControlsDelegate | https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate | The four callbacks about the state of the overlay.
-setControlsDelegate(_:queue:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/setcontrolsdelegate(_:queue:) | How to set the delegate and its serial queue.
-supportsControls | https://developer.apple.com/documentation/avfoundation/avcapturesession/supportscontrols | The hardware check.
-isLockingFocusWithCustomLensPositionSupported | https://developer.apple.com/documentation/avfoundation/avcapturedevice/islockingfocuswithcustomlenspositionsupported | The check that AVCam makes before it creates the lens slider.
-setFocusModeLocked(lensPosition:completionHandler:) | https://developer.apple.com/documentation/avfoundation/avcapturedevice/setfocusmodelocked(lensposition:completionhandler:) | The call that the lens slider makes.
-unownedExecutor | https://developer.apple.com/documentation/swift/actor/unownedexecutor | How an actor uses a serial queue as its executor.
-Build: Camera Control | ch12-build.md | The tutorial for this chapter.
+Building a responsive camera app that launches quickly | https://developer.apple.com/documentation/avfoundation/building-a-responsive-camera-app-that-launches-quickly | The Apple article about deferred start, hidden controls, and the cover in AVCam.
+WWDC26: Build a responsive camera app that launches quickly | https://developer.apple.com/videos/play/wwdc2026/303/ | The session about launch stages, deferred start, and system pressure.
+AVCam: Building a camera app | https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app | The article of the sample.
+AVCaptureSession | https://developer.apple.com/documentation/avfoundation/avcapturesession | The session and its running state.
+wasInterruptedNotification | https://developer.apple.com/documentation/avfoundation/avcapturesession/wasinterruptednotification | The notification at the start of an interruption.
+interruptionEndedNotification | https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionendednotification | The notification at the end of an interruption.
+AVCaptureSession.InterruptionReason | https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason | All reasons for an interruption.
+runtimeErrorNotification | https://developer.apple.com/documentation/avfoundation/avcapturesession/runtimeerrornotification | The notification for a failure of the session.
+AVError.Code.mediaServicesWereReset | https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/mediaserviceswerereset | The error code for a restart of the system media process.
+automaticallyRunsDeferredStart | https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyrunsdeferredstart | Automatic or manual deferred start.
+isDeferredStartEnabled | https://developer.apple.com/documentation/avfoundation/avcaptureoutput/isdeferredstartenabled | The property that marks an output as deferred.
+runDeferredStartWhenNeeded() | https://developer.apple.com/documentation/avfoundation/avcapturesession/rundeferredstartwhenneeded() | The method that starts the deferred outputs in manual mode.
+AVCaptureSessionDeferredStartDelegate | https://developer.apple.com/documentation/avfoundation/avcapturesessiondeferredstartdelegate | The callbacks before and after the deferred start.
+isResponsiveCaptureEnabled | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isresponsivecaptureenabled | The photo output property that lets capture requests overlap.
+ScenePhase | https://developer.apple.com/documentation/swiftui/scenephase | The SwiftUI state of a scene: active, inactive, or background.
+notifications(named:object:) | https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:) | Notifications as an asynchronous sequence.
+Accessing the camera while multitasking on iPad | https://developer.apple.com/documentation/avkit/accessing-the-camera-while-multitasking-on-ipad | Multitasking camera access, system pressure, and interruptions.
+systemPressureState | https://developer.apple.com/documentation/avfoundation/avcapturedevice/systempressurestate-swift.property | The heat and power state of a camera.
+WWDC23: Create a more responsive camera experience | https://developer.apple.com/videos/play/wwdc2023/10105/ | The session about responsive capture.
+WWDC22: Discover advancements in iOS camera capture | https://developer.apple.com/videos/play/wwdc2022/110429/ | The session that introduces multitasking camera access.
+Build: a robust session | ch12-build.md | The tutorial for this chapter.
 ```

@@ -1,793 +1,955 @@
 ---
 kind: tutorial
 chapter: 16
-title: Build: iPhone Duo
-abstract: Move the interface to the center of the Duo display, observe the direction of each camera with a direction coordinator, change the camera when the direction changes, and mirror the preview by direction.
+title: Build: zoom and lenses
+abstract: Use the virtual back cameras, create zoom levels from the switch-over zoom factors, change the zoom with a ramp and with a pinch, and build a zoom control that always shows the value of the device.
 estimatedMinutes: 45
 startBranch: chapter-15
 branch: chapter-16
+uncovered: AVCam.xcodeproj/project.pbxproj
 ---
 
-In this tutorial, you prepare the app for iPhone Duo, a device with a display on each side. First, you move the interface to the center of the Duo display. Then you add a direction coordinator, which tells the app which way each camera faces. The capture service uses its reports to change the camera and to mirror the preview.
+In this tutorial, you give the app a zoom. At the end, the back camera uses all its lenses, a zoom control shows levels such as 0.5, 1, and 3, a tap on a level moves the zoom smoothly, and a pinch on the preview changes the zoom continuously.
 
-You add no new files. You add approximately 170 lines to eight files that you know from the earlier chapters.
-
-This chapter is a part of "Beyond the sample". The code is not in the Apple sample. It follows an Apple article, changed to fit this app. Read [Concepts: iPhone Duo](ch16-concepts.md) first if you want the background for each step.
+This is the first chapter of part 2, "Beyond the sample". The code of this chapter is not in the Apple sample. The design is this tutorial's own. You create one new file and change eight files that you know. Together, that is approximately 250 new lines. Read [Concepts: zoom and lenses](ch16-concepts.md) first. It explains the camera facts behind each step, and the limits of this design.
 
 > [!IMPORTANT]
-> The test for this tutorial ran in the iPhone Duo simulator (iOS 27.1) with SimCam. You can see the layout change there. You cannot see a change of direction there, and nobody ran this chapter on a real iPhone Duo. Thus the sections about the direction end with a build, not with a visible result.
+> The simulated camera cannot zoom. In the Simulator, the zoom control does not appear and the picture does not change, so most checkpoints show that the app builds and runs as before. You can see the zoom control in the Xcode canvas. Real zoom needs a real iPhone, and nobody ran this chapter on one. Where a step tells you what occurs on an iPhone, the text comes from the Apple SDK and from the code, not from a test.
 
-## Center the interface on the Duo display
+## Select the cameras and describe a zoom level
 
-The Duo display keeps an area at its trailing side for the status items. The safe area leaves this area out. But the app hides the status bar, so the area is an empty band, and the viewfinder is not in the center of the display.
+The back camera of the sample is the dual camera or the wide camera. It never uses the ultra-wide lens, so the app can never show the 0.5x picture. In this section, you change the list of device types, so that the app gets the virtual device with the most lenses.
 
-In this section, you measure the difference between the two side insets. Then you let the interface use the full width, and you give each side half of the difference as padding.
-
-![The Duo display in the simulator. Before the change, the interface is in the safe area at the leading side. After the change, it is in the center, with 42 points at each side.](../images/ch16-duo-safe-area.svg)
+Then you write a small type that describes one zoom level. A zoom level has two numbers: the value that the device needs, and the value that a person reads.
 
 ### Step
-In the run destination menu of Xcode, select the iPhone Duo simulator. Run the app to see the problem.
+In `DeviceLookup.swift`, replace the first line of the back discovery session with a comment and a list of four device types.
 
-The iPhone Duo simulator comes with the iOS 27.1 simulator runtime. SimCam must run, because it supplies the camera of this simulator too.
+A [discovery session](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession) sorts its [`devices`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession/devices) in the order of your type list, and the app uses the first device. The [triple camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) and the [dual wide camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) contain the ultra-wide camera, so they come first. An iPhone that has neither of them gets the dual camera or the wide camera, as before. Write the list on two lines, as the solution shows, so that your file equals the branch.
 
-```settings title="Checkpoint"
-Destination: the iPhone Duo simulator (iOS 27.1), with SimCam in operation
-Action: Product > Run (Command-R)
-Result: The preview and the controls are at the leading (left) side of the display. At the trailing side, a band of 84 points is empty.
+```swift file=AVCam/Capture/DeviceLookup.swift remove
+        backCameraDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInDualCamera, .builtInWideAngleCamera],
+```
+
+```swift file=AVCam/Capture/DeviceLookup.swift highlight=2-4
+    init() {
+        // List the virtual devices first. The first device in the result has the most lenses.
+        backCameraDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInTripleCamera, .builtInDualWideCamera,
+                                                                                    .builtInDualCamera, .builtInWideAngleCamera],
+                                                                      mediaType: .video,
+                                                                      position: .back)
+        frontCameraDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInTrueDepthCamera, .builtInWideAngleCamera],
 ```
 
 ### Step
-In `CameraView.swift`, add the `sideInsetDifference` state property below the `swipeDirection` property.
+In `DataTypes.swift`, add the `ZoomLevel` structure with its two values below the `CaptureCapabilities` structure.
 
-The view measures the insets during layout, and the layout uses the result. A state property connects the two: a new value makes SwiftUI calculate the layout again. Write `@State private var sideInsetDifference = CGFloat.zero`. The start value is zero, so the layout does not change before the first measurement.
+`videoZoomFactor` is the value for the capture device. `displayFactor` is the value for the interface. On a camera that starts with the ultra-wide lens, the two values are different: the device value 1.0 is the display value 0.5. The structure is `Identifiable`, so that a SwiftUI `ForEach` can use it, and `Hashable`, so that a view can compare two levels. Write `let videoZoomFactor: CGFloat` and `let displayFactor: CGFloat`. `Identifiable` needs an `id`: write `var id: CGFloat { videoZoomFactor }`, so that the device value identifies a level.
+
+```swift file=AVCam/Model/DataTypes.swift highlight=4-9,11-12
+    static let unknown = CaptureCapabilities()
+}
+
+/// A zoom level that the camera interface offers, such as 0.5x, 1x, or 2x.
+struct ZoomLevel: Identifiable, Hashable {
+    /// The value to set on the capture device.
+    let videoZoomFactor: CGFloat
+    /// The value to show to a person.
+    let displayFactor: CGFloat
+    
+    var id: CGFloat { videoZoomFactor }
+}
+
+enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvertible, Codable {
+```
+
+### Step
+Add the static `label(for:)` method, which makes a short text from a display value.
+
+The format permits zero digits or one digit after the decimal separator: 0.5 becomes "0.5", 2.0 becomes "2", and 1.26 becomes "1.3". The separator follows the locale of the person. The method is static, because the zoom control also needs a text for a value between two levels. Write `static func label(for displayFactor: CGFloat) -> String`. The body is one line: `Double(displayFactor).formatted(.number.precision(.fractionLength(0...1)))`.
+
+```swift file=AVCam/Model/DataTypes.swift highlight=10-13
+/// A zoom level that the camera interface offers, such as 0.5x, 1x, or 2x.
+struct ZoomLevel: Identifiable, Hashable {
+    /// The value to set on the capture device.
+    let videoZoomFactor: CGFloat
+    /// The value to show to a person.
+    let displayFactor: CGFloat
+    
+    var id: CGFloat { videoZoomFactor }
+    
+    /// Returns a short text for a display zoom factor.
+    static func label(for displayFactor: CGFloat) -> String {
+        Double(displayFactor).formatted(.number.precision(.fractionLength(0...1)))
+    }
+}
+```
+
+### Step
+Above the static method, add the `label` property, which returns the text for the display value of the level.
+
+A button of the zoom control shows this text. The property and the static method use the same format, so a level and a value between two levels look the same. Write `var label: String` with the body `ZoomLevel.label(for: displayFactor)`. The type name is necessary: an instance cannot call a static method by its name alone.
+
+```swift file=AVCam/Model/DataTypes.swift highlight=3-6
+    var id: CGFloat { videoZoomFactor }
+    
+    /// A short text for the value, such as "0.5" or "2".
+    var label: String {
+        ZoomLevel.label(for: displayFactor)
+    }
+    
+    /// Returns a short text for a display zoom factor.
+    static func label(for displayFactor: CGFloat) -> String {
+```
+
+### Step
+Build and run the app to make sure that the camera still starts.
+
+The simulated back camera is one camera with one lens, so the new type list changes nothing in the Simulator. No code uses `ZoomLevel` yet.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R)
+Result: The app shows the live preview and all its controls, as at the end of chapter 15.
+```
+
+## Create the zoom levels
+
+The capture service owns the camera, so it also owns the zoom. In this section, you write the method that reads the zoom levels from a device and publishes them. The method runs for each camera that the app selects.
+
+The levels come from two properties of the device: its smallest zoom factor, and the zoom factors at which a virtual device changes to its next camera. The code has no table of iPhone models.
+
+![One zoom axis of a triple camera, with the device values above the axis and the display values below it. The values are an example.](../images/ch16-zoom-axis.svg)
+
+### Step
+In `CaptureService.swift`, add the published `zoomLevels` and `displayZoomFactor` properties below the `isHDRVideoEnabled` property.
+
+The model cannot read the capture device, which is a private part of the actor. The actor publishes the two values, as it does for `captureActivity` and `isInterrupted`. The setters are private, because only the actor knows the state of the device. Write `@Published private(set) var zoomLevels = [ZoomLevel]()` and `@Published private(set) var displayZoomFactor: CGFloat = 1.0`.
+
+```swift file=AVCam/CaptureService.swift highlight=3-6
+    /// A Boolean value that indicates whether the user enables HDR video capture.
+    @Published var isHDRVideoEnabled = false
+    /// The zoom levels that the selected camera offers.
+    @Published private(set) var zoomLevels = [ZoomLevel]()
+    /// The zoom factor of the selected camera, as the value to show to a person.
+    @Published private(set) var displayZoomFactor: CGFloat = 1.0
+    /// A Boolean value that indicates whether capture controls are in a fullscreen appearance.
+    @Published var isShowingFullscreenControls = false
+```
+
+### Step
+Below `createControls(for:)`, add a mark and the `displayMultiplier(for:)` method.
+
+[`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) is the ratio between the device value and the number that the system shows. The simulated camera reports 0. A multiplier of 0 makes each display value 0, and a division by it has no useful result. Thus the method returns 1 for each value that is not positive. The method is private: `private func displayMultiplier(for device: AVCaptureDevice) -> CGFloat`. It stores the multiplier in a constant, and returns it or 1.0 with the conditional operator.
+
+```swift file=AVCam/CaptureService.swift highlight=5,7-12
+        // Return the previously created controls.
+        return controls
+    }
+    
+    // MARK: - Zoom
+    
+    /// Returns the ratio between the zoom factor of the device and the value to show to a person.
+    private func displayMultiplier(for device: AVCaptureDevice) -> CGFloat {
+        // Some devices, such as a simulated camera, report no multiplier. Use 1 for them.
+        let multiplier = device.displayVideoZoomFactorMultiplier
+        return multiplier > 0 ? multiplier : 1.0
+    }
+    
+    // MARK: - Capture mode selection
+```
+
+### Step
+Above `displayMultiplier(for:)`, add the `configureZoom(for:)` method, which collects the zoom factors of the levels.
+
+The first level is [`minAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor), the widest picture of the device. The `max` call protects against the simulated camera, which reports 0: a zoom factor less than 1 is not legal. The other levels are the [`virtualDeviceSwitchOverVideoZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors). At each of these values, the next camera of a virtual device can supply its full picture. For a camera with one lens, the array is empty.
+
+The method is private and returns nothing: `private func configureZoom(for device: AVCaptureDevice)`. Store the multiplier in a constant `multiplier`, and the zoom factors in a variable `factors`, because the next step appends to it. The switch-over factors are `NSNumber` values, so the code maps them with `CGFloat(truncating: $0)`. Until the next step, Xcode warns that the two values are never used.
+
+```swift file=AVCam/CaptureService.swift highlight=3-6,8-12
+    // MARK: - Zoom
+    
+    /// Creates the zoom levels for the specified device, and starts the device at the 1x level.
+    private func configureZoom(for device: AVCaptureDevice) {
+        // The ratio between the zoom factor of the device and the value that the system shows to a person.
+        let multiplier = displayMultiplier(for: device)
+        
+        // The first level is the widest field of view of the device. A zoom factor is never less than 1.
+        var factors = [max(device.minAvailableVideoZoomFactor, 1.0)]
+        // A virtual device changes to its next camera at each switch-over zoom factor.
+        factors += device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
+    }
+    
+    /// Returns the ratio between the zoom factor of the device and the value to show to a person.
+    private func displayMultiplier(for device: AVCaptureDevice) -> CGFloat {
+```
+
+### Step
+Add a second level for a camera that has only one, and publish the levels with their display values.
+
+A front camera, for example, has one lens and thus one level. A control with one button has no use, so the code adds a level at two times the first zoom factor. This level is a crop of the sensor picture. The test of [`maxAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/maxavailablevideozoomfactor) keeps a camera that cannot zoom at one level. The last line makes one `ZoomLevel` for each zoom factor: the display value is the device value multiplied by the multiplier.
+
+```swift file=AVCam/CaptureService.swift highlight=3-7
+        // A virtual device changes to its next camera at each switch-over zoom factor.
+        factors += device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
+        // A device with one level gets a 2x level, if it can zoom that far.
+        if factors.count == 1, device.maxAvailableVideoZoomFactor >= factors[0] * 2 {
+            factors.append(factors[0] * 2)
+        }
+        zoomLevels = factors.map { ZoomLevel(videoZoomFactor: $0, displayFactor: $0 * multiplier) }
+    }
+```
+
+### Step
+In `setUpSession()`, call `configureZoom(for:)` for the default camera, after the call that configures the controls.
+
+The levels are ready before the session starts to run, so the interface has them when it becomes visible.
+
+```swift file=AVCam/CaptureService.swift highlight=3-4
+            // Configure controls to use with the Camera Control.
+            configureControls(for: defaultCamera)
+            // Configure the zoom levels for the default camera.
+            configureZoom(for: defaultCamera)
+            // Monitor the system-preferred camera state.
+            monitorSystemPreferredCamera()
+            // Configure a rotation coordinator for the default video device.
+            createRotationCoordinator(for: defaultCamera)
+```
+
+### Step
+In `changeCaptureDevice(to:)`, call `configureZoom(for:)` after the service connects the new camera.
+
+The levels and the multiplier belong to one device. The front camera has other lenses than the back camera, so the old levels are wrong after a change of the camera.
+
+```swift file=AVCam/CaptureService.swift highlight=6-7
+        do {
+            // Attempt to connect a new input and device to the capture session.
+            activeVideoInput = try addInput(for: device)
+            // Configure capture controls for new device selection.
+            configureControls(for: device)
+            // Configure the zoom levels for the new device.
+            configureZoom(for: device)
+            // Configure a new rotation coordinator for the new device.
+            createRotationCoordinator(for: device)
+```
+
+### Step
+At the end of `setCaptureMode(_:)`, call `configureZoom(for:)` for the current device.
+
+A change of the capture mode sets a new session preset, and the session can then select a different format for the device. The largest zoom factor depends on the format. One effect is a limit of this design: after each change of the mode, the zoom starts again at the 1x level.
+
+```swift file=AVCam/CaptureService.swift highlight=3-4
+        // Update the advertised capabilities after reconfiguration.
+        updateCaptureCapabilities()
+        // A new session preset can select a new device format. Create the zoom levels again.
+        configureZoom(for: currentDevice)
+    }
+    
+    // MARK: - Device selection
+```
+
+### Step
+Build and run the app to make sure that the new method does no harm.
+
+The simulated camera gets one level: its largest zoom factor is 0, so the code adds no second level. Nothing reads the levels yet, and the zoom does not change.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R), then tap the button that changes the camera
+Result: The app shows the live preview, and the camera changes as before.
+```
+
+## Change the zoom
+
+There are two methods to change the zoom factor of a device. A direct assignment makes the picture jump. A ramp moves the picture smoothly. In this section, you write one private method that does the two, and that makes each value safe before the device gets it.
+
+Safety is the important part. A zoom factor outside of the range of the device raises an Objective-C exception. Swift cannot catch that exception, and the app stops.
+
+### Step
+In `CaptureService.swift`, add the `zoomObserver` and `maxDisplayZoomFactor` properties below the rotation properties.
+
+The device can permit a very large zoom factor, and the picture at that value has little detail. The app stops at the display value 10. This number is a decision of this tutorial. The observation is for the next section. Write `private var zoomObserver: NSKeyValueObservation?` and `private let maxDisplayZoomFactor: CGFloat = 10.0`.
+
+```swift file=AVCam/CaptureService.swift highlight=5-6,8-9
+    // An object that monitors video device rotations.
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator!
+    private var rotationObservers = [AnyObject]()
+    
+    // An observation of the zoom factor of the selected camera.
+    private var zoomObserver: NSKeyValueObservation?
+    
+    // The largest zoom factor that the app offers, as a display value.
+    private let maxDisplayZoomFactor: CGFloat = 10.0
+    
+    // A Boolean value that indicates whether the actor finished its required configuration.
+    private var isSetUp = false
+```
+
+### Step
+Below `displayMultiplier(for:)`, add the `setVideoZoomFactor(_:on:animated:)` method, which returns for a camera that cannot zoom and limits the value to the range of the device.
+
+The `guard` statement is the result of a crash. The simulated camera reports a largest zoom factor of 0, and each assignment to its zoom factor raises an exception. The first version of this chapter stopped at launch in the Simulator.
+
+The three constants keep the value in the range. The lower limit is the smallest zoom factor of the device, but not less than 1. The upper limit is the smaller of two values: the largest zoom factor of the device, and the display value 10 as a device value. The outer `max` call makes sure that the upper limit is never less than the lower limit.
+
+The method is private: `private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool)`. Name the constants `smallestFactor`, `largestFactor`, and `factor`. The last name is the name of the parameter. Swift permits this: the new constant hides the parameter, and the next steps use the limited value. Until step 4 of this section, where the ramp uses the constant, Xcode warns that `factor` is never used.
+
+```swift file=AVCam/CaptureService.swift highlight=8-15
+    /// Returns the ratio between the zoom factor of the device and the value to show to a person.
+    private func displayMultiplier(for device: AVCaptureDevice) -> CGFloat {
+        // Some devices, such as a simulated camera, report no multiplier. Use 1 for them.
+        let multiplier = device.displayVideoZoomFactorMultiplier
+        return multiplier > 0 ? multiplier : 1.0
+    }
+    
+    private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool) {
+        // A device that cannot zoom, such as a simulated camera, reports a largest zoom factor of less than 1.
+        guard device.maxAvailableVideoZoomFactor >= 1.0 else { return }
+        // Keep the value in the range that the device supports. A value outside of the range raises an exception.
+        let smallestFactor = max(device.minAvailableVideoZoomFactor, 1.0)
+        let largestFactor = max(min(device.maxAvailableVideoZoomFactor, maxDisplayZoomFactor / displayMultiplier(for: device)), smallestFactor)
+        let factor = min(max(factor, smallestFactor), largestFactor)
+    }
+    
+    // MARK: - Capture mode selection
+```
+
+### Step
+Lock the device for configuration, and unlock it again.
+
+This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. The lock can fail with a Swift error, so the `do`-`catch` statement has a use here. It does not catch the range exception. The log text is `"Unable to change the zoom factor: \(error)"`. The constant `factor` is still not used, so the warning from the last step stays until the next step.
+
+```swift file=AVCam/CaptureService.swift highlight=2-7
+        let factor = min(max(factor, smallestFactor), largestFactor)
+        do {
+            try device.lockForConfiguration()
+            device.unlockForConfiguration()
+        } catch {
+            logger.debug("Unable to change the zoom factor: \(error)")
+        }
+    }
+```
+
+### Step
+Between the lock and the unlock, start a ramp when the change is animated, and assign the value when it is not.
+
+[`ramp(toVideoZoomFactor:withRate:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:)) moves the zoom smoothly to the new value. The rate is the number of times that the zoom factor doubles in one second. With a rate of 8, a change from 1x to 2x takes approximately one eighth of a second. An assignment to [`videoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor) makes the picture jump, and it stops a ramp that is in progress.
+
+```swift file=AVCam/CaptureService.swift highlight=3-8
+        do {
+            try device.lockForConfiguration()
+            if animated {
+                // Move to the new value at a constant rate. The rate doubles the zoom factor this many times each second.
+                device.ramp(toVideoZoomFactor: factor, withRate: 8.0)
+            } else {
+                device.videoZoomFactor = factor
+            }
+            device.unlockForConfiguration()
+        } catch {
+```
+
+### Step
+Above `setVideoZoomFactor(_:on:animated:)`, add the two `setZoom` methods that the model calls.
+
+`setZoom(to:)` is for a tap on a zoom level. A level already has its device value, and the change is a ramp. `setZoom(displayFactor:)` is for the pinch gesture. The interface knows only display values, so the method divides by the multiplier. A pinch sends many small changes each second, and each change is a direct assignment. Write `func setZoom(to level: ZoomLevel)` and `func setZoom(displayFactor: CGFloat)`. Both methods are not private and not `async`. The model calls them with `await`, because they are methods of an actor. The second method stores `currentDevice` in a constant `device` and uses it two times.
+
+```swift file=AVCam/CaptureService.swift highlight=4-7,9-15
+        return multiplier > 0 ? multiplier : 1.0
+    }
+    
+    /// Changes the zoom to the specified level with a smooth transition.
+    func setZoom(to level: ZoomLevel) {
+        setVideoZoomFactor(level.videoZoomFactor, on: currentDevice, animated: true)
+    }
+    
+    /// Changes the zoom to the specified display value immediately.
+    ///
+    /// The app calls this method many times during a pinch gesture.
+    func setZoom(displayFactor: CGFloat) {
+        let device = currentDevice
+        setVideoZoomFactor(displayFactor / displayMultiplier(for: device), on: device, animated: false)
+    }
+    
+    private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool) {
+```
+
+### Step
+At the end of `configureZoom(for:)`, set the zoom to the level that a person sees as 1x.
+
+On a virtual device that starts with the ultra-wide camera, the smallest zoom factor shows the 0.5x picture. People expect 1x when a camera app starts. The display value 1 is the device value `1.0 / multiplier`. The change has no animation, because a person must not see a zoom movement when the camera appears.
+
+```swift file=AVCam/CaptureService.swift highlight=3-5
+        zoomLevels = factors.map { ZoomLevel(videoZoomFactor: $0, displayFactor: $0 * multiplier) }
+        
+        // Start at the level that a person sees as 1x. On a virtual device with an
+        // ultra-wide camera, the smallest zoom factor shows the 0.5x field of view.
+        setVideoZoomFactor(1.0 / multiplier, on: device, animated: false)
+    }
+```
+
+### Step
+Build and run the app to make sure that it starts without a crash.
+
+`configureZoom(for:)` now calls `setVideoZoomFactor(_:on:animated:)` at launch. In the Simulator, the `guard` statement returns before the code touches the device.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R)
+Result: The app starts and shows the live preview, as before.
+```
+
+### Note
+Without the `guard` statement, the limits for the simulated camera are 1 and 1, and the method assigns the zoom factor 1. The simulated camera refuses each zoom factor, so the app stops at launch with an `NSRangeException`. That was the crash of the first version of this chapter. Keep this in mind for your own apps: read the range of a device before you set a value on it.
+
+## Publish the zoom to the model
+
+Your code is not the only thing that changes the zoom factor. The system zoom slider of the Camera Control, which you added in chapter 14, sets the property itself. A ramp changes the value for some time after your call. So the interface must not show the value that the app sent. It must show the value that the device has.
+
+In this section, the capture service observes the zoom factor of the device and publishes each change as a display value. Then the model gets the zoom levels, the zoom factor, and the two zoom methods.
+
+![A zoom command goes from the views through the model and the capture service to the capture device. The new zoom factor comes back from the device through an observation. The Camera Control slider changes the device directly.](../images/ch16-zoom-state.svg)
+
+### Step
+In `CaptureService.swift`, add the `updateDisplayZoomFactor(for:of:)` method below the `configureZoom(for:)` method.
+
+The method changes a device value to a display value and publishes it. It takes the device as a parameter, because the multiplier must come from the device that sent the value. The method is private: `private func updateDisplayZoomFactor(for zoomFactor: CGFloat, of device: AVCaptureDevice)`. Its one line multiplies `zoomFactor` by `displayMultiplier(for: device)` and stores the result in `displayZoomFactor`.
+
+```swift file=AVCam/CaptureService.swift highlight=4-6
+        setVideoZoomFactor(1.0 / multiplier, on: device, animated: false)
+    }
+    
+    private func updateDisplayZoomFactor(for zoomFactor: CGFloat, of device: AVCaptureDevice) {
+        displayZoomFactor = zoomFactor * displayMultiplier(for: device)
+    }
+    
+    /// Returns the ratio between the zoom factor of the device and the value to show to a person.
+```
+
+### Step
+At the end of `configureZoom(for:)`, observe the `videoZoomFactor` property of the device, and send each value to the new method.
+
+The `observe` method returns an [`NSKeyValueObservation`](https://developer.apple.com/documentation/foundation/nskeyvalueobservation). The observation lives as long as this object. When the camera changes, the assignment replaces the object, and the observation of the old camera ends. The `.initial` option sends the current value immediately, so the model gets the start value. Write `zoomObserver = device.observe(\.videoZoomFactor, options: [.initial, .new]) { [weak self] device, _ in … }`. The closure gets the device and a change object. It ignores the change object. The closure does not run on the actor. Thus it reads `device.videoZoomFactor` into a constant `zoomFactor` first, and then starts `Task { await self?.updateDisplayZoomFactor(for: zoomFactor, of: device) }`. `[weak self]` prevents a reference cycle between the actor and its observation.
+
+```swift file=AVCam/CaptureService.swift highlight=3-7
+        setVideoZoomFactor(1.0 / multiplier, on: device, animated: false)
+        
+        // Observe the zoom factor, because the Camera Control and a zoom ramp also change it.
+        zoomObserver = device.observe(\.videoZoomFactor, options: [.initial, .new]) { [weak self] device, _ in
+            let zoomFactor = device.videoZoomFactor
+            Task { await self?.updateDisplayZoomFactor(for: zoomFactor, of: device) }
+        }
+    }
+```
+
+### Step
+In `Camera.swift`, add two properties and two methods for the zoom to the `Camera` protocol.
+
+The views use the protocol, not the `CameraModel` class. The protocol has no device value: a view shows display values and sends a level or a display value back. Write `var zoomLevels: [ZoomLevel] { get }`, `var displayZoomFactor: CGFloat { get }`, `func setZoom(to level: ZoomLevel) async`, and `func setZoom(displayFactor: CGFloat) async`. The methods are `async`, because the model must await the actor. From this step, the project does not compile until both models have the four members. The checkpoint at the end of this section builds again.
+
+```swift file=AVCam/Model/Camera.swift highlight=4-5,7-8,10-11,13-14
+    /// A Boolean value that indicates whether the camera is currently switching video devices.
+    var isSwitchingVideoDevices: Bool { get }
+    
+    /// The zoom levels that the selected camera offers.
+    var zoomLevels: [ZoomLevel] { get }
+    
+    /// The zoom factor of the selected camera, as the value to show to a person.
+    var displayZoomFactor: CGFloat { get }
+    
+    /// Changes the zoom to the specified level with a smooth transition.
+    func setZoom(to level: ZoomLevel) async
+    
+    /// Changes the zoom to the specified display value immediately.
+    func setZoom(displayFactor: CGFloat) async
+    
+    /// Performs a one-time automatic focus and exposure operation.
+    func focusAndExpose(at point: CGPoint) async
+```
+
+### Step
+In `CameraModel.swift`, add the `zoomLevels` and `displayZoomFactor` properties below the `isSwitchingModes` property.
+
+The setters are private. Only the observation tasks of the model change these values. Write the same two declarations as in the capture service, without `@Published`: the class is `@Observable`.
+
+```swift file=AVCam/CameraModel.swift highlight=4-5,7-8
+    /// A Boolean value that indicates whether the app is currently switching capture modes.
+    private(set) var isSwitchingModes = false
+    
+    /// The zoom levels that the selected camera offers.
+    private(set) var zoomLevels = [ZoomLevel]()
+    
+    /// The zoom factor of the selected camera, as the value to show to a person.
+    private(set) var displayZoomFactor: CGFloat = 1.0
+    
+    /// A Boolean value that indicates whether to show visual feedback when capture begins.
+    private(set) var shouldFlashScreen = false
+```
+
+### Step
+Below `switchVideoDevices()`, add a mark and the two `setZoom` methods, which call the capture service.
+
+The methods do not change `displayZoomFactor`. The model waits for the value that the device reports. Thus the interface cannot show a value that the device did not accept. Both methods are `async`. Each has one line that awaits the method of the same name on `captureService`.
+
+```swift file=AVCam/CameraModel.swift highlight=8,10-13,15-18
+    /// Selects the next available video device for capture.
+    func switchVideoDevices() async {
+        isSwitchingVideoDevices = true
+        defer { isSwitchingVideoDevices = false }
+        await captureService.selectNextVideoDevice()
+    }
+    
+    // MARK: - Zoom
+    
+    /// Changes the zoom to the specified level with a smooth transition.
+    func setZoom(to level: ZoomLevel) async {
+        await captureService.setZoom(to: level)
+    }
+    
+    /// Changes the zoom to the specified display value immediately.
+    func setZoom(displayFactor: CGFloat) async {
+        await captureService.setZoom(displayFactor: displayFactor)
+    }
+    
+    // MARK: - Photo capture
+```
+
+### Step
+In `observeState()`, add two tasks that read the zoom levels and the zoom factor of the capture service, above the task for the interruption state.
+
+This is the pattern of the other states: the `values` property turns a publisher into an asynchronous sequence, and the task writes each value to a property of the model on the main actor. New levels arrive after each change of the camera or of the mode. A new zoom factor arrives each time the device changes its value.
+
+```swift file=AVCam/CameraModel.swift highlight=11-16,18-23
+        Task {
+            // Await updates to a person's interaction with the Camera Control HUD.
+            for await isShowingFullscreenControls in await captureService.$isShowingFullscreenControls.values {
+                withAnimation {
+                    // Prefer showing a minimized UI when capture controls enter a fullscreen appearance.
+                    prefersMinimizedUI = isShowingFullscreenControls
+                }
+            }
+        }
+        
+        Task {
+            // Await new zoom levels from the capture service, for example after a camera switch.
+            for await zoomLevels in await captureService.$zoomLevels.values {
+                self.zoomLevels = zoomLevels
+            }
+        }
+        
+        Task {
+            // Await updates to the zoom factor of the selected camera.
+            for await displayZoomFactor in await captureService.$displayZoomFactor.values {
+                self.displayZoomFactor = displayZoomFactor
+            }
+        }
+        
+        Task {
+            // Await updates to the interruption state of the capture service.
+```
+
+### Step
+In `PreviewCameraModel.swift`, add three example zoom levels and the `displayZoomFactor` property.
+
+A preview in the Xcode canvas has no camera. The example values are those of a triple camera with the levels 0.5, 1, and 3, so that the canvas can show a zoom control with three buttons. Write `let zoomLevels` with the device values 1.0, 2.0, and 6.0 and the display values 0.5, 1.0, and 3.0, in this order. A constant satisfies the `{ get }` requirement of the protocol. Then write `private(set) var displayZoomFactor: CGFloat = 1.0`.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=11-15
+@Observable
+class PreviewCameraModel: Camera {
+    
+    var isLivePhotoEnabled = true
+    var prefersMinimizedUI = false
+    var qualityPrioritization = QualityPrioritization.quality
+    var shouldFlashScreen = false
+    var isHDRVideoSupported = false
+    var isHDRVideoEnabled = false
+    
+    // Example zoom levels, so that SwiftUI previews show the zoom control.
+    let zoomLevels = [ZoomLevel(videoZoomFactor: 1.0, displayFactor: 0.5),
+                      ZoomLevel(videoZoomFactor: 2.0, displayFactor: 1.0),
+                      ZoomLevel(videoZoomFactor: 6.0, displayFactor: 3.0)]
+    private(set) var displayZoomFactor: CGFloat = 1.0
+    
+    struct PreviewSourceStub: PreviewSource {
+```
+
+### Step
+At the end of the class, add the two `setZoom` methods, which set the property directly.
+
+The preview model has no device that reports a value. It writes the new value itself, so that a tap in the canvas changes the selected level. Write the two methods without `async`. A synchronous method can satisfy an `async` requirement of a protocol, and the preview model has nothing to await.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-7,9-11
+    func syncState() async {
+        logger.debug("Syncing state isn't implemented in PreviewCamera.")
+    }
+    
+    func setZoom(to level: ZoomLevel) {
+        displayZoomFactor = level.displayFactor
+    }
+    
+    func setZoom(displayFactor: CGFloat) {
+        displayZoomFactor = displayFactor
+    }
+}
+```
+
+### Step
+Build the project to make sure that the two models conform to the protocol.
+
+No view reads the new properties yet.
+
+```settings title="Checkpoint"
+Action: Product > Build (Command-B)
+Result: The build succeeds with no errors.
+```
+
+## Build the zoom control
+
+The zoom control is a row of round buttons, one for each zoom level. The selected button is larger and yellow, and it shows the zoom factor of the device at this moment. That value can be between two levels, for example after a pinch.
+
+The new file needs one change in the Xcode interface. The capture extension from chapter 15 compiles `CameraUI.swift`, and that file uses the new view. So the new file must also belong to the extension target. Xcode writes this to the project file, `AVCam.xcodeproj/project.pbxproj`. You do not edit this file by hand, so no step shows it.
+
+### Step
+In the `Controls` group, create the Swift file `ZoomControl.swift`, and replace its contents with a view that has one button for each zoom level.
+
+The view is generic over the `Camera` protocol, as the other controls are: `struct ZoomControl<CameraModel: Camera>: View` with `@State var camera: CameraModel`. The file starts with the license comment and the abstract "A view that shows the zoom levels of the camera and changes the zoom.", and it imports SwiftUI. The body is an `HStack(spacing: 8)` with a `ForEach(camera.zoomLevels)`. `ZoomLevel` is `Identifiable`, so the `ForEach` needs no `id:` argument. Each level gets a `Button`. The action of the button starts a task, because `setZoom(to:)` is an asynchronous method: `Task { await camera.setZoom(to: level) }`. The label of the button is `label(for: level)`, a method that you write in the next steps.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift new
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A view that shows the zoom levels of the camera and changes the zoom.
+*/
+
+import SwiftUI
+
+/// A view that shows the zoom levels of the camera and changes the zoom.
+struct ZoomControl<CameraModel: Camera>: View {
+    
+    @State var camera: CameraModel
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(camera.zoomLevels) { level in
+                Button {
+                    Task {
+                        await camera.setZoom(to: level)
+                    }
+                } label: {
+                    label(for: level)
+                }
+            }
+        }
+    }
+}
+```
+
+### Note
+The project does not compile at this time, because the `label(for:)` method does not exist. You add it after the next step.
+
+### Step
+Below the `body` property, add the `selectedLevel` property, which finds the level of the current zoom factor.
+
+The selected level is the last level whose display value is not more than the current zoom factor. At 2.4x, with the levels 0.5, 1, and 3, the selected level is 1. The zoom factor is a floating-point number, and a calculation can make it a little smaller than the value of a level. The tolerance of 0.01 prevents that the control then selects the level before. Write `private var selectedLevel: ZoomLevel?`. The body is one expression: `camera.zoomLevels.last { … } ?? camera.zoomLevels.first`. The `last` method with a closure returns the last level that meets the condition, and the `??` operator falls back to the first level.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=19-23
+struct ZoomControl<CameraModel: Camera>: View {
+    
+    @State var camera: CameraModel
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(camera.zoomLevels) { level in
+                Button {
+                    Task {
+                        await camera.setZoom(to: level)
+                    }
+                } label: {
+                    label(for: level)
+                }
+            }
+        }
+    }
+    
+    /// The level that contains the current zoom factor.
+    private var selectedLevel: ZoomLevel? {
+        // A small tolerance prevents a wrong selection because of rounding.
+        camera.zoomLevels.last { $0.displayFactor <= camera.displayZoomFactor + 0.01 } ?? camera.zoomLevels.first
+    }
+}
+```
+
+### Step
+Below `selectedLevel`, add the `label(for:)` method, which makes the text of one button.
+
+The selected button shows the current zoom factor and a multiplication sign, for example "2.4×". Each other button shows the value of its level. So one row of buttons shows the levels and the exact zoom at the same time. Write `@ViewBuilder private func label(for level: ZoomLevel) -> some View`. The attribute is necessary, because the method starts with the constant `let isSelected = level == selectedLevel` before the `Text`. The sign is the multiplication sign × (Unicode U+00D7), not the letter x. The text of the selected button is `"\(ZoomLevel.label(for: camera.displayZoomFactor))×"`. The text of each other button is `level.label`.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=7-12
+    /// The level that contains the current zoom factor.
+    private var selectedLevel: ZoomLevel? {
+        // A small tolerance prevents a wrong selection because of rounding.
+        camera.zoomLevels.last { $0.displayFactor <= camera.displayZoomFactor + 0.01 } ?? camera.zoomLevels.first
+    }
+    
+    @ViewBuilder
+    private func label(for level: ZoomLevel) -> some View {
+        let isSelected = level == selectedLevel
+        // The selected level shows the current zoom factor, which can be between two levels.
+        Text(isSelected ? "\(ZoomLevel.label(for: camera.displayZoomFactor))×" : level.label)
+    }
+}
+```
+
+### Step
+Give the text its font, its color, and a round background.
+
+The selected button is larger and yellow, so a person finds it immediately. `monospacedDigit()` gives all digits the same width. Without it, the text moves a little to the left and to the right while the number changes during a ramp or a pinch. The five modifiers, in this order: `.font(.system(size: isSelected ? 13 : 11, weight: .semibold))`, `.monospacedDigit()`, `.foregroundStyle(isSelected ? .yellow : .white)`, `.frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)`, and `.background(.black.opacity(0.5), in: Circle())`.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=2-6
+        Text(isSelected ? "\(ZoomLevel.label(for: camera.displayZoomFactor))×" : level.label)
+            .font(.system(size: isSelected ? 13 : 11, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(isSelected ? .yellow : .white)
+            .frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)
+            .background(.black.opacity(0.5), in: Circle())
+    }
+}
+```
+
+### Step
+In the `body` property, give the row of buttons a padding, a background in the shape of a capsule, and an animation.
+
+The dark background keeps the buttons readable above a bright preview. The animation runs only when `selectedLevel` changes. So the buttons change their size smoothly, but a change of the number in the selected button has no animation. Write `.padding(4)`, `.background(.black.opacity(0.25), in: Capsule())`, and `.animation(.easeInOut(duration: 0.2), value: selectedLevel)` after the closing brace of the `HStack`.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=12-14
+        HStack(spacing: 8) {
+            ForEach(camera.zoomLevels) { level in
+                Button {
+                    Task {
+                        await camera.setZoom(to: level)
+                    }
+                } label: {
+                    label(for: level)
+                }
+            }
+        }
+        .padding(4)
+        .background(.black.opacity(0.25), in: Capsule())
+        .animation(.easeInOut(duration: 0.2), value: selectedLevel)
+    }
+```
+
+### Step
+Below the animation, add three modifiers that hide the control when it has no use.
+
+Each modifier has its own reason. A camera with one level cannot zoom, so it gets no control. During the fullscreen appearance of the Camera Control overlay, the system can show its own zoom slider, and an app must not show the same control two times. And as each other control since chapter 12, the zoom control stays hidden until the session runs. The view stays in the layout in all three cases, so no other view moves. The first two are opacity modifiers: `.opacity(camera.zoomLevels.count > 1 ? 1 : 0)` and `.opacity(camera.prefersMinimizedUI ? 0 : 1)`. The third is the custom modifier from chapter 12: `.hidden(until: camera.status == .running)`.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=4-9
+        .padding(4)
+        .background(.black.opacity(0.25), in: Capsule())
+        .animation(.easeInOut(duration: 0.2), value: selectedLevel)
+        // A camera with one zoom level needs no control.
+        .opacity(camera.zoomLevels.count > 1 ? 1 : 0)
+        // Hide the zoom control when a person interacts with capture controls.
+        .opacity(camera.prefersMinimizedUI ? 0 : 1)
+        // Hide it until the capture session runs, using a custom modifier.
+        .hidden(until: camera.status == .running)
+    }
+```
+
+### Step
+At the end of the file, add a preview that uses the preview model in the running state.
+
+The status must be `.running`. With the default status of the preview model, the `hidden(until:)` modifier keeps the control hidden, and the canvas shows only the gray background. Write `ZoomControl(camera: PreviewCameraModel(status: .running))` with `.padding()` and `.background(.gray)`.
+
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=6-10 result="../images/ch16-s5-7.jpg|The zoom control with the three example levels of the preview model: three buttons in a capsule, the selected level in yellow with a multiplication sign. The picture comes from a temporary build in the Simulator, not from the canvas. The region of the Simulator uses a comma, so the first button shows 0,5."
+            .frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)
+            .background(.black.opacity(0.5), in: Circle())
+    }
+}
+
+#Preview {
+    ZoomControl(camera: PreviewCameraModel(status: .running))
+        .padding()
+        .background(.gray)
+}
+```
+
+### Step
+In the project navigator, select `ZoomControl.swift`. In the File inspector, add the file to the capture extension target.
+
+A new file in the `AVCam` group belongs only to the app target. The capture extension compiles `CameraUI.swift`, and in the next step that file uses `ZoomControl`. Without this membership, the build of the extension fails with the message that `ZoomControl` is not in scope.
+
+> [!TIP]
+> Open the File inspector with View › Inspectors › File. If your result is different, you can take the project file from the branch: `git checkout chapter-16 -- AVCam.xcodeproj/project.pbxproj`.
+
+```settings title="File inspector › Target Membership"
+Views/Controls/ZoomControl.swift: AVCam, AVCamCaptureExtension
+```
+
+### Step
+In `CameraUI.swift`, add the zoom control to the compact layout and to the regular layout, above the capture mode picker.
+
+In the compact layout, the control is between the spacer and the mode picker, with a distance of 12 points to the picker. In the regular layout, it is above the toolbar. This is the position where people expect the zoom levels: near the capture button, and reachable with the thumb.
+
+```swift file=AVCam/Views/CameraUI.swift highlight=7-8,20
+    /// This view arranges UI elements vertically.
+    @ViewBuilder
+    var compactUI: some View {
+        VStack(spacing: 0) {
+            FeaturesToolbar(camera: camera)
+            Spacer()
+            ZoomControl(camera: camera)
+                .padding(.bottom, 12)
+            CaptureModeView(camera: camera, direction: $swipeDirection)
+            MainToolbar(camera: camera)
+                .padding(.bottom, bottomPadding)
+        }
+    }
+    
+    /// This view arranges UI elements in a layered stack.
+    @ViewBuilder
+    var regularUI: some View {
+        VStack {
+            Spacer()
+            ZoomControl(camera: camera)
+            ZStack {
+```
+
+### Step
+Build and run the app. Then open `ZoomControl.swift`, and look at its preview in the Xcode canvas.
+
+In the Simulator, the camera has one zoom level, so the zoom control is not visible and the interface is the same as before. The canvas uses `PreviewCameraModel` and its three example levels. Nobody opened the canvas for this tutorial. The view was checked in a temporary build of the app that used `PreviewCameraModel`: there, the three buttons were above the mode picker, and a tap selected a level.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R)
+Result in the Simulator: The app shows the live preview and its controls, with no zoom control.
+Action: Open ZoomControl.swift, then Editor > Canvas
+Expected result in the canvas: Three round buttons, "0.5", "1×", and "3". The middle button is larger and yellow. A tap on a button selects it.
+```
+
+### Note
+The decimal separator follows the language and region of the device. With a region that uses a comma, the first button shows "0,5".
+
+## Add the pinch gesture
+
+A tap selects one of the levels. A pinch with two fingers gives each value between them. In this section, you add the gesture to the preview.
+
+A pinch gesture reports a magnification: a factor relative to the distance of the fingers at the start of the gesture. So the app must remember the zoom factor at the start of the gesture, and multiply it by the magnification.
+
+### Step
+In `CameraView.swift`, add the `pinchStartFactor` state below the `swipeDirection` state.
+
+The value is `nil` when no pinch is in progress. Write `@State private var pinchStartFactor: CGFloat?`.
 
 ```swift file=AVCam/CameraView.swift highlight=4-5
     // The direction a person swipes on the camera preview or mode selector.
     @State var swipeDirection = SwipeDirection.left
     
-    // The difference between the safe area insets at the two sides of the screen.
-    @State private var sideInsetDifference = CGFloat.zero
-    
     // The zoom factor at the start of a pinch gesture.
     @State private var pinchStartFactor: CGFloat?
+
+    var body: some View {
 ```
 
 ### Step
-After the closing brace of the `ZStack`, add an `onGeometryChange` modifier that calculates the difference of the two side insets and stores it.
+Above the `swipeGesture` property, add the `pinchGesture` property with a `MagnifyGesture` that sets the zoom on each change.
 
-The modifier is `.onGeometryChange(for: CGFloat.self) { proxy in … } action: { difference in … }`. The first closure gets a `GeometryProxy`. It reads `proxy.safeAreaInsets.leading` and `proxy.safeAreaInsets.trailing`, takes the difference with `abs`, and calls `rounded()` on the result. The first closure returns one value. SwiftUI calls the second closure, with the label `action:`, only when that value changes. The second closure writes its parameter to `sideInsetDifference`. The call to `rounded()` is necessary: an inset can change by a very small amount from one layout pass to the next. Without it, each small change writes the state, and each write starts a new layout pass.
+At the first change of a gesture, `pinchStartFactor` is `nil`, and the code stores the current zoom factor of the camera. At each later change, it uses the stored value. The new zoom is the start value multiplied by the magnification. Each change starts a task of its own, which is simple but has a limit: two values can arrive at the capture service in the wrong order.
 
-```swift file=AVCam/CameraView.swift highlight=4-10
+Write `var pinchGesture: some Gesture`, as `swipeGesture`. [`MagnifyGesture`](https://developer.apple.com/documentation/swiftui/magnifygesture) reports its value in the `onChanged` closure, and `value.magnification` is the factor. Store the start value in a constant `startFactor`, write it back to `pinchStartFactor`, and start the task with `camera.setZoom(displayFactor: startFactor * value.magnification)`.
+
+```swift file=AVCam/CameraView.swift highlight=6-14
             // The main camera user interface.
             CameraUI(camera: camera, swipeDirection: $swipeDirection)
         }
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            // Round the value. A layout pass can change an inset by a very small amount, and
-            // a new value starts a new layout pass.
-            abs(proxy.safeAreaInsets.trailing - proxy.safeAreaInsets.leading).rounded()
-        } action: { difference in
-            sideInsetDifference = difference
-        }
+    }
+
+    var pinchGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                // Keep the zoom factor from the start of the gesture, and scale it by the gesture's value.
+                let startFactor = pinchStartFactor ?? camera.displayZoomFactor
+                pinchStartFactor = startFactor
+                Task { await camera.setZoom(displayFactor: startFactor * value.magnification) }
+            }
+    }
+    
+    var swipeGesture: some Gesture {
+```
+
+### Step
+Clear the stored zoom factor when the gesture ends.
+
+The next pinch then starts from the zoom factor that the camera has at that time. That value can be different from the end of this gesture, for example after a tap on a zoom level or a slide on the Camera Control. Add `.onEnded { _ in pinchStartFactor = nil }` after the `onChanged` closure.
+
+```swift file=AVCam/CameraView.swift highlight=7-9
+            .onChanged { value in
+                // Keep the zoom factor from the start of the gesture, and scale it by the gesture's value.
+                let startFactor = pinchStartFactor ?? camera.displayZoomFactor
+                pinchStartFactor = startFactor
+                Task { await camera.setZoom(displayFactor: startFactor * value.magnification) }
+            }
+            .onEnded { _ in
+                pinchStartFactor = nil
+            }
     }
 ```
 
-### Note
-The first version of this code had no `rounded()` call. It worked in the Duo simulator. In the iPhone 18 Pro simulator, the app did not respond after its launch, because the layout never became stable. When you write state from a geometry measurement, make sure that small changes of the value do not start a new layout pass.
-
 ### Step
-Above the `onGeometryChange` modifier, add an `ignoresSafeArea` modifier for the horizontal edges of the container.
+In the `body` property, add the pinch gesture to the camera preview, below the swipe gesture.
 
-Write `.ignoresSafeArea(.container, edges: .horizontal)`. The first argument is the region. `.container` is the safe area of the display, without the keyboard. The interface can now use the full width of the display, with the status area. The modifier names only the horizontal edges, so the insets at the top and at the bottom stay in effect.
+`simultaneousGesture` lets the preview keep its other gestures. The tap for focus and the swipe for the capture mode continue to work.
 
-```swift file=AVCam/CameraView.swift highlight=4
-            // The main camera user interface.
-            CameraUI(camera: camera, swipeDirection: $swipeDirection)
-        }
-        .ignoresSafeArea(.container, edges: .horizontal)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            // Round the value. A layout pass can change an inset by a very small amount, and
-            // a new value starts a new layout pass.
-            abs(proxy.safeAreaInsets.trailing - proxy.safeAreaInsets.leading).rounded()
-        } action: { difference in
-            sideInsetDifference = difference
-        }
-    }
+```swift file=AVCam/CameraView.swift highlight=7-8
+                    // Focus and expose at the tapped point.
+                    .onTapGesture { location in
+                        Task { await camera.focusAndExpose(at: location) }
+                    }
+                    // Switch between capture modes by swiping left and right.
+                    .simultaneousGesture(swipeGesture)
+                    // Zoom in and out with two fingers.
+                    .simultaneousGesture(pinchGesture)
 ```
 
 ### Step
-Above the `ignoresSafeArea` modifier, add a comment and a `padding` modifier that gives each side half of the difference.
+Build and run the app to make sure that the preview and its gestures work as before.
 
-Write `.padding(.horizontal, sideInsetDifference / 2)`. The `padding` modifier is nearer to the `ZStack` than `ignoresSafeArea`, so it adds the space inside the full width. On the Duo display, the difference is 84 points, so each side gets 42 points. The interface keeps the width that it had in the safe area, but it is now in the center. On an iPhone with equal side insets, the difference is 0, and the layout does not change.
-
-```swift file=AVCam/CameraView.swift highlight=4-7
-            // The main camera user interface.
-            CameraUI(camera: camera, swipeDirection: $swipeDirection)
-        }
-        // iPhone Duo shows its status items in an area at one side of the display. The safe area
-        // leaves that area out, so the interface isn't in the center of the display. Use the full
-        // width, and give both sides the same space.
-        .padding(.horizontal, sideInsetDifference / 2)
-        .ignoresSafeArea(.container, edges: .horizontal)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-```
-
-### Step
-Build and run the app in the iPhone Duo simulator. Make sure that the preview and the controls are in the center of the display.
-
-In the test for this tutorial, the two side margins were 126 and 128 pixels on a display that is 1398 pixels wide. That is approximately 42 points at each side. In the iPhone 18 Pro simulator, the layout was the same as before.
+In the Simulator, a pinch has no visible effect, because `setVideoZoomFactor(_:on:animated:)` returns for a camera that cannot zoom. To make a pinch in the Simulator, hold the Option key and drag on the preview.
 
 ```settings title="Checkpoint"
-Destination: the iPhone Duo simulator (iOS 27.1), with SimCam in operation
 Action: Product > Run (Command-R)
-Result: The preview and the controls are in the center of the display, with the same black space at the two sides.
+Result: The app shows the live preview and all its controls, as before.
 ```
-
-## Describe the camera directions
-
-The remaining sections are about the direction that each camera faces. The system reports the directions with classes that need iOS 27.1. The app supports iOS 26.0, so most of its code must not use these classes.
-
-In this section, you add a small value type that describes the directions with strings only. You also teach the device lookup two things: the list of camera types that the app uses, and how to find the best camera for a list of identifiers.
-
-### Step
-In `DataTypes.swift`, add the `CameraDirections` structure below the `CaptureCapabilities` structure.
-
-Write `struct CameraDirections: Sendable, Equatable` with two constants: `let forwardFacing: [String]` and `let backwardFacing: [String]`. Each array holds the unique identifiers of cameras. A string array is `Sendable`, so the value can go from the main actor to the capture actor. `Equatable` lets code compare two reports. The type uses no new API, so the protocol and the model need no availability marks.
-
-```swift file=AVCam/Model/DataTypes.swift highlight=4-13
-    static let unknown = CaptureCapabilities()
-}
-
-/// The cameras of the device, grouped by the direction that they face in relation to the camera preview.
-///
-/// On a device with one display, the front camera always faces the person and the back cameras
-/// always face the scene. On iPhone Duo, the direction of a camera changes when a person opens or closes the device.
-struct CameraDirections: Sendable, Equatable {
-    /// The unique identifiers of the cameras that face the person who looks at the preview.
-    let forwardFacing: [String]
-    /// The unique identifiers of the cameras that face the scene behind the preview.
-    let backwardFacing: [String]
-}
-
-/// A zoom level that the camera interface offers, such as 0.5x, 1x, or 2x.
-struct ZoomLevel: Identifiable, Hashable {
-```
-
-### Step
-In `DeviceLookup.swift`, add the static `builtInCameraTypes` property below the initializer. It returns the camera types of the discovery sessions.
-
-The direction coordinator reports only the camera types that you give it. The list has the back cameras too, because on iPhone Duo a back camera can face the person. The order is the order of preference: a virtual device with more lenses comes first.
-
-Write `static var builtInCameraTypes: [AVCaptureDevice.DeviceType]` as a computed property. Inside, declare `var types: [AVCaptureDevice.DeviceType]` with the five types `.builtInTripleCamera`, `.builtInDualWideCamera`, `.builtInDualCamera`, `.builtInWideAngleCamera`, and `.builtInTrueDepthCamera`, and return it. Write the list on two lines, as the solution shows, so that your file equals the branch. The list is `var`, not `let`, because the next step appends to it. Until then, Xcode warns that `types` is never changed.
-
-```swift file=AVCam/Capture/DeviceLookup.swift highlight=7-12
-        // If the host doesn't currently define a system-preferred camera device, set the user's preferred selection to the back camera.
-        if AVCaptureDevice.systemPreferredCamera == nil {
-            AVCaptureDevice.userPreferredCamera = backCameraDiscoverySession.devices.first
-        }
-    }
-    
-    /// The built-in camera types that the app captures from, in the order of preference.
-    static var builtInCameraTypes: [AVCaptureDevice.DeviceType] {
-        var types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
-                                                   .builtInWideAngleCamera, .builtInTrueDepthCamera]
-        return types
-    }
-    
-    /// Returns the system-preferred camera for the host system.
-    var defaultCamera: AVCaptureDevice {
-```
-
-### Step
-Before the `return` statement, add the two physical front camera types of iPhone Duo behind an availability check.
-
-[`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) and [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera) need iOS 27.1, so the compiler demands the `#available` check. The coordinator never reports the virtual front camera. Apple tells you to list these two types in its place. Append them with `types += [...]`.
-
-```swift file=AVCam/Capture/DeviceLookup.swift highlight=5-8
-    /// The built-in camera types that the app captures from, in the order of preference.
-    static var builtInCameraTypes: [AVCaptureDevice.DeviceType] {
-        var types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera,
-                                                   .builtInWideAngleCamera, .builtInTrueDepthCamera]
-        // iPhone Duo has a physical front camera above each of its two displays.
-        if #available(iOS 27.1, *) {
-            types += [.builtInOuterUltraWideCamera, .builtInInnerUltraWideCamera]
-        }
-        return types
-    }
-```
-
-### Step
-Below the property, add the `camera(withUniqueIDIn:)` method. First, it creates a device for each identifier.
-
-Write `func camera(withUniqueIDIn identifiers: [String]) -> AVCaptureDevice?`. It is an instance method, not `static`, and it is not `private`, because the capture service calls it. Store the devices in a constant `devices`. `AVCaptureDevice(uniqueID:)` returns `nil` when no camera has the identifier. That can occur, because the set of cameras can change at each moment. `compactMap` drops these results, so the code never force-unwraps a device. The method has no `return` statement yet. You add it in the next step. Until then, the project does not compile, because the method returns nothing.
-
-```swift file=AVCam/Capture/DeviceLookup.swift highlight=4-8
-        return types
-    }
-    
-    /// Returns the preferred camera from a list of unique identifiers.
-    func camera(withUniqueIDIn identifiers: [String]) -> AVCaptureDevice? {
-        // A camera can go away at any time, so an identifier can be without a device.
-        let devices = identifiers.compactMap { AVCaptureDevice(uniqueID: $0) }
-    }
-    
-    /// Returns the system-preferred camera for the host system.
-```
-
-### Step
-Return the device with the type that comes first in the `builtInCameraTypes` list.
-
-First, read the list into a constant: `let types = DeviceLookup.builtInCameraTypes`. An instance method must name the type to read a static property. `min` with a closure returns the smallest element by your rule. The rule compares `types.firstIndex(of: $0.deviceType)` with the same value for `$1`. A type that is not in the list gets `types.endIndex`, so it comes last. For an empty array, `min` returns `nil`.
-
-```swift file=AVCam/Capture/DeviceLookup.swift highlight=5-9
-    /// Returns the preferred camera from a list of unique identifiers.
-    func camera(withUniqueIDIn identifiers: [String]) -> AVCaptureDevice? {
-        // A camera can go away at any time, so an identifier can be without a device.
-        let devices = identifiers.compactMap { AVCaptureDevice(uniqueID: $0) }
-        let types = DeviceLookup.builtInCameraTypes
-        // Select the device with the type that comes first in the order of preference.
-        return devices.min {
-            (types.firstIndex(of: $0.deviceType) ?? types.endIndex) < (types.firstIndex(of: $1.deviceType) ?? types.endIndex)
-        }
-    }
-```
-
-### Step
-Build the project with Command-B to make sure that the new code has no errors.
-
-Nothing uses the new type and the new lookup code yet. The app behaves as it did at the end of the first section.
-
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds.
-```
-
-## Observe the directions in the preview view
-
-An [`AVCaptureDeviceDirectionCoordinator`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator) reports the directions in relation to one view. In this app, that view is `PreviewView`, the UIKit view that shows the preview layer. In this section, the view creates the coordinator, changes each report into a `CameraDirections` value, and gives the value to a closure.
-
-The coordinator must live on the main actor, and `PreviewView` is a `UIView`, so this is the correct place for it.
-
-![The path of a direction report. The coordinator in the preview view makes a map on the main actor. The app keeps only the identifiers. The capture service creates the device on the capture actor.](../images/ch16-direction-flow.svg)
-
-### Step
-In `CameraPreview.swift`, import the AVKit framework below the AVFoundation import.
-
-The direction coordinator, its map, and its descriptor are classes of AVKit, not of AVFoundation.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=3
-import SwiftUI
-@preconcurrency import AVFoundation
-import AVKit
-
-struct CameraPreview: UIViewRepresentable {
-```
-
-### Step
-In the `PreviewView` class, add the `directionCoordinator` property below the `previewLayer` property.
-
-You must hold a strong reference to the coordinator while the view is on the screen. The type is `AnyObject`, because the type of a stored property must exist on each system that the app supports, and the coordinator class does not exist before iOS 27.1. The app only keeps the object alive, so it needs no more than `AnyObject`. Write `private var directionCoordinator: AnyObject?`.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=5-7
-        var previewLayer: AVCaptureVideoPreviewLayer {
-            layer as! AVCaptureVideoPreviewLayer
-        }
-        
-        // An object that reports the direction that each camera faces in relation to this view.
-        // The type of the property is `AnyObject`, because the coordinator class needs iOS 27.1.
-        private var directionCoordinator: AnyObject?
-        
-        nonisolated func setSession(_ session: AVCaptureSession) {
-```
-
-### Step
-Below the property, add the `observeCameraDirections(with:)` method. It returns at once on a system that is older than iOS 27.1.
-
-Write `func observeCameraDirections(with handler: @escaping @MainActor (CameraDirections) -> Void)`. The closure is `@escaping`, because the coordinator keeps it and calls it later. It is `@MainActor`, because it runs on the main actor and changes state there. The body starts with `guard #available(iOS 27.1, *) else { return }`. After the `guard` statement, the compiler knows that the code runs on iOS 27.1 or later, and lets you use the new classes. On an older system, the handler never runs, and the app continues to use the position of a camera.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=5-9
-        // An object that reports the direction that each camera faces in relation to this view.
-        // The type of the property is `AnyObject`, because the coordinator class needs iOS 27.1.
-        private var directionCoordinator: AnyObject?
-        
-        /// Starts to observe the directions that the cameras face, and reports each change to the handler.
-        func observeCameraDirections(with handler: @escaping @MainActor (CameraDirections) -> Void) {
-            // Earlier systems don't have the coordinator. On those systems, the app uses the position of a camera.
-            guard #available(iOS 27.1, *) else { return }
-        }
-        
-        nonisolated func setSession(_ session: AVCaptureSession) {
-```
-
-### Step
-Create the coordinator with the view, the list of camera types, and a change handler with an empty body. Store it in the property.
-
-[`init(view:deviceTypes:changeHandler:)`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator/init(view:devicetypes:changehandler:)) takes the view as the frame of reference: "forward" means "the same way as this view". Write `directionCoordinator = AVCaptureDeviceDirectionCoordinator(view: self, deviceTypes: DeviceLookup.builtInCameraTypes) { directionMap in }`. The coordinator calls the handler a short time after its creation, so the app gets the directions at the start with no additional code.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=5-7
-        /// Starts to observe the directions that the cameras face, and reports each change to the handler.
-        func observeCameraDirections(with handler: @escaping @MainActor (CameraDirections) -> Void) {
-            // Earlier systems don't have the coordinator. On those systems, the app uses the position of a camera.
-            guard #available(iOS 27.1, *) else { return }
-            directionCoordinator = AVCaptureDeviceDirectionCoordinator(view: self, deviceTypes: DeviceLookup.builtInCameraTypes) { directionMap in
-                // The coordinator calls this handler on the main actor, soon after its creation and after each change.
-            }
-        }
-```
-
-### Step
-In the change handler, make a `CameraDirections` value from the two descriptor arrays of the map, and give it to the handler of the caller.
-
-An [`AVCaptureDeviceDirectionMap`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectionmap) has an array of [`AVCaptureDeviceDescriptor`](https://developer.apple.com/documentation/avkit/avcapturedevicedescriptor) objects for each direction: `forwardFacingDeviceDescriptors` and `backwardFacingDeviceDescriptors`. The code keeps only the `uniqueID` of each descriptor: `.map(\.uniqueID)` turns each array into `[String]`. Store the `CameraDirections` value in a constant `directions`. The SDK header says that the handler runs on the main queue, but the closure type does not tell the compiler. [`MainActor.assumeIsolated`](https://developer.apple.com/documentation/swift/mainactor/assumeisolated(_:file:line:)) states this fact, so that the code can call a main-actor closure with no `await`.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=3-8
-            directionCoordinator = AVCaptureDeviceDirectionCoordinator(view: self, deviceTypes: DeviceLookup.builtInCameraTypes) { directionMap in
-                // The coordinator calls this handler on the main actor, soon after its creation and after each change.
-                // A descriptor identifies a camera. Keep only the identifiers, which are safe to pass to the capture actor.
-                let directions = CameraDirections(forwardFacing: directionMap.forwardFacingDeviceDescriptors.map(\.uniqueID),
-                                                  backwardFacing: directionMap.backwardFacingDeviceDescriptors.map(\.uniqueID))
-                MainActor.assumeIsolated {
-                    handler(directions)
-                }
-            }
-        }
-```
-
-### Step
-At the top of the `CameraPreview` structure, add the `directionsHandler` property, and give the initializer a second parameter that sets it.
-
-Write `private let directionsHandler: @MainActor (CameraDirections) -> Void`. The initializer becomes `init(source: PreviewSource, onDirectionsChange directionsHandler: @escaping @MainActor (CameraDirections) -> Void = { _ in })`, and its body assigns `self.directionsHandler = directionsHandler`. The parameter has a default value, a closure that does nothing. Thus the existing call in `CameraView` continues to compile, and a SwiftUI preview needs no handler.
-
-```swift file=AVCam/Views/CameraPreview.swift remove
-    init(source: PreviewSource) {
-```
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=5-6,8,10
-struct CameraPreview: UIViewRepresentable {
-    
-    private let source: PreviewSource
-    
-    // A closure to call when the directions that the cameras face change.
-    private let directionsHandler: @MainActor (CameraDirections) -> Void
-    
-    init(source: PreviewSource, onDirectionsChange directionsHandler: @escaping @MainActor (CameraDirections) -> Void = { _ in }) {
-        self.source = source
-        self.directionsHandler = directionsHandler
-    }
-```
-
-### Step
-In `makeUIView(context:)`, start the observation after the source connects the preview.
-
-SwiftUI calls `makeUIView(context:)` one time for each preview view. So each preview view gets one coordinator, and the coordinator lives as long as the view.
-
-```swift file=AVCam/Views/CameraPreview.swift highlight=5-6
-    func makeUIView(context: Context) -> PreviewView {
-        let preview = PreviewView()
-        // Connect the preview layer to the capture session.
-        source.connect(to: preview)
-        // Report the directions that the cameras face in relation to the preview.
-        preview.observeCameraDirections(with: directionsHandler)
-        return preview
-    }
-```
-
-### Step
-Build the project with Command-B to make sure that the preview code has no errors.
-
-On iOS 27.1, the coordinator now runs and calls its handler. The handler of `CameraView` is still the default closure, so nothing receives the directions.
-
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds.
-```
-
-## Follow the direction in the capture service
-
-The capture service owns the session, so it is the place that changes the camera. In this section, the service stores the directions and the direction that the person selected. When new directions arrive, it examines the selected camera. If that camera no longer faces the selected direction, the service changes to a camera that does.
-
-### Step
-In `CaptureService.swift`, add the `cameraDirections` and `isForwardFacingCameraSelected` properties below the `deviceLookup` property.
-
-`cameraDirections` is optional: it stays `nil` on a system with no coordinator. `isForwardFacingCameraSelected` keeps what the person wants: a camera that looks at them, or a camera that looks at the scene. The service needs this value later, when the camera that the person selected turns away. Write `private var cameraDirections: CameraDirections?` and `private var isForwardFacingCameraSelected = false`.
-
-```swift file=AVCam/CaptureService.swift highlight=4-5,7-8
-    // An object the service uses to retrieve capture devices.
-    private let deviceLookup = DeviceLookup()
-    
-    // The directions that the cameras face in relation to the preview, if the system reports them.
-    private var cameraDirections: CameraDirections?
-    
-    // A Boolean value that indicates whether the person selected a camera that faces them.
-    private var isForwardFacingCameraSelected = false
-    
-    // An object that monitors the state of the system-preferred camera.
-    private let systemPreferredCamera = SystemPreferredCameraObserver()
-```
-
-### Step
-Below the `changeCaptureDevice(to:)` method, add a mark and the `setCameraDirections(_:)` method. It stores the directions, and applies them only after the setup.
-
-In the simulator, the first report arrived before the setup of the session was complete. At that time the session has no camera, and `currentDevice` stops the app with a fatal error. So the method only stores the value before the setup. Write `func setCameraDirections(_ directions: CameraDirections)` without `private`, because the camera model calls it. The body stores the value, returns with `guard isSetUp else { return }`, and calls `applyCameraDirections()`. That method does not exist yet. You add it two steps later. Until then, the project does not compile.
-
-```swift file=AVCam/CaptureService.swift highlight=7,9-18
-        } catch {
-            // Reconnect the existing camera on failure.
-            captureSession.addInput(currentInput)
-        }
-    }
-    
-    // MARK: - Camera directions
-    
-    /// Stores the directions that the cameras face in relation to the preview.
-    ///
-    /// The app calls this method when the preview view reports new directions, for
-    /// example after a person opens or closes iPhone Duo.
-    func setCameraDirections(_ directions: CameraDirections) {
-        cameraDirections = directions
-        // Before the setup, the session has no camera. The setup applies the directions later.
-        guard isSetUp else { return }
-        applyCameraDirections()
-    }
-    
-    /// Monitors changes to the system's preferred camera selection.
-```
-
-### Step
-Below that method, add the `updateSelectedDirection(for:)` method. It stores the direction of one camera as the direction that the person selected.
-
-Write `private func updateSelectedDirection(for device: AVCaptureDevice)`. One line does the work. `cameraDirections?.forwardFacing.contains(device.uniqueID)` gives an optional `Bool`: with directions from the system, the forward-facing array decides. `?? (device.position == .front)` supplies the value with no directions: then the position of the camera decides, as on each earlier iPhone. Two places need this calculation, so it is a method of its own.
-
-```swift file=AVCam/CaptureService.swift highlight=4-8
-        applyCameraDirections()
-    }
-    
-    /// Stores the direction that the specified camera faces as the direction that the person selected.
-    private func updateSelectedDirection(for device: AVCaptureDevice) {
-        // Without a report from the system, use the position of the camera.
-        isForwardFacingCameraSelected = cameraDirections?.forwardFacing.contains(device.uniqueID) ?? (device.position == .front)
-    }
-    
-    /// Monitors changes to the system's preferred camera selection.
-```
-
-### Step
-Below that method, add the `applyCameraDirections()` method. It continues only when the selected camera is in one of the two arrays.
-
-The coordinator reports no direction for an external camera. It also leaves out the virtual front camera, which the system moves by itself. For these cameras, the service must not change the selection, so the method returns. Write `private func applyCameraDirections()`. Unwrap the property into a constant `directions` with `guard let`, store `currentDevice.uniqueID` in a constant `selectedID`, and return unless one of the two arrays contains it. The project compiles again after this step.
-
-```swift file=AVCam/CaptureService.swift highlight=4-11
-        isForwardFacingCameraSelected = cameraDirections?.forwardFacing.contains(device.uniqueID) ?? (device.position == .front)
-    }
-    
-    /// Changes the camera if the selected one no longer faces the selected direction.
-    private func applyCameraDirections() {
-        guard let directions = cameraDirections else { return }
-        let selectedID = currentDevice.uniqueID
-        // Only follow the cameras that the system reports a direction for. It reports no direction
-        // for an external camera, or for the virtual front camera, which the system moves by itself.
-        guard directions.forwardFacing.contains(selectedID) || directions.backwardFacing.contains(selectedID) else { return }
-    }
-    
-    /// Monitors changes to the system's preferred camera selection.
-```
-
-### Step
-Get the cameras that face the selected direction. If the selected camera is not one of them, change to the best camera of that list.
-
-Store the array in a constant `candidates` with the conditional operator. The `if` statement combines two conditions: `!candidates.contains(selectedID)` and `let device = deviceLookup.camera(withUniqueIDIn: candidates)`. Inside, write the log message with `logger.debug`, and change the camera. This is the rule of the Apple article: keep the selected camera while it faces the correct way, and replace it when it does not. The replacement uses `changeCaptureDevice(to:)` from chapter 2, so it also gets new capture controls, new zoom levels, and a new rotation coordinator. When the list has no usable camera, the lookup returns `nil`, and the selection stays.
-
-```swift file=AVCam/CaptureService.swift highlight=9-14
-    /// Changes the camera if the selected one no longer faces the selected direction.
-    private func applyCameraDirections() {
-        guard let directions = cameraDirections else { return }
-        let selectedID = currentDevice.uniqueID
-        // Only follow the cameras that the system reports a direction for. It reports no direction
-        // for an external camera, or for the virtual front camera, which the system moves by itself.
-        guard directions.forwardFacing.contains(selectedID) || directions.backwardFacing.contains(selectedID) else { return }
-        
-        // The cameras that face the direction that the person selected.
-        let candidates = isForwardFacingCameraSelected ? directions.forwardFacing : directions.backwardFacing
-        if !candidates.contains(selectedID), let device = deviceLookup.camera(withUniqueIDIn: candidates) {
-            logger.debug("Switching camera selection, because the selected camera changed its direction.")
-            changeCaptureDevice(to: device)
-        }
-    }
-```
-
-### Step
-At the end of the `do` block in `setUpSession()`, store the direction of the start camera, and apply the directions that arrived earlier.
-
-The start camera is the `defaultCamera` constant of the method. It is the system-preferred camera, and that can be a front camera. The selected direction starts as "backward". Without the first call, the second call sees a front camera that faces the wrong way, and replaces it with a back camera at each launch. Without the second call, an early report stays in the property, and nothing uses it until the next change of direction.
-
-```swift file=AVCam/CaptureService.swift highlight=6-9
-            // Update the service's advertised capabilities.
-            updateCaptureCapabilities()
-            
-            isSetUp = true
-            
-            // The app can start with a front camera, for example when a person selected it in the last session.
-            updateSelectedDirection(for: defaultCamera)
-            // The directions can arrive before the setup is complete. Apply them now.
-            applyCameraDirections()
-        } catch {
-            throw CameraError.setupFailed
-        }
-```
-
-### Step
-In `selectNextVideoDevice()`, store the direction of the new camera after the service changes to it.
-
-A tap on the button is the moment when the person tells the app which direction they want. The service keeps the direction of the new camera, and follows it when a later report moves that camera.
-
-```swift file=AVCam/CaptureService.swift highlight=5-6
-        let nextDevice = videoDevices[nextIndex]
-        // Change the session's active capture device.
-        changeCaptureDevice(to: nextDevice)
-        
-        // Keep the direction of the selection, so that the app can follow it when the directions change.
-        updateSelectedDirection(for: nextDevice)
-        
-        // The app only calls this method in response to the user requesting to switch cameras.
-        // Set the new selection as the user's preferred camera.
-        AVCaptureDevice.userPreferredCamera = nextDevice
-```
-
-### Step
-Build the project with Command-B to make sure that the capture service has no errors.
-
-The service can now follow a direction, but nothing calls `setCameraDirections(_:)` yet. You connect it in the last section.
-
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds.
-```
-
-## Mirror the preview by direction
-
-The preview connection mirrors the preview of each camera with the front position. That is correct while the position and the direction agree. In this section, the service takes control of the mirroring in the two situations where they disagree: a back camera that faces the person, and a front camera that faces the scene.
-
-### Step
-Below `applyCameraDirections()`, add the `updatePreviewMirroring()` method. It needs the directions and the selected camera.
-
-Write `private func updatePreviewMirroring()`. Unwrap the property into a constant `directions` with `guard let`, and store `currentDevice` in a constant `device`. With no directions, the method returns, and the connection continues to decide the mirroring by itself. So the behavior on an earlier system does not change. Until the next step, Xcode warns that the two constants are never used.
-
-```swift file=AVCam/CaptureService.swift highlight=5-9
-            changeCaptureDevice(to: device)
-        }
-    }
-    
-    /// Mirrors the preview when the position of the selected camera and its direction disagree.
-    private func updatePreviewMirroring() {
-        guard let directions = cameraDirections else { return }
-        let device = currentDevice
-    }
-    
-    /// Monitors changes to the system's preferred camera selection.
-```
-
-### Step
-Calculate the direction and the position of the camera, and find out if the two disagree.
-
-Write three constants: `isFacingForward` and `isFacingBackward` from `contains(device.uniqueID)` on the two arrays, and `isFrontCamera` from `device.position == .front`. Then write `let needsOverride`. The method uses two Boolean values for the direction, because a camera can be in neither array. For such a camera, the two values are `false`, so `needsOverride` is `false` too. The value is `true` only for a back camera that faces the person, and for a front camera that faces the scene. Nothing reads `needsOverride` before the step that sets the mirroring, so Xcode warns that it is never used until then.
-
-```swift file=AVCam/CaptureService.swift highlight=5-7,9-11
-    /// Mirrors the preview when the position of the selected camera and its direction disagree.
-    private func updatePreviewMirroring() {
-        guard let directions = cameraDirections else { return }
-        let device = currentDevice
-        let isFacingForward = directions.forwardFacing.contains(device.uniqueID)
-        let isFacingBackward = directions.backwardFacing.contains(device.uniqueID)
-        let isFrontCamera = device.position == .front
-        
-        // The connection mirrors the preview of each camera with the front position by itself.
-        // Take over only when a back camera faces the person, or a front camera faces the scene.
-        let needsOverride = (isFacingForward && !isFrontCamera) || (isFacingBackward && isFrontCamera)
-    }
-```
-
-### Step
-Get the connection of the preview layer. In a task on the main actor, make sure that the connection supports mirroring.
-
-Store `videoPreviewLayer.connection` in a constant `connection` before the task, because the layer property belongs to the actor. Inside `Task { @MainActor in }`, write `guard let connection, connection.isVideoMirroringSupported else { return }`. The task on the main actor is the pattern of `updatePreviewRotation(_:)`, which also changes the preview connection. An assignment to [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) raises an exception when the connection does not support mirroring, so the code asks first. The warning that `needsOverride` is never used stays until the next step.
-
-```swift file=AVCam/CaptureService.swift highlight=5-9
-        // The connection mirrors the preview of each camera with the front position by itself.
-        // Take over only when a back camera faces the person, or a front camera faces the scene.
-        let needsOverride = (isFacingForward && !isFrontCamera) || (isFacingBackward && isFrontCamera)
-        
-        let connection = videoPreviewLayer.connection
-        Task { @MainActor in
-            // Assigning `isVideoMirrored` raises an exception when the connection doesn't support mirroring.
-            guard let connection, connection.isVideoMirroringSupported else { return }
-        }
-    }
-```
-
-### Step
-In the task, take control of the mirroring when position and direction disagree. In the other case, give the mirroring back to the connection.
-
-In the first branch, set `automaticallyAdjustsVideoMirroring` to `false`, then `isVideoMirrored` to `isFacingForward`. A back camera that faces the person gets a mirror image, and a front camera that faces the scene does not. In the `else` branch, set `automaticallyAdjustsVideoMirroring` to `true`. The order of the two assignments in the first branch is important: `isVideoMirrored` raises an exception while [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) is `true`. The `else` branch is for a camera that stays selected while its direction changes two times. After the second change, the position and the direction agree again. Without this branch, the value of the first change stays on the connection, and the preview has the wrong mirroring.
-
-```swift file=AVCam/CaptureService.swift highlight=5-12
-        let connection = videoPreviewLayer.connection
-        Task { @MainActor in
-            // Assigning `isVideoMirrored` raises an exception when the connection doesn't support mirroring.
-            guard let connection, connection.isVideoMirroringSupported else { return }
-            if needsOverride {
-                // Assigning `isVideoMirrored` raises an exception while automatic adjustment stays on.
-                connection.automaticallyAdjustsVideoMirroring = false
-                connection.isVideoMirrored = isFacingForward
-            } else {
-                // Position and direction agree again. Give the mirroring back to the connection.
-                connection.automaticallyAdjustsVideoMirroring = true
-            }
-        }
-    }
-```
-
-### Step
-In `applyCameraDirections()`, add an `else` branch to the `if` statement, and update the mirroring there.
-
-Replace the closing brace of the `if` statement with `} else {`, call `updatePreviewMirroring()`, and close the block. When the selected camera stays, its direction can still be new. An example: no camera faces the scene, so a back camera that now faces the person stays selected. Its preview must change to a mirror image.
-
-```swift file=AVCam/CaptureService.swift highlight=6-7
-        // The cameras that face the direction that the person selected.
-        let candidates = isForwardFacingCameraSelected ? directions.forwardFacing : directions.backwardFacing
-        if !candidates.contains(selectedID), let device = deviceLookup.camera(withUniqueIDIn: candidates) {
-            logger.debug("Switching camera selection, because the selected camera changed its direction.")
-            changeCaptureDevice(to: device)
-        } else {
-            updatePreviewMirroring()
-        }
-    }
-```
-
-### Step
-In `changeCaptureDevice(to:)`, update the mirroring at the end of the `do` block.
-
-A new input creates a new preview connection, and the new connection starts with automatic mirroring. So each change of the camera must set the mirroring again: a tap on the button, a new system-preferred camera, and a change of direction.
-
-```swift file=AVCam/CaptureService.swift highlight=5-6
-            // Register for device observations.
-            observeSubjectAreaChanges(of: device)
-            // Update the service's advertised capabilities.
-            updateCaptureCapabilities()
-            // A new input creates a new preview connection. Set its mirroring again.
-            updatePreviewMirroring()
-        } catch {
-            // Reconnect the existing camera on failure.
-            captureSession.addInput(currentInput)
-        }
-```
-
-### Step
-Build the project with Command-B to make sure that the mirroring code has no errors.
-
-The capture service is complete. Nobody saw the mirroring change on a device or in the simulator, because the simulated cameras never change their direction.
-
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds.
-```
-
-## Connect the preview to the capture service
-
-The preview view reports the directions, and the capture service can use them. In this section, you connect the two ends: a requirement in the `Camera` protocol, its implementation in the two models, and a closure in `CameraView`.
-
-### Step
-In `Camera.swift`, add the `setCameraDirections(_:)` requirement below the `switchVideoDevices()` requirement.
-
-Write `func setCameraDirections(_ directions: CameraDirections) async`. The requirement is `async`, because `CameraModel` must wait for the capture actor. The parameter is the plain `CameraDirections` type. Thus the protocol needs no availability mark, and it does not import AVKit. The project does not compile until both models have the method.
-
-```swift file=AVCam/Model/Camera.swift highlight=4-5
-    /// Switches between video devices available on the host system.
-    func switchVideoDevices() async
-    
-    /// Tells the camera the directions that the cameras of the device face in relation to the preview.
-    func setCameraDirections(_ directions: CameraDirections) async
-    
-    /// A Boolean value that indicates whether the camera is currently switching video devices.
-    var isSwitchingVideoDevices: Bool { get }
-```
-
-### Step
-In `CameraModel.swift`, add the `setCameraDirections(_:)` method above the `switchVideoDevices()` method. It gives the directions to the capture service.
-
-Write `func setCameraDirections(_ directions: CameraDirections) async`, and call `await captureService.setCameraDirections(directions)`. The model runs on the main actor, and the service is a different actor, so the call needs `await`. The `CameraDirections` value can go from the main actor to the capture actor because it is `Sendable`. The project compiles again after the next step.
-
-```swift file=AVCam/CameraModel.swift highlight=1-4
-    /// Tells the capture service the directions that the cameras face in relation to the preview.
-    func setCameraDirections(_ directions: CameraDirections) async {
-        await captureService.setCameraDirections(directions)
-    }
-    
-    /// Selects the next available video device for capture.
-    func switchVideoDevices() async {
-        isSwitchingVideoDevices = true
-```
-
-### Step
-In `PreviewCameraModel.swift`, add a `setCameraDirections(_:)` method at the end of the class. It only writes a log message.
-
-Write `func setCameraDirections(_ directions: CameraDirections)` without `async`. A method without `async` can satisfy an `async` requirement. The body calls `logger.debug` with the text in the code. The preview model has no capture service. It needs the method only because the protocol demands it.
-
-```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-7
-    func setZoom(displayFactor: CGFloat) {
-        displayZoomFactor = displayFactor
-    }
-    
-    func setCameraDirections(_ directions: CameraDirections) {
-        logger.debug("Camera directions aren't implemented in PreviewCamera.")
-    }
-}
-```
-
-### Step
-In `CameraView.swift`, give `CameraPreview` a trailing closure that starts a task and sends the directions to the camera model.
-
-The closure runs on the main actor, each time the coordinator reports. It must not wait for the capture service, so it starts a task. The closure parameter is `directions`, and the body is one line: `Task { await camera.setCameraDirections(directions) }`. The modifiers below the preview stay as they are.
-
-```swift file=AVCam/CameraView.swift remove
-                CameraPreview(source: camera.previewSource)
-```
-
-```swift file=AVCam/CameraView.swift highlight=4-7
-            // A container view that manages the placement of the preview.
-            PreviewContainer(camera: camera) {
-                // A view that provides a preview of the captured content.
-                CameraPreview(source: camera.previewSource) { directions in
-                    // Tell the camera which way each camera faces now.
-                    Task { await camera.setCameraDirections(directions) }
-                }
-                    // Handle capture events from device hardware buttons.
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-```
-
-### Step
-Build and run the app in the iPhone Duo simulator. Make sure that the button still changes the camera.
-
-The direction code now runs, but the simulated cameras never change their direction. So the screen shows nothing new: the front camera faces forward, the back camera faces backward, and the service keeps the selected camera.
-
-```settings title="Checkpoint"
-Destination: the iPhone Duo simulator (iOS 27.1), with SimCam in operation
-Action: Product > Run (Command-R), then tap the button that changes the camera two times
-Result: The interface is in the center of the display. The preview shows the front camera, and then the back camera again.
-```
-
-### Experiment
-To see a report, add the temporary line `print(directions)` as the first line of the closure in `CameraView.swift`, and run the app in the iPhone Duo simulator. In the test for this tutorial, the handler ran one time, before the setup of the session was complete. The front SimCam camera was in the forward-facing array, and the back SimCam camera was in the backward-facing array. Remove the line after the experiment, so that your code stays equal to the branch `chapter-16`.
 
 ### Note
-To test this chapter fully, you need a real iPhone Duo. Nobody did this test for this tutorial, so the next lines tell you what the code and the Apple documentation make you expect. Select the back camera, and then open or close the device. The Xcode console shows "Switching camera selection, because the selected camera changed its direction." when a different camera now faces the scene, and the preview shows that camera. When a back camera faces you and stays selected, its preview is a mirror image.
+To test this chapter, run the app on a real iPhone. Nobody did this test for this tutorial, so the next lines describe what the code and the Apple SDK tell you to expect. On an iPhone with an ultra-wide camera, the zoom control shows a level less than 1, and the app starts at 1×. A tap on a level moves the zoom smoothly. A pinch changes the zoom continuously, and the selected button shows the value. A slide on the zoom slider of the Camera Control changes the number in the zoom control. After a change of the camera or of the capture mode, the zoom is at 1× again. If the first camera after the launch has no ultra-wide level, tap the button that changes the camera two times: the app then uses the first back camera of the new type list.
 
 ### Text
-The app now uses the direction of a camera, not only its position, and its interface is in the center of the Duo display. Build and run the app in the iPhone 18 Pro simulator with iOS 27.0 too. There, the availability check skips the coordinator, and the app behaves as at the end of chapter 15. This is the last chapter of "Beyond the sample".
+The app can now zoom, and its zoom control always shows the value of the device. In the next chapter, you look at the Apple sample with critical eyes and correct four of its defects.
 
 ## Check your understanding
 
-### The change handler of the coordinator keeps only the `uniqueID` of each descriptor, and the capture service creates the device. Why does the handler not create the `AVCaptureDevice` objects itself?
+### A back camera reports a display multiplier of 0.5 and the switch-over zoom factors 2 and 6. Which value does `configureZoom(for:)` set on `videoZoomFactor`, and why?
 
-- [ ] A descriptor has no unique identifier before the session runs.
-  > A descriptor always has its five properties, and `uniqueID` is one of them. The question is where the device must be created.
-- [x] The handler runs on the main actor, and calls into the capture system belong to the actor that owns the session.
-  > Correct. Apple tells you not to call AVFoundation from the change handler. The identifiers are plain strings, so they can go to the `CaptureService` actor, and the lookup there also handles an identifier that has no device.
-- [ ] `AVCaptureDevice(uniqueID:)` is not available before iOS 27.1.
-  > The initializer is an old API. Only the coordinator, the map, the descriptor, and the two new device types need iOS 27.1.
+- [ ] 1.0, because 1.0 is the smallest zoom factor of each device.
+  > 1.0 is the smallest value, but on this camera it shows the ultra-wide picture, which a person knows as 0.5x.
+- [x] 2.0, because the display value 1 divided by the multiplier 0.5 is the device value 2.0.
+  > Correct. The code sets `1.0 / multiplier`. On this camera, that is the first switch-over zoom factor, where the wide camera supplies its full picture.
+- [ ] 0.5, because the system shows the widest picture as 0.5x.
+  > 0.5 is a display value. As a device value, it is less than 1, and the device raises an exception for it.
 
-### On iPhone Duo, the selected camera is the virtual front camera. A person closes the device, and a new map arrives. What does `applyCameraDirections()` do?
+### Why does `setVideoZoomFactor(_:on:animated:)` limit the value before it changes the device, and not catch an error after the change?
 
-- [ ] It changes to the first camera in the forward-facing array.
-  > The method looks for a replacement only when the selected camera is in one of the two arrays. The virtual front camera is in neither.
-- [ ] It mirrors the preview, because the position of the camera is front.
-  > The method returns before it gets to the mirroring. The connection continues to mirror the front position by itself.
-- [x] Nothing. The coordinator does not report the virtual front camera, so the first `guard` statement returns.
-  > Correct. The system moves the virtual front camera to the correct physical camera by itself. The app follows only the cameras that the map contains.
+- [ ] The `do`-`catch` statement is slow, and a pinch calls the method many times each second.
+  > Speed is not the reason. The method has a `do`-`catch` statement for the device lock.
+- [ ] The device changes a value that is out of range to the nearest legal value, so no error occurs.
+  > This is true only for a part of the values. A value less than 1, or more than the largest zoom factor of the format, raises an exception.
+- [x] A value that is out of range raises an Objective-C exception, and Swift cannot catch it.
+  > Correct. `do`-`catch` handles Swift errors, such as a lock that fails. An `NSRangeException` stops the app. The only protection is a check before the assignment.
 
-### You remove the call to `rounded()` in the `onGeometryChange` modifier of `CameraView`. What can occur?
+### A person changes the zoom with the system zoom slider of the Camera Control. How does the zoom control of the app get the new value?
 
-- [ ] The interface moves to the trailing side, because the padding becomes negative.
-  > `abs` makes the difference positive, with or without `rounded()`.
-- [x] The layout can run again and again, because a very small change of an inset gives a new value, and a new value writes the state.
-  > Correct. This occurred in the iPhone 18 Pro simulator during the work on this chapter. The rounded value stays the same between two layout passes, so SwiftUI does not call the action again.
-- [ ] The app does not compile, because the padding needs a whole number.
-  > A padding value is a `CGFloat` and can have a fraction. The problem is the stability of the value, not its type.
+- [ ] The slider calls `setZoom(displayFactor:)` of the model.
+  > A system slider sets the device property itself. It does not call the code of the app.
+- [x] The capture service observes `videoZoomFactor` of the device and publishes each new value as a display value.
+  > Correct. The device is the source of truth. Each change arrives through the observation: a change from the slider, from a ramp, and from a pinch.
+- [ ] The zoom control reads the device each time SwiftUI draws the view.
+  > The view has no access to the capture device. It reads `displayZoomFactor` of the model, and that property changes only when the observation reports a new value.

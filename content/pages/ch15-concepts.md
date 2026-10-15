@@ -1,309 +1,234 @@
 ---
 kind: article
 chapter: 15
-title: Concepts: fix the sample
-abstract: How to find defects in sample code, and how this tutorial corrects four of them: a recording that ends by itself, the Live Photo badge, the rotation angle of a new movie connection, and a late capture sound.
-estimatedMinutes: 12
+title: Concepts: Lock Screen and Control Center
+abstract: How a person starts a camera app from the Lock Screen, Control Center, the Action button, and the Camera Control, what a capture extension is, and how the app and the extension share their state.
+estimatedMinutes: 14
 branch: chapter-15
 ---
 
+The best photo moment is short. A person who must unlock the iPhone, find the app icon, and wait for the app loses that moment. Thus iOS lets a camera app start from places that are faster than the Home Screen, also while the iPhone is locked.
+
+This is not only a shortcut to your app. On a locked iPhone, the system does not start your app at all. It starts a small second program from your app bundle, a capture extension, which has strict limits. This article explains the parts, the limits, and the method that the app and the extension use to share their state. In [Build: Lock Screen and Control Center](ch15-build.md), you add two extension targets to the project.
+
 > [!IMPORTANT]
-> This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. The defects come from a careful read of the code and of the SDK headers. Apple confirmed only the third one: the article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) says that this occurs in AVCam at a change between photo and video capture.
-
-In chapters 7, 8, and 11, a section with the title "Things to know about the sample" listed weak points of AVCam. Until now, you kept the code as Apple wrote it. In this chapter, you correct four of these points.
-
-The four fixes are small. Together they are approximately 85 new lines. The more important subject of this article is the method: how do you find such defects in code that looks correct and that works each time you try it? In [Build: fix the sample](ch15-build.md), you write the fixes.
-
-## Why sample code has defects
-
-A sample has one job: it shows you how to use an API, on the shortest path. That job explains most of its weak points. The reasons below are probable reasons. Apple does not publish them.
-
-- **A sample follows the normal path.** The person starts a recording and stops it. The person takes one photo and waits. Code for the other paths makes a sample longer and harder to read.
-- **The other paths are hard to produce.** A full disk, a phone call during a recording, two Live Photos that overlap, AirPods: you cannot make these events at a desk in one minute. Code that nobody runs keeps its defects.
-- **A sample grows each year.** AVCam got new features after each WWDC. New code goes around old code, and nobody examines again the old assumptions.
-
-So do not copy a sample into a product without a review. The review has three questions.
-
-1. **What does the contract say?** For each delegate method and each property that the code uses, read the comment in the SDK header. Look for the words "always", "never", "can", and "must". Then compare: does the code handle each case that the contract permits?
-2. **What if this callback arrives at a different time, or never?** Code with callbacks usually assumes one order of events. Go through the other orders. For each continuation, find the code that resumes it on each path. A continuation that nobody resumes blocks its caller without end.
-3. **Where does each state end?** List each thing that the code starts: a timer, a counter, a continuation, a temporary file, a "recording" state in the interface. For each one, find the line that ends it. Then ask if all paths go through that line. For a counter, write down a sequence of events with small numbers.
-
-Each of the four defects in this chapter is the answer to one of these questions.
-
-| Defect | The question that finds it |
-|---|---|
-| A recording that ends by itself is lost | 1 and 2: the header says that the callback also comes after an error. The code expects it only after a stop request. |
-| The Live Photo badge goes off too early | 3: follow the counter through two captures that overlap. |
-| A new movie connection has no rotation angle | 3: the angle is a state of the connection, and the connection ends when the output leaves the session. |
-| The capture sound comes late | 2: what happens between the click and the sound? A capture, a location request, and a save. |
+> Nobody tested this chapter on an iPhone. The two extensions build, and the app contains them. The start from the Lock Screen, Control Center, and the Action button needs a real iPhone and a development team for code signing. The facts in this article come from the Apple documentation, the WWDC sessions, the SDK, and a careful read of the sample.
 
 ## How it works
 
-### Defect 1: a recording that ends by itself
+### Four ways to start without the Home Screen
 
-**The contract.** The movie output writes the file in the background. It tells the app that the file is complete with one delegate method, [`fileOutput(_:didFinishRecordingTo:from:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didfinishrecordingto:from:error:)). The header of [`AVCaptureFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput) says these things about it:
+| Start location | What the person does one time | What the app must supply |
+|---|---|---|
+| Lock Screen | Customizes the Lock Screen and replaces one of the two controls at the bottom. | A control and a capture extension |
+| Control Center | Opens Control Center, adds a control, and selects "Open AVCam". | A control |
+| Action button | Opens Settings › Action Button and selects a control. | A control |
+| Camera Control | Opens Settings › Camera › Camera Control and selects the app. | The LockedCameraCapture framework |
 
-- The output calls the method when the recording was stopped by [`stopRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/stoprecording()), or because an error occurred.
-- The output always calls the method one time for each recording request, also when it wrote no data.
-- Do not expect the call on a specific thread.
-- A limit, such as [`maxRecordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedduration), stops the recording, and the method then gets an error.
+The system adds nothing by itself. The person must add the control. The [design guidelines for controls](https://developer.apple.com/design/human-interface-guidelines/controls) tell you to show instructions for this in your app. AVCam shows none.
 
-A second header, `AVError.h`, has the key [`AVErrorRecordingSuccessfullyFinishedKey`](https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey). Its value in the `userInfo` dictionary of the error is a Boolean number that tells you if the recording is playable. So an error in the callback has two possible meanings: "the file is bad", or "the recording stopped early, and the file is good".
+> [!NOTE]
+> The Apple article about the [Camera Control](https://developer.apple.com/documentation/avfoundation/enhancing-your-app-experience-with-the-camera-control) says only that an app must adopt the LockedCameraCapture framework before the Camera Control can start it. It does not say whether the app also needs the control. Nobody tested this for the tutorial.
 
-**The cause.** This is the delegate of the sample, as you wrote it in chapter 8:
+### Three parts in one app bundle
 
-```swift
-func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-    if let error {
-        // If an error occurs, throw it to the caller.
-        continuation?.resume(throwing: error)
-    } else {
-        // Return a new movie object.
-        continuation?.resume(returning: Movie(url: outputFileURL))
+The feature has three parts. Each part is a target in Xcode, and each target makes one program.
+
+- **The app.** You built it in chapters 1 to 14.
+- **The capture extension.** It shows the camera interface when the start comes from the Lock Screen.
+- **The control extension.** It supplies the button that the person puts in Control Center, on the Lock Screen, or on the Action button. It never opens the camera.
+
+One small type connects the three parts: a capture intent. The control performs the intent. The system then starts the app or the capture extension.
+
+![The control performs the capture intent, iOS starts the app or the capture extension, and the two programs read and write one app context](../images/ch15-shared-context.svg)
+
+### The capture extension
+
+An app extension is a separate program in the app bundle. The system starts it for one task. A **capture extension** (the full name is "locked camera capture extension") has the task to show a camera interface without an unlock. The framework is [LockedCameraCapture](https://developer.apple.com/documentation/lockedcameracapture), and it is available from iOS 18.
+
+The capture extension uses [ExtensionKit](https://developer.apple.com/documentation/extensionkit), the newer of the two extension systems of iOS. You see this in three places:
+
+- Its `Info.plist` file has the key `EXAppExtensionAttributes` with the extension point `com.apple.securecapture`.
+- Xcode puts the built extension into the `Extensions` folder of the app.
+- Its entry point is a Swift structure with a `body`, almost the same as a SwiftUI app.
+
+The life of a capture extension has these stages:
+
+1. **Launch.** The person uses the control on the Lock Screen. The system starts the extension and gives it a session object.
+2. **Capture.** The extension shows its viewfinder. The person takes photos or records video.
+3. **Save.** The extension writes the media to the Photos library, or it writes files into a directory that the session object supplies.
+4. **Dismiss.** The person swipes up or presses the side button. The system suspends the extension. Then it moves the session directory to the app and erases all other data of the extension.
+
+### The limits on a locked device
+
+A locked iPhone protects the data of its owner. A program that runs without an unlock must not become a way around that protection. Thus the extension has these limits:
+
+- **No network.**
+- **No shared container.** The extension cannot read or write an App Group container or shared preferences.
+- **No memory of earlier launches.** The system erases the container of the extension after each use.
+- **A viewfinder immediately.** The extension must show a camera preview at launch, and it must handle hardware capture events. The [`onCameraCaptureEvent`](https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:action:)) modifier from chapter 13 does this. If the extension does not do these things, the system stops it after a short time.
+- **Photos: write, and read only its own media.** The extension can add media to the library. While the device is locked, it can read only the media of the current capture session.
+- **Permissions come from the app.** The extension uses the camera and Photos permissions of the app. If the app has no camera permission, the system asks the person to unlock and opens the app.
+- **Usage descriptions in the two targets.** The app and the extension must each have [`NSCameraUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nscamerausagedescription).
+
+These limits also apply when the person starts the extension on an iPhone that is not locked.
+
+### The LockedCameraCapture types
+
+The framework is small. Apple added no type to it after iOS 18.1.
+
+| Type | Where | Task |
+|---|---|---|
+| [`LockedCameraCaptureExtension`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracaptureextension) | Extension | The protocol of the `@main` type. It has a `body` that returns a scene. |
+| [`LockedCameraCaptureUIScene`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracaptureuiscene) | Extension | The scene. Its closure gets the session object and returns your SwiftUI view. |
+| [`LockedCameraCaptureSession`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession) | Extension | The session object. It supplies [`sessionContentURL`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession/sessioncontenturl), the directory that the system moves to the app, and [`openApplication(for:)`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession/openapplication(for:)), which opens the app after the person unlocks the device. |
+| [`LockedCameraCaptureManager`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturemanager) | App | Gives the app the directories that capture sessions left. [`sessionContentUpdates`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturemanager/sessioncontentupdates) is an async sequence of these directories. |
+
+Do not confuse `LockedCameraCaptureSession` with `AVCaptureSession`. The first is one use of the extension. The second is the camera pipeline. The extension has one of each.
+
+### The capture intent
+
+An app intent is a type that describes one action of your app to the system. [`CameraCaptureIntent`](https://developer.apple.com/documentation/appintents/cameracaptureintent) is a special protocol for one action: "start the camera experience of this app". When a control performs such an intent, the system knows that it can start the capture extension. A normal intent that opens the app, for example an [`OpenIntent`](https://developer.apple.com/documentation/appintents/openintent), can only open the app, and that needs an unlock.
+
+The intent type must be a part of all three targets. The control extension needs it for its button. The system looks for it in the app and in the capture extension to start them.
+
+The intent of AVCam is small:
+
+```swift file=AVCam/Model/Intent/AVCamCaptureIntent.swift
+struct AVCamCaptureIntent: CameraCaptureIntent {
+
+    /// The context object for the capture intent.
+    typealias AppContext = CameraState
+    
+    static let title: LocalizedStringResource = "AVCamCaptureIntent"
+    static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        os.Logger().debug("AVCam capture intent performed successfully.")
+        // The return type of this intent is None; the success status isn't user-visible.
+        return .result()
     }
 }
 ```
 
-The delegate gets its continuation only inside `stopRecording()`. The code assumes one order of events: the app asks to stop, and then the callback comes. Now go through the other order. The output ends the recording first. The callback comes, `continuation` is `nil`, and the two lines with `continuation?` do nothing.
+`perform()` only writes to the log. The system starts the camera experience because the type conforms to the protocol, not because of code in `perform()`. An app with more than one screen can use `perform()` to go to its camera screen.
 
-**The symptom.** Three things go wrong, and the person sees two of them.
+### The app context
 
-- The movie is lost. Nobody gets the URL, and the file stays in the temporary directory.
-- The timer continues, because only `stopRecording()` stops it. The interface shows a recording that does not exist.
-- The person taps the button to stop. `stopRecording()` stores a continuation and waits for a callback that came before. The method never returns.
+The extension cannot use shared preferences. So how does it know that the person used video mode in the app the last time?
 
-A second defect is in the same lines. Each error is a failure for this code, also an error that leaves a good file.
+The answer is the [`AppContext`](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.associatedtype) of the intent. It is a `Codable` type that you define. The system stores one value of it for your app. Each program that contains the intent can read the value with [`appContext`](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.type.property) and replace it with [`updateAppContext(_:)`](https://developer.apple.com/documentation/appintents/cameracaptureintent/updateappcontext(_:)). The value must not be larger than 4 kB as JSON. It is for settings, not for images.
 
-**The fix.** The new delegate divides the two decisions. First, it makes one `Result` value from the callback. Then it asks who waits for the result.
+In AVCam, the context type is `CameraState`, a structure with five values: the capture mode, the Live Photo setting, the quality prioritization, and two HDR values. The flow is this:
 
-```swift file=AVCam/Capture/MovieCapture.swift
-            if let continuation {
-                // The app asked to stop the recording. Return the result to the caller.
-                continuation.resume(with: result)
-            } else {
-                // The recording ended by itself. Nobody waits for the result, so report it separately.
-                unexpectedFinishHandler?(result)
-            }
-```
+1. **Read at start.** `CameraModel.start()` calls `syncState()`. This method reads the context and copies the values into the model. Then the model gives the state to `CaptureService.start(with:)`, so the capture session starts in the correct mode with one configuration.
+2. **Write on each change.** Each property of the model that is in the state has a `didSet` observer. The observer copies the new value into `cameraState`. Each property of `CameraState` also has a `didSet` observer, which sends the full structure to the system.
+3. **Read again when the app becomes active.** The app calls `syncState()` each time its scene becomes active. Thus the app gets the changes that the person made in the extension.
 
-![The two paths of the finish callback: the app stops the recording and a continuation waits for the result, or the recording ends by itself and the result goes into a stream](../images/ch15-finish-paths.svg)
+The same `CameraModel` runs in the app and in the extension, so steps 1 and 2 occur in the two programs. Step 3 is in the app only.
 
-The left path is the path of the sample. The right path is new. It has four parts:
+### The control
 
-- **A handler on the delegate.** `startRecording()` gives each new delegate a closure. The closure stops the timer, releases the delegate, and writes the result into a stream.
-- **A stream.** `MovieCapture` has an [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) with the name `unexpectedResults`. The capture service passes it on as `unexpectedRecordingResults`.
-- **A reader.** A task in the model reads the stream. It saves each movie, or it stores the error.
-- **A guard in `stopRecording()`.** When the output does not record, no callback can come. The method then throws the new `notRecording` error immediately, and it does not store a continuation that nobody can resume.
+A control is a small button or toggle from your app. You build it with WidgetKit, and it is in a widget extension. A widget extension is an extension of the older type: its `Info.plist` file has the key `NSExtension` with the extension point `com.apple.widgetkit-extension`, and Xcode puts it into the `PlugIns` folder of the app.
 
-This method decides if an error leaves a usable file:
+The control of AVCam uses three types:
 
-```swift file=AVCam/Capture/MovieCapture.swift
-        private func isMovieUsable(after error: Error) -> Bool {
-            let userInfo = (error as NSError).userInfo
-            return userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
-        }
-```
+- [`ControlWidget`](https://developer.apple.com/documentation/swiftui/controlwidget) is the protocol of a control.
+- [`StaticControlConfiguration`](https://developer.apple.com/documentation/widgetkit/staticcontrolconfiguration) describes a control that the person cannot configure. Its `kind` string identifies the control.
+- [`ControlWidgetButton`](https://developer.apple.com/documentation/widgetkit/controlwidgetbutton) is a button that performs an app intent. A button is correct here, because the action starts something. A toggle is for a state that is on or off.
 
-**How to test.** A time limit is the easiest way to make a recording end by itself. One temporary line, `movieOutput.maxRecordedDuration = CMTime(seconds: 3, preferredTimescale: 600)`, ends each recording after 3 seconds. The tutorial page has this experiment.
+A [`WidgetBundle`](https://developer.apple.com/documentation/swiftui/widgetbundle) is the `@main` type of the widget extension. It lists the widgets and the controls that the extension supplies. For AVCam, that is one control.
 
-**What was verified.** The author of the code ran this test in the Simulator with SimCam. After 3 seconds, the recording ended, the timer went back to 00:00:00, the button returned to its idle form, the thumbnail appeared, and the movie was in the Photos library. A normal start and stop still saved the movie. A size limit, a full disk, and an interruption use the same path in the code, but nobody tested them.
+### Which one starts: the app or the extension
 
-### Defect 2: the Live Photo badge
+Apple documents the rule only in general terms. The WWDC24 session about the Lock Screen camera says that the system decides, from conditions such as "Lock Screen or Home Screen", whether to start the extension or the app. These facts are documented:
 
-**The symptom.** With responsive capture, a person can take a second Live Photo while the movie of the first one still records. The "LIVE" badge then goes off when the first movie stops, although the second movie still records. [Chapter 7](ch07-concepts.md#things-to-know-about-the-sample) described this.
+- The extension runs when the start comes from the Lock Screen. It does not matter whether the device is locked at that moment.
+- If the app has no camera permission, the system asks for an unlock and opens the app.
+- The Camera Control can start the experience from a locked device, from the Home Screen, and from other apps.
 
-**The cause.** `PhotoCapture` has a counter, `livePhotoCount`, of the Live Photo captures that are in progress. When a capture reports a change, the code adds 1 or subtracts 1. Then it forces the badge on if other captures are in progress. The sample tests this with `livePhotoCount > 1`. Follow the counter through two captures, A and B:
-
-| Event | Counter | Badge with `> 1` | Badge with `> 0` |
-|---|---|---|---|
-| A begins | 1 | on | on |
-| B begins | 2 | on | on |
-| The movie of A stops | 1 | **off** | on |
-| The movie of B stops | 0 | off | off |
-
-In the third row, the counter is 1 after the subtraction. That 1 is capture B. The test `1 > 1` is `false`, so the code publishes the value of capture A, which says "not live".
-
-**The fix.** The counter already contains the change of the capture that reported it. So "a different capture is in progress" is `> 0`:
-
-```swift file=AVCam/Capture/PhotoCapture.swift
-                    if livePhotoCount > 0 {
-                        /// Set `isLivePhoto` to `true` while another Live Photo is still in progress.
-                        /// This prevents the "Live" badge in the UI from flickering.
-                        currentActivity = .photoCapture(willCapture: activity.willCapture, isLivePhoto: true)
-                    }
-```
-
-Apple's article [Capturing and saving Live Photos](https://developer.apple.com/documentation/avfoundation/capturing-and-saving-live-photos) gives the same rule: hide the indicator only when the number of captures in progress is zero.
-
-**How to test.** On a real iPhone, take two Live Photos quickly, one after the other, and look at the badge.
-
-**What was verified.** Nothing at run time. Live Photo capture does not work in the Simulator. The fix follows from the table above.
-
-### Defect 3: the rotation angle of a new connection
-
-**The symptom.** Turn the iPhone to landscape in photo mode, change to video mode, and record immediately. The movie can have the wrong orientation. [Chapter 8](ch08-concepts.md#things-to-know-about-the-sample) described this.
-
-**The cause.** The rotation angle of a capture is a property of a connection: [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle). The capture service sets it at two moments: when it makes the [`RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator), and when the coordinator reports a new angle. But a connection lives only while its output is in the session. In photo mode, the movie output is not in the session. Each change to video mode calls [`addOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:)), and that makes a new connection. The new connection has a default angle, not the current angle. It gets the correct angle only at the next rotation of the device or at the next change of camera.
-
-**The fix.** Apply the current angle immediately after the output is in the session:
-
-```swift file=AVCam/CaptureService.swift
-            try addOutput(movieCapture.output)
-            // Adding the output creates a new connection. Give it the current capture rotation angle.
-            updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)
-```
-
-The coordinator always has the current value in [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture). You do not need to wait for a change.
-
-**How to test.** On a real iPhone: landscape, change to video mode, record, and open the movie in the Photos app.
-
-**What was verified.** Nothing at run time. The Simulator does not show the orientation of a capture. In the Simulator, the change of mode and a recording still work with the new line. Apple's article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) confirms the cause: an output that the app adds starts at a default angle, not at the current angle, and this occurs in AVCam at a change between photo and video capture. This tutorial did not measure the default angle, so it does not say how the movie looks without the fix.
-
-### Defect 4: the late capture sound
-
-**The symptom.** A person with AirPods clicks the stem to take a photo. The shutter sound comes late, after the app saved the photo. In an unusual case, it does not come. [Chapter 11](ch11-concepts.md#things-to-know-about-the-sample) described this, with a diagram.
-
-**The cause.** The app disabled the default sound, so it must play a sound itself with [`play(_:)`](https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:)). In the sample, this call is the last statement of the closure. Before it, the closure waits for `camera.capturePhoto()`. That method waits for the capture, for a location, and for the save to the Photos library. The header of the event says that `play(_:)` does nothing when the event is older than 15 seconds.
-
-**The fix.** The new closure has three parts in a new order: select the sound, play the sound, capture.
-
-```swift file=AVCam/CameraView.swift
-                            // Play a sound when capturing by clicking an AirPods stem. Play it before
-                            // the capture, so that the person hears it at the moment of the click.
-                            if event.shouldPlaySound {
-                                event.play(sound)
-                            }
-                            switch camera.captureMode {
-                            case .photo:
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-                            case .video:
-                                // Toggle video recording when pressing a hardware button.
-                                await camera.toggleRecording()
-                            }
-```
-
-The first `switch` statement of the closure stays. It selects the sound, and in video mode it reads `isRecording` before the recording state changes.
-
-**How to test.** On a real iPhone with AirPods that support the camera remote: click the stem and listen for the moment of the sound.
-
-**What was verified.** Nothing at run time. The Simulator sends no capture events, and nobody tested with AirPods.
+A reasonable reading is: a start from the Lock Screen gives the extension, and a start from an unlocked context gives the app. This is an inference, and Apple does not publish an exact table. To find out on your iPhone, write a log line in each `@main` type and look at which line appears.
 
 ## What the camera can do
 
-The first fix uses a small part of what the movie output offers for the end of a recording.
+AVCam uses the minimum of the system integrations. The system offers more.
 
-| Capability | What it does | In this tutorial |
+| Capability | What it gives | In this tutorial |
 |---|---|---|
-| The finish callback | The output calls it one time for each recording, after a stop request, an error, or a limit. | This chapter handles the two paths. |
-| `AVErrorRecordingSuccessfullyFinishedKey` | A Boolean value in the error of the finish callback: is the file playable? | This chapter |
-| `maxRecordedDuration` | A hard time limit. The default value is "no limit". | The experiment only |
-| [`maxRecordedFileSize`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedfilesize) | A hard size limit in bytes. The default value 0 means "no limit". | Not in AVCam |
-| [`minFreeDiskSpaceLimit`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/minfreediskspacelimit) | The recording stops when the free space on the disk falls below this number of bytes. A recording can then end in a controlled way before the disk is full. | Not in AVCam |
-| Pause and resume | [`pauseRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/pauserecording()) and [`resumeRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/resumerecording()) put more than one segment into one file (iOS 18). A change of format or device stops the recording, also during a pause. | Not in AVCam |
-| The start callback | [`fileOutput(_:didStartRecordingTo:from:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didstartrecordingto:from:)) tells you when the output really writes. An app can show its recording state at that moment. The header says that this call possibly does not come when an error prevents all writing. | Not in AVCam |
-| [`recordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/recordedduration) | The duration of the file until now. The output also has `recordedFileSize`. | The timer from chapter 8 |
-| [`movieFragmentInterval`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/moviefragmentinterval) | The output writes the movie in fragments, by default each 10 seconds. With fragments, a file stays readable when the recording ends in a crash. | Default value |
-| One recording at a time | On iOS, the movie output makes one recording at a time. A second start request during a recording fails. | The guard in `startRecording()` |
+| Control with a capture intent | A start from the Lock Screen, Control Center, and the Action button. | This chapter |
+| Capture extension | The camera interface on a locked device. | This chapter |
+| App context | Small shared state for the app and the extension. | This chapter |
+| Open the app from the extension | `openApplication(for:)` asks for an unlock and gives the app a user activity. Use it for "view", "edit", or "share" actions. | Not in AVCam |
+| Session content directory | Files that the extension writes into `sessionContentURL` go to the app. The app reads them with `LockedCameraCaptureManager`. | Not in AVCam |
+| Controls with options or state | [`AppIntentControlConfiguration`](https://developer.apple.com/documentation/widgetkit/appintentcontrolconfiguration) for a control that the person configures, and [`ControlWidgetToggle`](https://developer.apple.com/documentation/widgetkit/controlwidgettoggle) for a state. For example, a second control that starts in video mode. | Not in AVCam |
+| [App Shortcuts](https://developer.apple.com/documentation/appintents/app-shortcuts) | Actions of the app in Siri, Spotlight, the Shortcuts app, and on the Action button. | Not in AVCam |
+| [Camera schemas for Siri](https://developer.apple.com/documentation/appintents/assistantschemas/cameraintent) | Intents that Siri and Apple Intelligence understand: start or stop a capture, change the camera, open in a capture mode. | Not in AVCam |
+| [Home Screen quick actions](https://developer.apple.com/documentation/uikit/add-home-screen-quick-actions) | A menu on the app icon, for example "Record Video". | Not in AVCam |
+| Live Activities | The recording state on the Lock Screen and in the Dynamic Island, with [ActivityKit](https://developer.apple.com/documentation/activitykit). | Not in AVCam |
+| Hardware capture events | The volume buttons, the Action button, and AirPods take the photo. | Chapter 13 |
+| Camera Control overlay | Zoom, exposure, and custom controls. | Chapter 14 |
 
-**Errors that can leave a usable movie.** The research for this tutorial names these causes: a time limit ([`maximumDurationReached`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/maximumdurationreached)), a size limit (`maximumFileSizeReached`), a full disk (`diskFull`), and an interruption of the session. The header does not say which error code comes with a usable file. So do not decide by the code. Read the key.
+## Why AVCam does it this way
 
-Capabilities that are related to the other three fixes:
+**The same model and views in the extension.** The capture extension creates a `CameraModel` and shows a `CameraView`, the same as the app. To make this possible, 28 Swift files of the app are also a part of the extension target. The person sees one camera interface in the two places, and you maintain one set of code. The alternative is a framework target that the app and the extension link. That is cleaner for a large app, but it is more project setup than a sample needs.
 
-| Capability | What it does | In this tutorial |
-|---|---|---|
-| An angle for each new output | Apple's article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) describes a newer design. There, the method that adds an output applies the stored capture angle to each new output. | This chapter does it for the movie output only. |
-| The default sound | Without `defaultSoundDisabled: true`, the system plays one default tone for a stem click, and the app plays nothing. | Not in AVCam |
-| A custom sound | [`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound) can also play a sound file from the app bundle. | Not in AVCam |
-| [`shouldPlaySound`](https://developer.apple.com/documentation/avkit/avcaptureevent/shouldplaysound) | `true` only for a stem click when the app disabled the default sound. For a volume button, it is `false`. | Chapter 11 |
+**The state goes through the intent.** One small `Codable` structure, a write on each change, and a read at the start. No App Group, no entitlement, no file. The alternative that most developers know, `UserDefaults` in an App Group, does not work in a capture extension.
 
-## Why this design
+**The session starts in the stored mode.** Before this chapter, the session always started in photo mode. Now `setUpSession()` reads the mode: it selects the preset, and in video mode it adds the movie output immediately. The alternative is to start in photo mode and then change the mode. That configures the session two times, and the person sees it.
 
-**A second path, not a new design.** The fix keeps the path of the sample: `toggleRecording()` calls `stopRecording()`, waits, and saves the movie. It adds one path for the results that nobody waits for. The change is small, and you can see what is from Apple and what is new. The cost is two places that save a movie: `toggleRecording()` and the new task.
+**Media goes directly to Photos.** `MediaLibrary` has no special code for the extension. It saves with a [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest), and a write to the Photos library is permitted on a locked device. Apple recommends this path for photos and videos. AVCam only saves to Photos, so it needs no code in the app that collects files later.
 
-**Why a stream.** An unexpected result is an event that the model did not ask for. It can come at any time, and more than one can come while the app runs. The model reads all other events of the capture service with `for await` loops in `observeState()`. A stream has the same form. With the default buffering policy of [`makeStream(of:bufferingPolicy:)`](https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:)), the stream also keeps each result until the reader takes it.
+**AVCam ignores the session object.** The closure of `LockedCameraCaptureUIScene` gets a `LockedCameraCaptureSession`, and the code never uses it. Thus AVCam has no button that opens the app from the Lock Screen, and it writes no files into the session directory. This keeps the sample small. It also leaves out features that a real camera app needs. See the next section.
 
-The alternatives:
+## Things to know about the sample
 
-| Design | How it works | Why not here |
-|---|---|---|
-| One stream for all finished recordings | `stopRecording()` only asks the output to stop. Each result, expected or not, comes through the stream. | This is the cleaner design: one path, no continuation that can stay open. But it changes `toggleRecording()` and removes the `async` form of the sample. For new code, it is a good choice. |
-| Keep the result on the delegate | The delegate stores an early result. A later call of `stopRecording()` returns it. | The movie waits until the person taps the button. Until then, the interface shows a recording, or the app needs a separate signal to reset it. |
-| A `@Published` property | `MovieCapture` publishes the last unexpected result. | A published property keeps one value and gives it to each new subscriber. A result is an event, not a state: the model must get each one exactly one time. |
-| Observe the session | Interruption notifications, or key-value observation of `isRecording`, tell the app that a recording ended. | They do not give you the file and the error. Only the delegate callback does, and only that call says that the file is complete. |
+These points come from a careful read of the Apple sample. Nobody verified them on an iPhone for this tutorial. Read each point as "probably".
 
-**Why `Result`.** A recording that ends by itself can also fail. An `AsyncStream` cannot throw, so the error goes through the stream as a value. In the model, `result.get()` changes it back into a thrown error, and one `catch` block handles a bad recording and a bad save.
-
-**Why a closure on the delegate.** The delegate does not know `MovieCapture`. It only knows "nobody waits, so call this". The closure captures `self` weakly, because the service keeps the delegate and the delegate keeps the closure.
-
-**Why `notRecording` is an error.** `stopRecording()` must return a movie or throw. When there is no recording, it has no movie. The model stores the error, as it does for each capture error.
-
-**Why the fix for the angle is one line.** After the setup, `setCaptureMode(_:)` is the only place that adds an output. A more general fix is in `addOutput(_:)`, as in Apple's newer article. In this app, the two do the same thing.
-
-**Why the sound comes first.** The sound is feedback for a person who does not look at the screen. Its job is to confirm the click, not the result. The cost: the person hears the sound also when the capture fails after it.
-
-## What this chapter does not fix
-
-The four fixes do not make the sample free of defects. These points stay. They are ideas for your own work.
-
-- **The capture activity never returns to idle after a photo.** The last value of the progress stream stays in `captureActivity`. See [chapter 3](ch03-concepts.md#things-to-know-about-the-sample).
-- **A photo processing error can get lost.** The photo delegate writes the error to the log. The caller then gets the general error "no photo data", not the cause.
-- **`MovieCapture` writes state from more than one thread.** The timer writes `captureActivity` on the main thread. The new handler writes `captureActivity` and `delegate` on the thread of the delegate callback. The capture service calls the object from the session queue. This compiles in the Swift 5 language mode. It is not correct for strict concurrency.
-- **`CameraState` has HDR on by default.** See [chapter 13](ch13-concepts.md#things-to-know-about-the-sample).
-- **A failed save leaves a file.** When the Photos library refuses a movie or a photo, nobody deletes the file in the temporary directory. This is also true for a movie from the new path.
-- **The badge has one more gap.** The code forces the badge on only when a capture changes its "live" value. From a read of the code, a photo without Live Photo that begins while a Live Photo still records publishes "not live", and the badge goes off. Nobody tested this.
-- **A late tap can store an error.** From a read of the code: if the person taps the button in the moment after the recording ended by itself, the model can still call `stopRecording()`. The method then throws `notRecording`, and the model stores this error. The movie is still saved through the stream.
-
-The sections "Things to know about the sample" of the earlier chapters have more points.
+- **A recording can get lost.** A movie in progress is a file in the temporary directory of the extension. If the person dismisses the extension before the recording stops and the save completes, the system erases that directory. A robust app writes the movie into `sessionContentURL` and collects it in the app.
+- **The thumbnail button opens the photo picker in the extension too.** What the picker does on a locked device is not documented. The correct design is a call to `openApplication(for:)`, so that the person unlocks the device and sees the library in the app.
+- **Each activation runs the mode change again.** `syncState()` assigns `captureMode`. The `didSet` observer of that property then calls `setCaptureMode(_:)` of the capture service, also when the mode is the same as before. In video mode, that method tries to add the movie output a second time and throws an error. The model uses `try?`, so nobody sees the error. Your own app can compare the old value with the new value first.
+- **The writes have no order.** One call to `syncState()` sets four properties of the model, and their observers write the same values back into the state. Each write starts a new task that sends the full structure to the system. Swift does not promise the order of these tasks, so an old value can arrive last. One serial task, or a short delay that collects the changes, prevents this.
+- **HDR is on in the default state.** `CameraState` starts with `isVideoHDREnabled = true`, and the model starts with `false`. When no stored state exists, `syncState()` copies `true` into the model. On a camera with a 10-bit format, the first change to video mode then turns HDR on.
+- **`isVideoHDRSupported` is stored, but no code reads it.**
+- **Errors only go to the log.** If the read of the context fails, the app uses the default state and tells nobody.
+- **The extension does not sync again.** It reads the state one time, at its start. This is sufficient, because the system starts the extension again for each use.
+- **Permission requests in the extension.** `MediaLibrary` requests access to Photos and to the location. The app makes these requests at the first save, not at launch. If the person never saved a photo or a movie in the app, these requests run in the extension, possibly on a locked device. What the system does then is not documented. Tell the person to take one photo in the app first.
+- **The symbol of the control is `curlybraces`.** On the Lock Screen and on the Action button, the person sees only the symbol. A real app uses a symbol that shows a camera.
 
 ## Common mistakes
 
-- **You set a continuation only in the "stop" method and expect that the callback comes after it.** Each path to the callback must resume the continuation, or must have a different place for the result.
-- **You store a continuation when no callback can come.** Test first if the operation still runs. If it does not, resume the continuation immediately.
-- **You resume a continuation two times.** A checked continuation stops the app in this case. In the new delegate, the `if` statement makes sure that each result goes to one place only.
-- **You make a failure from each error of the finish callback.** Read `AVErrorRecordingSuccessfullyFinishedKey` first. A recording that reached a limit can be a good movie.
-- **You use the movie file before the finish callback.** The output writes the last data in the background. The file is complete only when the callback arrives.
-- **You stop the timer only in the "stop" method.** Each path that ends the recording must also end the recording state of the interface.
-- **You count from 1 when the counter already contains the current item.** Write down the sequence with small numbers before you select `> 0` or `> 1`.
-- **You set a property of a connection one time and expect that it stays.** A connection ends when its output or its input leaves the session. Apply the settings again after each `addOutput(_:)`.
-- **You put feedback behind an `await`.** Sounds and visual feedback come first. Slow work comes after them.
-- **You leave a test line in the code.** A line such as the 3-second limit of the experiment changes each recording. Remove it before you continue.
-- **You call a defect "confirmed" after a read of the code.** A read gives you a hypothesis. Only a test on a device confirms it. Three of the four fixes in this chapter are not tested.
-
-> [!NOTE]
-> The Simulator with SimCam shows the result of the first fix only. The Live Photo badge, the orientation of a movie, and the AirPods sound need a real iPhone. The tutorial page tells you how to test them.
+- **The intent is not a part of all three targets.** The control then does not start the camera experience. A build error does not always tell you why.
+- **The app entry point is a part of the extension.** A program can have only one `@main` type. `AVCamApp.swift` must stay out of the capture extension.
+- **You use an App Group for the shared state.** It works in the app and fails in the capture extension. Use the app context.
+- **You put large data into the app context.** The system does not store a context that is larger than 4 kB.
+- **You change a stored type carelessly.** The system keeps the old JSON. If a new app version cannot decode it, the read fails, and the app starts with defaults. The raw values of `CaptureMode` and `QualityPrioritization` are a part of the stored data. Do not change them.
+- **The extension has no camera usage description.** The key must be in the extension target too, not only in the app.
+- **The extension shows no viewfinder, or it does not handle capture events.** The system stops it shortly after the launch.
+- **You change the `kind` string of a control.** The string identifies the control. After a change, the controls that people added probably disappear.
+- **The bundle identifier of an extension does not start with the identifier of the app.** The identifier must be the identifier of the app, a period, and a name. Xcode does this for you when it creates the target.
+- **You use a different team for one target.** All three targets must have the same team for code signing.
+- **You expect the control to appear by itself.** The person must add it. Show the steps in your app.
 
 ## Documentation
 
 ```links
-AVCaptureFileOutput | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput | The superclass of the movie output, with start, stop, pause, and the limits.
-AVCaptureFileOutputRecordingDelegate | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate | The callbacks for one recording.
-fileOutput(_:didFinishRecordingTo:from:error:) | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didfinishrecordingto:from:error:) | The finish callback, which the output always calls.
-AVErrorRecordingSuccessfullyFinishedKey | https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey | The key that tells you if a recording with an error is playable.
-AVError.Code.maximumDurationReached | https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/maximumdurationreached | The error code for a recording that reached its time limit.
-maxRecordedDuration | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedduration | The time limit of a recording.
-maxRecordedFileSize | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedfilesize | The size limit of a recording.
-minFreeDiskSpaceLimit | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/minfreediskspacelimit | The free disk space below which a recording stops.
-stopRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/stoprecording() | The stop request. The file is complete only after the finish callback.
-pauseRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/pauserecording() | Pause a recording (iOS 18).
-resumeRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/resumerecording() | Continue a paused recording (iOS 18).
-fileOutput(_:didStartRecordingTo:from:) | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didstartrecordingto:from:) | The callback for the moment when the output starts to write.
-movieFragmentInterval | https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/moviefragmentinterval | The fragment interval, and why fragments exist.
-AsyncStream | https://developer.apple.com/documentation/swift/asyncstream | The stream type for the unexpected results.
-makeStream(of:bufferingPolicy:) | https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:) | The method that makes a stream and its continuation together.
-CheckedContinuation | https://developer.apple.com/documentation/swift/checkedcontinuation | The continuation type, which must be resumed exactly one time.
-withCheckedThrowingContinuation(isolation:function:_:) | https://developer.apple.com/documentation/swift/withcheckedthrowingcontinuation(isolation:function:_:) | The function that connects a callback to `async` code.
-Capturing and saving Live Photos | https://developer.apple.com/documentation/avfoundation/capturing-and-saving-live-photos | The Apple article with the rule for the Live Photo indicator.
-Supporting device rotation in your camera app | https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app | The Apple article with a newer rotation design, which applies the angle to each new output.
-AVCaptureDevice.RotationCoordinator | https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator | The object that supplies the preview angle and the capture angle.
-videoRotationAngle | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle | The rotation angle of one connection.
-addOutput(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:) | The method that adds an output and makes its connections.
-AVCaptureEvent | https://developer.apple.com/documentation/avkit/avcaptureevent | The event of a hardware button or an AirPods stem.
-play(_:) | https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:) | The method that plays a capture sound through AirPods.
-AVCaptureEventSound | https://developer.apple.com/documentation/avkit/avcaptureeventsound | The system sounds and custom sounds for capture events.
-WWDC25: Enhancing your camera experience with capture controls | https://developer.apple.com/videos/play/wwdc2025/253/ | The session about capture events and the AirPods remote.
-Concepts: photo features | ch07-concepts.md | The chapter that introduced the Live Photo badge and its counter.
-Concepts: record video | ch08-concepts.md | The chapter that introduced the movie output and the recording delegate.
-Concepts: hardware buttons and AirPods | ch11-concepts.md | The chapter that introduced capture events and their sounds.
-Build: fix the sample | ch15-build.md | The tutorial for this chapter.
+Creating a camera experience for the Lock Screen | https://developer.apple.com/documentation/lockedcameracapture/creating-a-camera-experience-for-the-lock-screen | The main Apple article: the limits, the template, the intent, and the move to the app. Its code for the user activity has an error: create the activity with NSUserActivity(activityType:).
+LockedCameraCapture | https://developer.apple.com/documentation/lockedcameracapture | The framework of the capture extension.
+LockedCameraCaptureExtension | https://developer.apple.com/documentation/lockedcameracapture/lockedcameracaptureextension | The protocol of the entry point of the extension.
+LockedCameraCaptureSession | https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession | The session object that AVCam does not use.
+LockedCameraCaptureManager | https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturemanager | How the app gets the files of a capture session.
+CameraCaptureIntent | https://developer.apple.com/documentation/appintents/cameracaptureintent | The intent protocol that starts a camera experience.
+updateAppContext(_:) | https://developer.apple.com/documentation/appintents/cameracaptureintent/updateappcontext(_:) | The write operation for the shared state. The page gives the 4 kB limit.
+Creating controls to perform actions across the system | https://developer.apple.com/documentation/widgetkit/creating-controls-to-perform-actions-across-the-system | How to build a control with WidgetKit.
+Adding refinements and configuration to controls | https://developer.apple.com/documentation/widgetkit/adding-refinements-and-configuration-to-controls | Tint, labels, and controls that the person configures.
+ControlWidgetButton | https://developer.apple.com/documentation/widgetkit/controlwidgetbutton | The button template of a control.
+Human Interface Guidelines: Controls | https://developer.apple.com/design/human-interface-guidelines/controls | Design rules for controls and for camera experiences on a locked device.
+Human Interface Guidelines: Action button | https://developer.apple.com/design/human-interface-guidelines/action-button | Design rules for actions on the Action button.
+Use the Camera Control to open another app on iPhone | https://support.apple.com/guide/iphone/use-the-camera-control-to-open-another-app-iph3940f00d2/ios | The steps for the person in Settings.
+Configuring a new target in your project | https://developer.apple.com/documentation/xcode/configuring-a-new-target-in-your-project | How to add a target in Xcode.
+WWDC24: Build a great Lock Screen camera capture experience | https://developer.apple.com/videos/play/wwdc2024/10204/ | The source for the life of the extension, the limits, and the intent.
+WWDC24: Extend your app's controls across the system | https://developer.apple.com/videos/play/wwdc2024/10157/ | How to build controls.
+WWDC24: Bring your app's core features to users with App Intents | https://developer.apple.com/videos/play/wwdc2024/10210/ | Background for app intents.
+Build: Lock Screen and Control Center | ch15-build.md | The tutorial for this chapter.
 ```

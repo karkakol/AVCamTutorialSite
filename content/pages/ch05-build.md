@@ -72,7 +72,7 @@ protocol PlatformView: View {
 ### Step
 Below the protocol, add an extension of `PlatformView` with the default implementations of the two properties.
 
-A window is regular only when the two size classes are `.regular`. It is compact when one or the two of them are `.compact`. Each property is one comparison, with `&&` for regular and `||` for compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 9.
+A window is regular only when the two size classes are `.regular`. It is compact when one or the two of them are `.compact`. Each property is one comparison, with `&&` for regular and `||` for compact. The two properties are not exact opposites: before SwiftUI supplies the size classes, the values are `nil`, and the two properties are `false`. You use `isCompactSize` in chapter 11.
 
 ```swift file=AVCam/Support/ViewExtensions.swift highlight=9-12
 @MainActor
@@ -163,7 +163,7 @@ A frame in the center of the screen has two equal bars. The sample moves the fra
 ### Step
 At the end of the structure, below `updateBlurRadius`, add the computed property `aspectRatio` of the type `AspectRatio`. It returns `photoAspectRatio`.
 
-The frame must have the shape of the capture format. The app has only a photo format now, so the property returns one value. In chapter 8, the property returns the video ratio when the app is in video mode.
+The frame must have the shape of the capture format. The app has only a photo format now, so the property returns one value. In chapter 10, the property returns the video ratio when the app is in video mode.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=7-9
     func updateBlurRadius(_: Bool, _ isSwitching: Bool) {
@@ -456,7 +456,7 @@ At the end of the structure, add the computed property `bottomPadding` of the ty
 - `rect.minY` is the top edge of that area. It is also the height of the bar above the video.
 - The space below the toolbar is half of that height, rounded with `rounded()` before the division, plus 12 points. Thus the space is larger in a tall window.
 
-The property is not private, like `aspectRatio` in `PreviewContainer`. It always uses the video ratio, also in photo mode. So the toolbar does not move when the capture mode changes in chapter 8.
+The property is not private, like `aspectRatio` in `PreviewContainer`. It always uses the video ratio, also in photo mode. So the toolbar does not move when the capture mode changes in chapter 10.
 
 ```swift file=AVCam/Views/CameraUI.swift highlight=5-10
             .padding(.bottom, 32)

@@ -1,19 +1,29 @@
-# Chapter 15 hand-off notes: Fix the sample (code by the coordinator)
+# Chapter 15 hand-off notes (code by the coordinator)
 
-Branch `chapter-15`, start `chapter-14`. Full change: `git -C ../AVCamTutorialApp diff chapter-14 chapter-15` (86 added lines, 13 removed). NOT in the Apple sample: this chapter corrects four defects that the research found (see "things to know" in chapters 7, 8, and 11 and the research files 02, 03, 04). The fixes are the coordinator's own design.
+Branch `chapter-15`, start `chapter-14`. Full change: `git -C ../AVCamTutorialApp diff chapter-14 chapter-15`. After this chapter each Swift file under `AVCam/` is identical to the Apple sample, except the approved deviations (see `docs/PLAN.md`).
 
 ## Result and verification
-- Build succeeded with no warnings.
-- Fix 1 (recording that ends by itself) was verified in the Simulator with a temporary line `movieOutput.maxRecordedDuration = CMTime(seconds: 3, preferredTimescale: 600)` before `startRecording`: after 3 seconds the recording ended by itself, the movie appeared in the Photos library of the simulator, the timer went back to 00:00:00, the button returned to its idle form, and the thumbnail appeared. Offer this line as an Experiment so that the learner can see the fix work. A normal start and stop still saves the movie (verified).
-- Fixes 2, 3, and 4 could NOT be verified in the Simulator (Live Photo, device rotation of a movie, and AirPods sounds need a real iPhone). They are small and follow from the code.
+- Build for the simulator succeeded, no warnings. The built app contains `Extensions/AVCamCaptureExtension.appex` and `PlugIns/AVCamControlCenterExtension.appex`. The app runs in the Simulator as before.
+- Not verified at run time: launch from the Lock Screen, Control Center, or the Action button; the shared state between app and extension. These need a real iPhone and signing with a team.
 
-## The four fixes
-1. `MovieCapture`: a recording can end before the app stops it (interruption, full disk, a size or time limit). Before, the delegate dropped the result because no continuation was set, the timer kept running, and a later `stopRecording()` never returned. Now: `MovieCaptureError.notRecording`; `unexpectedResults` stream with its continuation and `init()`; `unexpectedFinishHandler` on the delegate, set in `startRecording()`; the delegate builds a `Result`, treats an error with `AVErrorRecordingSuccessfullyFinishedKey == true` as success (`isMovieUsable(after:)`), and either resumes the continuation or calls the handler; `stopRecording()` returns an error at once when the output is not recording. `CaptureService`: `nonisolated let unexpectedRecordingResults`, set in `init()`. `CameraModel.observeState()`: a task that saves each unexpected movie or stores the error.
-2. `PhotoCapture.monitorProgress`: `livePhotoCount > 1` is now `> 0`, with a new comment. With `> 1`, the badge goes off when the first of two overlapping Live Photos ends.
-3. `CaptureService.setCaptureMode(_:)`: after `addOutput(movieCapture.output)`, call `updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)`, because a new output gets a new connection without the angle.
-4. `CameraView.onCameraCaptureEvent`: the sound is selected and played BEFORE the capture work, so that a person with AirPods hears it at the click. Before, it played after capture, location, and save, and `play(_:)` does nothing after 15 seconds.
+## What the chapter adds (Swift)
+- `Model/CameraState.swift`, `Model/Intent/AVCamCaptureIntent.swift` (copied from the sample).
+- `CaptureService`: `start(with:)` sets `captureMode` and `isHDRVideoEnabled` from the state; `setUpSession()` selects the preset from the mode and, in video mode, adds the movie output with deferred start and applies HDR.
+- `CameraModel`: `import Combine`, `cameraState`, `syncState()`, the call in `start()`, `captureService.start(with:)`, the `didSet` blocks that store values in `cameraState` (capture mode, Live Photo, quality prioritization, HDR enabled, HDR supported).
+- `Camera`, `PreviewCameraModel`: `syncState()` (and `PreviewCameraModel` gets the rest of the sample's file: `isVideoDeviceSwitchable`, `capabilities(for:)`).
+- `AVCamApp`: `scenePhase` and the `onChange` that calls `syncState()`.
+- `DataTypes`: `CameraError.deviceChangeFailed`.
+- New folders: `AVCamCaptureExtension/` (`AVCamCaptureExtension.swift`, `Info.plist` with `EXExtensionPointIdentifier = com.apple.securecapture`) and `AVCamControlCenterExtension/` (`AVCamControlCenterExtension.swift`, `AVCamControlCenterExtensionBundle.swift`, `Assets.xcassets`, `Info.plist` with `NSExtensionPointIdentifier = com.apple.widgetkit-extension`). The control `kind` string uses the bundle identifier `com.karolkakol.AVCam...`.
 
-## Things to explain
-- For each fix: the symptom, the cause in the code, the fix, how to test it. Use `remove` fences for each replaced line (the validator checks removed lines).
-- Other known weak points that this chapter does NOT fix (list them as ideas): the capture activity never returns to idle after a photo; a photo processing error can get lost; state writes from more than one thread in `MovieCapture`; `CameraState` defaults HDR to on; failed saves leave files in the temporary folder.
-- This chapter is short in code. Plan about 25 to 30 steps and 35 minutes. The concept page explains how to find such defects: read the delegate contract in the header, ask "what if this callback comes at another time", test end states.
+## What the chapter adds (Xcode project) — the learner does this in the Xcode UI; use `settings` steps
+1. File > New > Target > "Capture Extension", name `AVCamCaptureExtension`, embedded in AVCam. Xcode creates the folder, the target, and the "Embed ExtensionKit Extensions" phase. Replace the template Swift file content with the sample's file.
+2. File > New > Target > "Widget Extension", name `AVCamControlCenterExtension`, without Live Activity and without configuration intent; delete the template widget files that are not needed; keep the bundle file and the control file. Xcode creates the "Embed Foundation Extensions" phase.
+3. Target membership: all Swift files under `AVCam/` except `AVCamApp.swift` (28 files) also belong to `AVCamCaptureExtension`. Three files also belong to `AVCamControlCenterExtension`: `Model/CameraState.swift`, `Model/DataTypes.swift`, `Model/Intent/AVCamCaptureIntent.swift`. In Xcode: select the files, File inspector, Target Membership.
+4. Capture extension build settings: deployment target iOS 26.0; usage descriptions for camera, microphone, and location; the same Swift settings as the app (Swift 5, default actor isolation nonisolated, approachable concurrency No, member import visibility No).
+5. Control extension: deployment target iOS 26.0; same Swift settings.
+6. Bundle identifiers: `com.karolkakol.AVCam.AVCamCaptureExtension` and `com.karolkakol.AVCam.AVCamControlCenterExtension`.
+The exact template names and options in Xcode 27.1 were NOT checked in the Xcode UI; the project file was written by hand. Say on the page that names can differ a little, and that the learner can compare with the `chapter-15` branch. List `AVCam.xcodeproj/project.pbxproj`, the two `Info.plist` files, and the asset catalog in `uncovered:`.
+
+## Things to explain (research/04-system-integration.md, sections 4 to 7)
+- What a capture extension is and its limits on a locked device; `LockedCameraCaptureExtension`, `LockedCameraCaptureUIScene`, the session object that the sample ignores; `CameraCaptureIntent`, its app context (4 kB limit), how the system selects the app or the extension; the control widget and how a person adds it; why the files are shared with the extension; the research findings (`syncState()` runs the mode change again, unordered state writes).
+- Write also a short "what next" bridge to the wrap-up page.

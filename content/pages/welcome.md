@@ -27,18 +27,18 @@ A second part, "Beyond the sample", has three more chapters. Their code is not f
 | 5 | Layout | The interface adapts to iPhone and iPad sizes. |
 | 6 | Focus and exposure | A tap on the preview sets the focus and the exposure. |
 | 7 | Photo features | Live Photos, a quality setting, and faster capture. |
-| 8 | Record video | A second capture mode records movies with sound. |
-| 9 | HDR video | The app records HDR video on cameras that support it. |
-| 10 | A robust session | The app handles interruptions and errors, and it starts fast. |
-| 11 | Hardware buttons and AirPods | The volume buttons and AirPods capture media. |
-| 12 | Camera Control | The Camera Control shows zoom, exposure, and a focus slider. |
-| 13 | Lock Screen and Control Center | The app starts from the Lock Screen and from Control Center. |
-| 14 | Zoom and lenses | Part 2. The app uses the back camera with the most lenses and has a zoom control. |
-| 15 | Fix the sample | Part 2. You correct four defects of the Apple sample. |
-| 16 | iPhone Duo | Part 2. The app follows the direction of each camera and fits the Duo display. |
+| 10 | Record video | A second capture mode records movies with sound. |
+| 11 | HDR video | The app records HDR video on cameras that support it. |
+| 12 | A robust session | The app handles interruptions and errors, and it starts fast. |
+| 13 | Hardware buttons and AirPods | The volume buttons and AirPods capture media. |
+| 14 | Camera Control | The Camera Control shows zoom, exposure, and a focus slider. |
+| 15 | Lock Screen and Control Center | The app starts from the Lock Screen and from Control Center. |
+| 16 | Zoom and lenses | Part 2. The app uses the back camera with the most lenses and has a zoom control. |
+| 17 | Fix the sample | Part 2. You correct four defects of the Apple sample. |
+| 18 | iPhone Duo | Part 2. The app follows the direction of each camera and fits the Duo display. |
 
 > [!NOTE]
-> All 16 chapters are ready. Chapters 1, 3, 6, 7, 9, 11, 12, and 13 contain features that you can see only on a real iPhone; each page tells you which ones.
+> All 16 chapters are ready. Chapters 1, 3, 6, 7, 11, 13, 14, and 15 contain features that you can see only on a real iPhone; each page tells you which ones.
 
 ## How a chapter works
 
@@ -65,10 +65,10 @@ With SimCam, most of the tutorial works in the Simulator: the preview, the camer
 | The correct orientation of photos | 3 |
 | The visible effect of focus and exposure | 6 |
 | Live Photos | 7 |
-| HDR video | 9 |
-| Capture with the hardware buttons and AirPods | 11 |
-| The Camera Control | 12 |
-| The start from the Lock Screen (not tested in the Simulator) | 13 |
+| HDR video | 11 |
+| Capture with the hardware buttons and AirPods | 13 |
+| The Camera Control | 14 |
+| The start from the Lock Screen (not tested in the Simulator) | 15 |
 
 > [!NOTE]
 > The code for these features is in the tutorial, and it builds. You can type it without an iPhone, but you cannot see the result in the Simulator.
@@ -80,8 +80,8 @@ The code of the tutorial is in the app repository, `AVCamTutorialApp`. It is a G
 | Branch | Contents |
 |---|---|
 | `start` | The empty project that Xcode creates from the App template. |
-| `chapter-01` to `chapter-13` | The finished code of each chapter. `chapter-13` is the Apple sample. |
-| `chapter-14` to `chapter-16` | The finished code of each chapter of part 2. |
+| `chapter-01` to `chapter-15` | The finished code of each chapter. `chapter-15` is the Apple sample. |
+| `chapter-16` to `chapter-20` | The finished code of each chapter of part 2. |
 | `main` | The same as the last finished chapter. |
 
 Each build tutorial shows two branch names at the top: the branch that it starts from, and the branch with the result.
@@ -149,7 +149,7 @@ It helps to know the final design before you start. AVCam has three layers. Each
 
 The views do not know the capture service, and the capture service does not know SwiftUI. The model is the only connection between them. A second model, `PreviewCameraModel`, replaces the real one in Xcode previews, where no camera is available.
 
-You build these parts in small steps. Chapter 1 creates the model, the capture service, and the preview. Chapter 3 adds `PhotoCapture`, chapter 4 adds `MediaLibrary`, and chapter 8 adds `MovieCapture`.
+You build these parts in small steps. Chapter 1 creates the model, the capture service, and the preview. Chapter 3 adds `PhotoCapture`, chapter 4 adds `MediaLibrary`, and chapter 10 adds `MovieCapture`.
 
 ## Start
 

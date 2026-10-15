@@ -108,10 +108,10 @@ Approved deviations in use:
 Reductions for chapter 1 (each one is a subset of the sample; later chapters add lines):
 
 - `CaptureService.setUpSession()`: the camera comes from `AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)` with a `guard` that throws `CameraError.videoDeviceUnavailable`. Chapter 2 replaces these four lines with `let defaultCamera = try deviceLookup.defaultCamera`. No fallback to `AVCaptureDevice.default(for: .video)` is necessary: SimCam supplies a back wide-angle camera.
-- `setUpSession()` has no `isSetUp` guard, because the plan gives `isSetUp` to chapter 10. `start()` already returns early when the session runs.
+- `setUpSession()` has no `isSetUp` guard, because the plan gives `isSetUp` to chapter 12. `start()` already returns early when the session runs.
 - `setUpSession()` calls `try addInput(for: defaultCamera)` and ignores the result. `activeVideoInput` arrives in chapter 2. `addInput(for:)` is in its final form (`@discardableResult`).
-- `CaptureService.start()` has no `with state:` parameter (chapter 13).
-- `CameraStatus` has no `interrupted` case. `StatusOverlayView` has no `interrupted` entries and no "Interrupted" preview (chapter 10 adds them). The line `.foregroundColor(color == .yellow ? ...)` stays as in the sample; yellow is not in use until chapter 10.
+- `CaptureService.start()` has no `with state:` parameter (chapter 15).
+- `CameraStatus` has no `interrupted` case. `StatusOverlayView` has no `interrupted` entries and no "Interrupted" preview (chapter 12 adds them). The line `.foregroundColor(color == .yellow ? ...)` stays as in the sample; yellow is not in use until chapter 12.
 - `CameraView` conforms to `View`, not `PlatformView` (chapter 5), and has no size class properties. The body is a `ZStack` with `CameraPreview` and `StatusOverlayView`. In the sample, the status overlay is in `CameraUI`; chapter 2 moves it there. The comment "A view that presents a status message over the camera preview." above `StatusOverlayView` in `CameraView` is mine; chapter 2 removes that line.
 - `CameraView.swift` imports only `SwiftUI` (the sample also imports `AVFoundation` and `AVKit` for later features). `CameraModel.swift` and `CaptureService.swift` do not import `Combine` yet.
 - `DataTypes.swift` keeps `import AVFoundation` from the sample although chapter 1 does not need it (chapter 3 needs it).

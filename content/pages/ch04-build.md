@@ -182,7 +182,7 @@ You cannot write a file into the Photos library. You describe a change, and the 
 ### Step
 Below `isAuthorized`, add the private method `performChange(_:)`, which is `async throws` and first makes sure that the app has access.
 
-This is a template method. It contains the steps that are the same for each save. The `change` parameter is a closure that describes one change and returns a placeholder for the new asset. Its type is `@Sendable @escaping () -> PHObjectPlaceholder?`. The closure is `@escaping` because the library runs it later, in its own change block. It is `@Sendable` because that block can run on a different thread. In chapter 8, the method that saves a movie uses `performChange(_:)` again with a different closure.
+This is a template method. It contains the steps that are the same for each save. The `change` parameter is a closure that describes one change and returns a placeholder for the new asset. Its type is `@Sendable @escaping () -> PHObjectPlaceholder?`. The closure is `@escaping` because the library runs it later, in its own change block. It is `@Sendable` because that block can run on a different thread. In chapter 10, the method that saves a movie uses `performChange(_:)` again with a different closure.
 
 In this step, the method only reads `isAuthorized` with `await` and throws `Error.unauthorized` when the value is `false`.
 

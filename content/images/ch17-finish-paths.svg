@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 452">
   <title>The two paths of the finish callback: the app stops the recording and a continuation waits for the result, or the recording ends by itself and the result goes into a stream</title>
   <defs>
-    <marker id="ch15-paths-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch17-paths-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -35,7 +35,7 @@
     <rect x="170" y="392" width="380" height="48" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
     <text x="360" y="421" fill="currentColor" font-weight="600">The model saves the movie or stores the error</text>
   </g>
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch15-paths-arrow)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch17-paths-arrow)">
     <path d="M170 100 V123 H300 V144"/>
     <path d="M550 100 V123 H420 V144"/>
     <path d="M300 230 V253 H170 V274"/>

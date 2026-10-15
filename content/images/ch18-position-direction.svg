@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350">
   <title>The same two cameras in two configurations of the device: the position of each camera stays the same, and the direction of each camera changes</title>
   <defs>
-    <marker id="ch16-dir-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch18-dir-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
     </marker>
   </defs>
@@ -34,10 +34,10 @@
     <path d="M166 100 V178" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" fill="none"/>
     <!-- Camera with the front position -->
     <circle cx="170" cy="80" r="7" fill="var(--accent)"/>
-    <path d="M160 80 H96" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <path d="M160 80 H96" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-dir-arrow)"/>
     <!-- Camera with the back position -->
     <circle cx="190" cy="80" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
-    <path d="M200 80 H264" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <path d="M200 80 H264" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-dir-arrow)"/>
   </g>
 
   <!-- Panel 2 -->
@@ -54,10 +54,10 @@
     <path d="M526 100 V178" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" fill="none"/>
     <!-- Camera with the back position now faces the person -->
     <circle cx="530" cy="80" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
-    <path d="M520 80 H456" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <path d="M520 80 H456" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-dir-arrow)"/>
     <!-- Camera with the front position now faces the scene -->
     <circle cx="550" cy="80" r="7" fill="var(--accent)"/>
-    <path d="M560 80 H624" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch16-dir-arrow)"/>
+    <path d="M560 80 H624" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#ch18-dir-arrow)"/>
   </g>
 
   <g font-family="inherit" font-size="13">

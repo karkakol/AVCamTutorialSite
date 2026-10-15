@@ -9,7 +9,7 @@ Branch `chapter-05`, start `chapter-04`. Full change: `git -C ../AVCamTutorialAp
 ## What the chapter adds
 - `Support/ViewExtensions.swift`: the `PlatformView` protocol and its extension (`isRegularSize`, `isCompactSize`).
 - `Views/CameraUI.swift`: rewritten. `PlatformView`, size class environment values, `windowSize` with `onGeometryChange`, `compactUI`, `regularUI`, `bottomPadding` (uses `AVMakeRect` and `movieAspectRatio`), `import AVFoundation`.
-- `Views/PreviewContainer.swift`: `AspectRatio`, `photoAspectRatio`, `movieAspectRatio`, `horizontalSizeClass`, `photoModeOffset`, the compact branch with `.clipped()`, `.aspectRatio`, `.offset`, the `aspectRatio` property (photo ratio only; chapter 8 adds the mode check).
+- `Views/PreviewContainer.swift`: `AspectRatio`, `photoAspectRatio`, `movieAspectRatio`, `horizontalSizeClass`, `photoModeOffset`, the compact branch with `.clipped()`, `.aspectRatio`, `.offset`, the `aspectRatio` property (photo ratio only; chapter 10 adds the mode check).
 - `MainToolbar` and `CameraView` now conform to `PlatformView` and declare the two size class environment values. `MainToolbar` gets `width`.
 - Build setting: "Supported Interface Orientations (iPhone)" is now Portrait only (`INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait`). iPad keeps all four. Explain why a camera app locks the iPhone interface to portrait and lets the rotation coordinator handle the capture orientation.
 

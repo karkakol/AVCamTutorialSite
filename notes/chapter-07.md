@@ -8,12 +8,12 @@ Branch `chapter-07`, start `chapter-06`. Full change: `git -C ../AVCamTutorialAp
 
 ## What the chapter adds
 - `Capture/PhotoCapture.swift` is now identical to the Apple sample: `capturePhoto(with:)`, features in `createPhotoSettings(with:)` (`livePhotoMovieFileURL`, `photoQualityPrioritization`), `livePhotoCount` logic in `monitorProgress`, full `updateConfiguration(for:)`, `updateCapabilities(for:)`, `capabilities`, delegate: `isLivePhoto`, `isProxyPhoto`, `livePhotoMovieURL`, three new callbacks.
-- `Model/DataTypes.swift`: `CaptureActivity.photoCapture` gets `isLivePhoto`; `isLivePhoto` property; `Photo.isProxy`, `Photo.livePhotoMovieURL`; `PhotoFeatures`; `CaptureCapabilities` (Live Photo only; chapter 9 adds HDR); `QualityPrioritization`; `OutputService.capabilities`.
+- `Model/DataTypes.swift`: `CaptureActivity.photoCapture` gets `isLivePhoto`; `isLivePhoto` property; `Photo.isProxy`, `Photo.livePhotoMovieURL`; `PhotoFeatures`; `CaptureCapabilities` (Live Photo only; chapter 11 adds HDR); `QualityPrioritization`; `OutputService.capabilities`.
 - New files copied from the sample: `Support/FoundationExtensions.swift`, `Views/Overlays/LiveBadge.swift`.
 - `CaptureService`: `captureCapabilities`, `capturePhoto(with:)`, capabilities line in `updateCaptureCapabilities()`.
 - `MediaLibrary.save(photo:)`: `.photoProxy` or `.photo`, and the `.pairedVideo` resource.
 - `Camera`, `CameraModel`, `PreviewCameraModel`: `isLivePhotoEnabled`, `qualityPrioritization`; `CameraModel.capturePhoto()` builds `PhotoFeatures`.
-- Views: `Toolbars/FeatureToolbar/FeatureToolbar.swift` (photo items only; chapter 8 adds the mode switch, chapter 9 the HDR button), `CameraUI` (Live badge overlay, `FeaturesToolbar` in both layouts).
+- Views: `Toolbars/FeatureToolbar/FeatureToolbar.swift` (photo items only; chapter 10 adds the mode switch, chapter 11 the HDR button), `CameraUI` (Live badge overlay, `FeaturesToolbar` in both layouts).
 
 ## Changes to earlier code (use `remove` fences)
 - `CaptureActivity`: the case and the `willCapture` pattern.
@@ -22,4 +22,4 @@ Branch `chapter-07`, start `chapter-06`. Full change: `git -C ../AVCamTutorialAp
 
 ## Things to explain (research/02-photo-capture.md, sections 5, 6, 7)
 - The two-level rule again (enable on the output, select in the settings). Quality prioritization. Zero shutter lag, responsive capture, fast capture prioritization, deferred delivery and the proxy that must be saved as `.photoProxy`. Live Photo life cycle, why the movie output must not be in the session, the badge counter.
-- Probable sample defects from the research: the badge counter tests `> 1`; `livePhotoMovieFileURL` is set without a support check; the microphone arrives only in chapter 8, so Live Photos have no sound until then.
+- Probable sample defects from the research: the badge counter tests `> 1`; `livePhotoMovieFileURL` is set without a support check; the microphone arrives only in chapter 10, so Live Photos have no sound until then.

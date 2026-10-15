@@ -18,12 +18,12 @@ The app does not save the photo in this chapter. Chapter 4 saves it to the Photo
 
 The capture service actor owns the capture code. The views run on the main actor. In this section, you define the small types that carry the state of a capture between these two sides.
 
-You also define the `OutputService` protocol. It is the common interface of each object that manages a capture output. The photo service adopts it in this chapter. The movie service adopts it in chapter 8.
+You also define the `OutputService` protocol. It is the common interface of each object that manages a capture output. The photo service adopts it in this chapter. The movie service adopts it in chapter 10.
 
 ### Step
 In `DataTypes.swift`, add the `CaptureActivity` enumeration with its two cases below the `CameraStatus` enumeration.
 
-The two cases are `idle` and `photoCapture(willCapture: Bool = false)`. The capture service uses this type to tell the interface what it does at this time. The `willCapture` value marks the moment when the camera starts the exposure. Chapter 7 adds a Live Photo value to the case, and chapter 8 adds a case for movies.
+The two cases are `idle` and `photoCapture(willCapture: Bool = false)`. The capture service uses this type to tell the interface what it does at this time. The `willCapture` value marks the moment when the camera starts the exposure. Chapter 7 adds a Live Photo value to the case, and chapter 10 adds a case for movies.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=5-12
     /// A status that indicates the camera is successfully running.
@@ -657,7 +657,7 @@ You also send the capture activity one level up. The service publishes it, so th
 ### Step
 In `CaptureService.swift`, add the `photoCapture` property and the `outputServices` property below `captureSession`.
 
-`photoCapture` is a private constant with a new `PhotoCapture` object. `outputServices` is a private computed property of type `[any OutputService]` that returns `[photoCapture]`. The array has one element now. Chapter 8 adds the movie service to it. Code that must reach each output, such as the rotation code, then needs no change.
+`photoCapture` is a private constant with a new `PhotoCapture` object. `outputServices` is a private computed property of type `[any OutputService]` that returns `[photoCapture]`. The array has one element now. Chapter 10 adds the movie service to it. Code that must reach each output, such as the rotation code, then needs no change.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5,7-8
     // The app's capture session.
@@ -799,7 +799,7 @@ actor CaptureService {
 ### Step
 Below `updateCaptureCapabilities()`, add the `observeOutputServices()` method, which publishes the activity of the photo service again.
 
-The method is private. `photoCapture.$captureActivity.assign(to: &$captureActivity)` sends each value from the publisher of the photo service to the property of the actor. The subscription lives as long as the property, so there is no cancellable object to store. Chapter 8 merges a second publisher, from the movie service, into this line.
+The method is private. `photoCapture.$captureActivity.assign(to: &$captureActivity)` sends each value from the publisher of the photo service to the property of the actor. The subscription lives as long as the property, so there is no cancellable object to store. Chapter 10 merges a second publisher, from the movie service, into this line.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-11
     private func updateCaptureCapabilities() {
@@ -916,7 +916,7 @@ extension OutputService {
 ### Step
 In `CaptureService.swift`, add the `updateCaptureRotation(_:)` method below the `updatePreviewRotation(_:)` method from chapter 2.
 
-The method is private and takes a `CGFloat`. It calls `setVideoRotationAngle(_:)` on each output service in `outputServices`. When chapter 8 adds the movie service to the array, movies get the correct orientation with no new code here.
+The method is private and takes a `CGFloat`. It calls `setVideoRotationAngle(_:)` on each output service in `outputServices`. When chapter 10 adds the movie service to the array, movies get the correct orientation with no new code here.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-12
     private func updatePreviewRotation(_ angle: CGFloat) {
@@ -1247,7 +1247,7 @@ class PreviewCameraModel: Camera {
 ### Step
 Create a new Swift file with the name `CaptureButton.swift` in the `MainToolbar` group, and replace its contents.
 
-`CaptureButton` is generic over `Camera` and holds the model in `@State var camera`, like `MainToolbar`. The structure has the `@MainActor` attribute, as in the sample. It is 68 points wide, with an aspect ratio of 1. It starts a task that calls `capturePhoto()` on the model. The private view `PhotoCaptureButton` takes an `action` closure. It draws a white ring with a line width of 4 and, in a `Button`, a white disc inset by 1.2 times the line width. Its `PhotoButtonStyle` scales the label to 0.85 while the person presses it, with an `easeInOut` animation of 0.15 seconds. The `#Preview("Photo")` uses `PreviewBackground` and `PreviewCameraModel`. This file has only the photo button. Chapter 8 adds a button for movies. In Try first mode, the code of this step stays visible. Copy it as it is.
+`CaptureButton` is generic over `Camera` and holds the model in `@State var camera`, like `MainToolbar`. The structure has the `@MainActor` attribute, as in the sample. It is 68 points wide, with an aspect ratio of 1. It starts a task that calls `capturePhoto()` on the model. The private view `PhotoCaptureButton` takes an `action` closure. It draws a white ring with a line width of 4 and, in a `Button`, a white disc inset by 1.2 times the line width. Its `PhotoButtonStyle` scales the label to 0.85 while the person presses it, with an `easeInOut` animation of 0.15 seconds. The `#Preview("Photo")` uses `PreviewBackground` and `PreviewCameraModel`. This file has only the photo button. Chapter 10 adds a button for movies. In Try first mode, the code of this step stays visible. Copy it as it is.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift new copy result="../images/ch03-s7-10.jpg|The capture button in the Xcode preview canvas: a white circle with a ring, on the preview background."
 /*

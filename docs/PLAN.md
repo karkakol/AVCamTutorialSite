@@ -11,7 +11,7 @@ A learner rebuilds Apple's AVCam sample app almost from nothing, one chapter at 
 | Path | Role | Rules |
 |---|---|---|
 | `/Users/karolkakol/tutorials/AVCamBuildingACameraApp` | Apple's sample. The reference for the final state. | READ ONLY. Never edit, never commit, never build into it (use a derived data path outside of it). |
-| `/Users/karolkakol/tutorials/AVCamTutorialApp` | The iOS project the learner builds. | One branch per chapter: `start`, `chapter-01` ... `chapter-13`. `main` equals the last finished chapter. Only the code agent for the current chapter commits here. |
+| `/Users/karolkakol/tutorials/AVCamTutorialApp` | The iOS project the learner builds. | One branch per chapter: `start`, `chapter-01` ... `chapter-15`. `main` equals the last finished chapter. Only the code agent for the current chapter commits here. |
 | `/Users/karolkakol/tutorials/AVCamTutorialSite` | The static tutorial web site. | Agents write files only in the folders assigned to them. Agents do NOT run `git commit` here; the coordinator commits. |
 
 Folders in the site repository:
@@ -38,7 +38,7 @@ Folders in the site repository:
 
 ## Code rules (tutorial app)
 
-1. **The final state equals the Apple sample.** At `chapter-13`, each Swift file matches the Apple sample (same file paths under `AVCam/`, same names, same comments), except for deviations listed in "Approved deviations". Port code from the reference; do not invent a different design.
+1. **The final state equals the Apple sample.** At `chapter-15`, each Swift file matches the Apple sample (same file paths under `AVCam/`, same names, same comments), except for deviations listed in "Approved deviations". Port code from the reference; do not invent a different design.
 2. **Each chapter adds; it rarely rewrites.** Write code in its final form when possible. When an early chapter needs a simpler version (for example a protocol with fewer members), keep the simple version a strict subset of the final version so that later chapters only add lines.
 3. **Each chapter end state builds without errors and runs in the Simulator** with a visible result.
 4. **No code from later chapters.** Do not add properties, cases, or files that the chapter does not need.
@@ -51,12 +51,12 @@ Folders in the site repository:
 
 - Bundle identifier `com.karolkakol.AVCam` (and the strings derived from it).
 - `CameraPreview.PreviewView` does not add the static placeholder image in the Simulator (`#if targetEnvironment(simulator)` block), because SimCam supplies a real feed. Verify that the live feed is visible.
-- Chapter 10 connects `CaptureService.isInterrupted` to `CameraModel.status` (`.interrupted`). The Apple sample publishes the value but never shows it.
+- Chapter 12 connects `CaptureService.isInterrupted` to `CameraModel.status` (`.interrupted`). The Apple sample publishes the value but never shows it.
 - Anything else: avoid it. If you must deviate, write the reason in `notes/chapter-NN.md`.
 
 ## Deviation from the sample: previews (14 Oct 2026)
 
-The user asked that every control is visible in the Xcode preview canvas. Chapter 1 adds `AVCam/Preview Content/PreviewBackground.swift` (a gray gradient that stands in for the camera picture). Every `#Preview` block that shows a control on the camera wraps it in `PreviewBackground { }`, and `SwitchCameraButton`, `ThumbnailButton`, and `FeaturesToolbar` get a preview block that the sample does not have. Apart from this, the code equals the sample until chapter 13. The capture tool (`tools/capture.py --view`) renders the same views with the same background for the "What you see" screenshots.
+The user asked that every control is visible in the Xcode preview canvas. Chapter 1 adds `AVCam/Preview Content/PreviewBackground.swift` (a gray gradient that stands in for the camera picture). Every `#Preview` block that shows a control on the camera wraps it in `PreviewBackground { }`, and `SwitchCameraButton`, `ThumbnailButton`, and `FeaturesToolbar` get a preview block that the sample does not have. Apart from this, the code equals the sample until chapter 15. The capture tool (`tools/capture.py --view`) renders the same views with the same background for the "What you see" screenshots.
 
 ## Scope
 
@@ -124,7 +124,20 @@ Result: Live Photo capture with a "LIVE" badge, a quality prioritization picker,
 - `Camera` / `CameraModel`: `isLivePhotoEnabled`, `qualityPrioritization`.
 - Views: `FeaturesToolbar` (photo items), `LiveBadge`, overlay in `CameraUI`.
 
-### Chapter 8 — Record video (`chapter-08`)
+### Chapter 8 — RAW and Apple ProRAW (`chapter-08`)
+Result: a RAW menu in the features toolbar with Off, Apple ProRAW, and Bayer RAW. The menu shows only the formats that the camera supports. Details and decisions: `docs/PLAN-raw-and-fast-capture.md`, `research/08-raw.md`, `notes/chapter-08.md`.
+- `DataTypes`: `RAWFormat`, `CaptureCapabilities` gets `isAppleProRAWSupported` and `isBayerRAWSupported`, `PhotoFeatures` gets the RAW format.
+- `PhotoCapture`: the RAW pixel format choice, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the callback for the RAW photo, the DNG saved as an alternate resource of the same asset.
+- `Camera` / `CameraModel` / `PreviewCameraModel`: `rawFormat`. Views: `FeatureToolbar` (the `rawMenu`).
+- Needs a real iPhone with a supported device for verification; the Simulator takes the fallback path.
+
+### Chapter 9 — Fast capture (`chapter-09`)
+Result: the capture button follows the readiness of the photo output. Details: `research/09-fast-capture.md`, `notes/chapter-09.md`.
+- `PhotoCapture`: responsive capture, fast capture prioritization, zero shutter lag, an `AVCapturePhotoOutputReadinessCoordinator` with a delegate that yields `CaptureReadiness` values.
+- `DataTypes`: `CaptureReadiness`. `CaptureService`, `Camera`, `CameraModel`, `PreviewCameraModel`: `captureReadiness`.
+- `CaptureButton`: `PhotoCaptureButton(readiness:)` dims or disables while the camera is not ready.
+
+### Chapter 10 — Record video (`chapter-10`)
 Result: a mode picker (and a swipe) changes between photo and video. The app records movies with sound, shows the recording time, and saves the movie to Photos.
 - `DataTypes`: `CaptureMode`, `Movie`, `CaptureActivity.movieCapture`, `currentTime`, `isRecording`.
 - Microphone: `DeviceLookup.defaultMic`, the microphone input, the microphone usage description.
@@ -134,7 +147,7 @@ Result: a mode picker (and a swipe) changes between photo and video. The app rec
 - `Camera` / `CameraModel`: `captureMode`, `isSwitchingModes`, `toggleRecording()`.
 - Views: `CaptureModeView`, `SwipeDirection` and the swipe gesture, movie capture button, `RecordingTimeView`, movie aspect ratio and mode-switch blur in `PreviewContainer`, controls disabled during recording.
 
-### Chapter 9 — HDR video (`chapter-09`)
+### Chapter 11 — HDR video (`chapter-11`)
 Result: an HDR button appears in video mode when the camera supports 10-bit HDR. The app records HDR video.
 - `CaptureExtensions`: `activeFormat10BitVariant`, `isTenBitFormat`, `maxFrameRate`.
 - `MovieCapture`: `isHDRSupported`, `capabilities`. `CaptureCapabilities.isHDRSupported`.
@@ -142,43 +155,40 @@ Result: an HDR button appears in video mode when the camera supports 10-bit HDR.
 - `Camera` / `CameraModel`: `isHDRVideoSupported`, `isHDRVideoEnabled`, capabilities observation.
 - `FeaturesToolbar`: HDR button.
 
-### Chapter 10 — A robust session (`chapter-10`)
+### Chapter 12 — A robust session (`chapter-12`)
 Result: the app shows a message during an interruption, recovers from a media services reset, starts fast (deferred start), hides controls until the session runs, and covers the stale preview frame when it returns from the background.
 - `CaptureService`: `observeNotifications()`, `isInterrupted`, `isSetUp`, deferred start settings.
 - `CameraModel`: `isInterrupted` drives `status` (approved deviation).
 - Views: `hidden(until:)`, cover opacity in `PreviewContainer`.
 
-### Chapter 11 — Hardware buttons and AirPods (`chapter-11`)
+### Chapter 13 — Hardware buttons and AirPods (`chapter-13`)
 Result: the volume buttons, the Action button, the Camera Control press, and an AirPods stem click capture media, with the correct sounds. AirPods record high-quality audio.
 - `CameraView`: `onCameraCaptureEvent`. `CaptureButton`: reaction to recording state changes from hardware.
 - `CaptureService`: `configuresApplicationAudioSessionForBluetoothHighQualityRecording`.
 
-### Chapter 12 — Camera Control (`chapter-12`)
+### Chapter 14 — Camera Control (`chapter-14`)
 Result: the Camera Control shows zoom, exposure bias, and a custom lens position slider. The app UI becomes minimal while the overlay is on screen.
 - `CaptureService`: controls delegate, controls map, `configureControls(for:)`, `createControls(for:)`, `isShowingFullscreenControls`, `observeCaptureControlsState()`, `CaptureControlsDelegate`.
 - `Camera` / `CameraModel`: `prefersMinimizedUI`. Views: opacity changes.
 
-### Chapter 13 — Lock Screen and Control Center (`chapter-13`)
+### Chapter 15 — Lock Screen and Control Center (`chapter-15`)
 Result: the app starts from the Lock Screen, Control Center, and the Action button through a capture extension and a control. The app and the extension share their state.
 - `AVCam/Model/CameraState.swift`, `AVCam/Model/Intent/AVCamCaptureIntent.swift`.
 - `CameraModel`: `cameraState`, `syncState()`, persistence in `didSet`. `CaptureService.start(with:)`. `AVCamApp`: scene phase sync.
 - Targets `AVCamCaptureExtension` and `AVCamControlCenterExtension`, with shared source membership as in the sample.
 
-## Part 2: beyond the sample (chapters 14 to 18, added 2 Oct 2026; 17 and 18 on 14 Oct 2026)
+## Part 2: beyond the sample (chapters 16 to 20, added 2 Oct 2026; 17 and 18 on 14 Oct 2026)
 
-These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the code rules ("the final state equals the Apple sample") ends at `chapter-13`. All other rules stay. Each page of part 2 says clearly that the code is not Apple's.
+These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the code rules ("the final state equals the Apple sample") ends at `chapter-15`. All other rules stay. Each page of part 2 says clearly that the code is not Apple's.
 
-- **Chapter 14 — Zoom and lenses (`chapter-14`)**: virtual back cameras, zoom levels from the switch-over factors, a zoom control, a pinch gesture, zoom state in sync with the device.
-- **Chapter 15 — Fix the sample (`chapter-15`)**: a recording that ends by itself, the Live Photo badge counter, the rotation angle of a new movie connection, the capture sound before the capture work.
-- **Chapter 16 — iPhone Duo (`chapter-16`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
+- **Chapter 16 — Zoom and lenses (`chapter-16`)**: virtual back cameras, zoom levels from the switch-over factors, a zoom control, a pinch gesture, zoom state in sync with the device.
+- **Chapter 17 — Fix the sample (`chapter-17`)**: a recording that ends by itself, the Live Photo badge counter, the rotation angle of a new movie connection, the capture sound before the capture work.
+- **Chapter 18 — iPhone Duo (`chapter-18`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
 
-- **Chapter 17 — Two cameras at once (`chapter-17`)**: `AVCaptureMultiCamSession` as a second session, a dual capture mode, connections made by hand, two preview views with a tap to swap, multi-camera formats, hardware and system pressure costs. Research: `research/07-multicam.md`. Based on Apple's AVMultiCamPiP sample (`~/tutorials/AVMultiCamPiPCapturingFromMultipleCameras`).
-- **Chapter 18 — Record picture in picture (`chapter-18`)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
+- **Chapter 19 — Two cameras at once (`chapter-19`)**: `AVCaptureMultiCamSession` as a second session, a dual capture mode, connections made by hand, two preview views with a tap to swap, multi-camera formats, hardware and system pressure costs. Research: `research/07-multicam.md`. Based on Apple's AVMultiCamPiP sample (`~/tutorials/AVMultiCamPiPCapturingFromMultipleCameras`).
+- **Chapter 20 — Record picture in picture (`chapter-20`)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
 
-- **Chapter 19 — Fast capture (planned)**: responsive capture, fast capture prioritization, zero shutter lag, the readiness coordinator on the capture button. Source: WWDC23 session 10105.
-- **Chapter 20 — RAW and Apple ProRAW (planned)**: RAW setting in the features toolbar, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, DNG saved next to the processed photo, constant color. Source: Apple's article "Capturing photos in RAW and Apple ProRAW formats". Needs a real iPhone for verification.
-
-`main` equals `chapter-18`.
+`main` equals `chapter-20`.
 
 ## Hand-off notes (`notes/chapter-NN.md`)
 

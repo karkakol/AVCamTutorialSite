@@ -1,245 +1,229 @@
 ---
 kind: article
 chapter: 14
-title: Concepts: zoom and lenses
-abstract: What zoom is on an iPhone camera, how a virtual device changes between its lenses, why the number on the screen is not the number of the device, and how an app keeps its zoom control in step with the camera.
-estimatedMinutes: 13
+title: Concepts: Camera Control
+abstract: How an app supplies controls to the Camera Control, which control classes exist, where their actions run, and why the app reduces its interface while the system overlay is on the screen.
+estimatedMinutes: 12
 branch: chapter-14
 ---
 
-The Apple sample has no zoom in its interface. A person can zoom only with the Camera Control, and the back camera of the sample never uses the ultra-wide lens. In this chapter, you add what each camera app has: zoom levels such as 0.5x, 1x, and 3x, a control to select them, and a pinch gesture.
+The Camera Control is a hardware control on the side of iPhone 16 and later iPhone models. A person can click it, press it lightly, and slide a finger on it. With it, a person changes camera settings without a touch on the screen.
 
-This chapter starts part 2 of the tutorial, "Beyond the sample". The code of part 2 is not Apple's code. The design is this tutorial's own, and it is one of many possible designs. This article explains the camera facts that each design must obey, and then the decisions of this design, with their limits. In [Build: zoom and lenses](ch14-build.md), you write the code.
+The system does not know which settings your app has. Your app must supply them. This article explains how you supply controls, which controls exist, where their code runs, and what the app must do while the system shows its overlay. In [Build: Camera Control](ch14-build.md), you write the code.
 
 > [!IMPORTANT]
-> Nobody ran the code of this chapter on a real iPhone. The simulated camera cannot zoom, so the Simulator shows no zoom control and no change of the picture. The facts in this article come from the comments in the Apple SDK and from the Apple documentation. Where a statement is a conclusion or an expectation, the text tells you.
+> The Camera Control does not exist in the Simulator, and nobody ran the code of this chapter on an iPhone that has one. The facts in this article come from the Apple SDK, the Apple documentation, the WWDC session, and the code of the sample. Where a fact is a conclusion from the code only, the text tells you.
 
 ## How it works
 
-### Zoom is a crop, or a different lens
+### One control, three jobs
 
-A phone camera has no zoom lens that moves. Each lens has one fixed focal length. Thus a phone has only two methods to make a subject larger:
+The Camera Control does three jobs. Each job uses a different API.
 
-- **A crop.** The camera uses a smaller area in the center of the sensor picture and scales it to the output size. The SDK describes [`videoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor) in exactly this manner: a centered crop for all outputs. The value 1.0 is the full field of view. The value 2.0 shows half of the width and half of the height.
-- **A change of lens.** The system takes the picture from a different camera that has a longer focal length. That camera sees a smaller part of the scene with its full sensor.
-
-A crop is free, but it has fewer pixels to work with. A change of lens keeps the quality, but an iPhone has only two or three lenses. A good zoom uses the two methods together: a crop between the lenses, and a change of lens when the next lens can show the same picture.
-
-### Virtual devices change the lens for you
-
-In [chapter 2](ch02-concepts.md), you read about virtual devices: a group of physical cameras that the system shows to your app as one [`AVCaptureDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice). The back of an iPhone can have up to three of them:
-
-| Device type | Cameras in the group |
-|---|---|
-| [`.builtInTripleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) | Ultra-wide, wide, telephoto |
-| [`.builtInDualWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) | Ultra-wide, wide |
-| [`.builtInDualCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualcamera) | Wide, telephoto |
-
-A virtual device has one zoom axis for all its cameras. Your app sets one zoom factor, and the system selects the camera. The property [`virtualDeviceSwitchOverVideoZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors) tells you where on this axis the cameras meet. At each switch-over zoom factor, the crop of one camera shows the same field of view as the full picture of the next camera.
-
-![One zoom axis of a triple camera, with the device values above the axis and the display values below it. The values are an example.](../images/ch14-zoom-axis.svg)
-
-The SDK gives these rules for the array:
-
-- It has one value less than the device has cameras. A triple camera has two values. A camera with one lens has an empty array.
-- The values are in the same order as the cameras in [`constituentDevices`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/constituentdevices).
-- At or above a switch-over zoom factor, the device **can** change to the next camera. It does not always do so. A telephoto camera cannot focus on a near subject, and it needs more light. In those conditions, the system stays on the wider camera and crops its picture.
-
-These values are also the natural zoom levels for the interface. At each of them, a camera can supply its full picture, with no crop.
-
-> [!NOTE]
-> The values 2 and 6 in the diagram are an example. The real values depend on the iPhone model. Nobody read them from a real iPhone for this tutorial, so the code reads them at run time and assumes nothing.
-
-### The number of the device and the number on the screen
-
-The smallest zoom factor of a device is 1.0, and it means "the full field of view of this device". For a triple camera, the full field of view is the picture of the ultra-wide camera. The Camera app shows that picture as "0.5x", not as "1x". For a person, "1x" is the picture of the wide camera.
-
-So there are two scales:
-
-- **The device value**: the number that you set on `videoZoomFactor`.
-- **The display value**: the number that a person reads on the screen.
-
-[`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) (iOS 18) connects the two scales. You multiply the device value by it, and you get the display value. The SDK gives this example: a device value of 1.0 and a multiplier of 0.5 make the display value 0.5.
-
-| Camera | Multiplier | Device value 1.0 shows | The "1x" of a person is device value |
+| Job | Gesture | API | Chapter |
 |---|---|---|---|
-| A virtual device that starts with the ultra-wide camera | 0.5 in the SDK example | 0.5x | 2.0 |
-| A camera that starts with the wide camera | 1 is the expected value | 1x | 1.0 |
+| Capture | A full click | `onCameraCaptureEvent`, the primary action | 11 |
+| Change a setting | A light press, then a slide | Control objects on the capture session | 12 (this chapter) |
+| Start the app, also from a locked iPhone | A click when the app does not run | A capture extension | 13 |
 
-This has an important result. The expected start value of the zoom factor is 1.0, the smallest value. If the app does nothing, a person then sees the ultra-wide picture of a triple camera when the app starts. People expect "1x" at the start. Thus the app sets the zoom factor to `1.0 / multiplier` each time it configures a camera. On the example camera, that is 2.0.
+This chapter is about the second job only. The click already works: you added the capture events in [chapter 13](ch13-concepts.md). The launch from a locked iPhone is the subject of [chapter 15](ch15-concepts.md).
 
-### The zoom range, and what happens outside of it
+### What a person does
 
-You cannot set each number on `videoZoomFactor`. The device has a range:
+The [guidelines for the Camera Control](https://developer.apple.com/design/human-interface-guidelines/camera-control) and the [user guide](https://support.apple.com/guide/iphone/use-the-camera-control-iph0c397b154/ios) describe these gestures:
 
-- [`minAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor) is the lower limit. It is 1.0 for a camera with one lens. For a virtual device, it can become larger in some configurations.
-- [`maxAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/maxavailablevideozoomfactor) is the upper limit. For a camera with one lens, it is equal to [`videoMaxZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videomaxzoomfactor) of the active format.
+- **Light press.** The system shows an overlay next to the Camera Control. The overlay shows one setting and its current value.
+- **Slide.** The value of the selected setting changes.
+- **Light double press.** The overlay shows the list of all controls. A slide moves through the list, and a light press selects a control.
 
-The upper limit comes from the active format, so the range can change when the session preset changes.
+The system draws the overlay. Your app does not draw it and cannot change its appearance. Your app supplies only the list of controls: a title, a symbol, and a range of values for each control. The system also remembers the control that the person used last in your app.
 
-Outside of the range, the SDK describes two different reactions:
+### Controls belong to the session
 
-| Value that you assign | Result |
+A control is an object of a subclass of [`AVCaptureControl`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol). You add controls to the [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession), in the same manner as inputs and outputs.
+
+![The Camera Control changes the controls of the capture session. The system sliders set a device property themselves, a custom slider calls your action, and the controls delegate receives four callbacks.](../images/ch14-controls.svg)
+
+The session has a small API for controls:
+
+| Member | Use |
 |---|---|
-| Less than 1.0, or more than `videoMaxZoomFactor` of the active format | An `NSRangeException` |
-| 1.0 or more, but less than the smallest available value | The device uses the smallest available value |
-| Not more than `videoMaxZoomFactor`, but more than the largest available value | The device uses the largest available value |
+| [`supportsControls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/supportscontrols) | `true` only on hardware that has a Camera Control. Read it first. |
+| [`maxControlsCount`](https://developer.apple.com/documentation/avfoundation/avcapturesession/maxcontrolscount) | The largest number of controls that the session accepts. |
+| [`controls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/controls) | The controls that are on the session now. |
+| [`canAddControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddcontrol(_:)) | Tells you if the session accepts a control. |
+| [`addControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addcontrol(_:)) | Adds a control. It raises an exception if the session cannot accept the control. |
+| [`removeControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/removecontrol(_:)) | Removes a control. |
 
-An `NSRangeException` is an Objective-C exception. A Swift `do`-`catch` statement catches only Swift errors, so it cannot catch this exception. The app stops. The only protection is a check before the assignment.
+The rules are the rules of inputs and outputs, which you know from chapter 1:
 
-> [!NOTE]
-> This occurred during the work on this chapter. The simulated camera of SimCam reports a largest zoom factor of 0, a smallest zoom factor of 0, and a multiplier of 0. Each assignment to `videoZoomFactor` raises an exception there. The first version of the code set the 1x level at launch, and the app stopped immediately in the Simulator. The code now does two things: it does not zoom a camera whose largest zoom factor is less than 1, and it limits each value to the range before it assigns the value.
+- Ask before you add. `addControl(_:)` raises an Objective-C exception when `canAddControl(_:)` is `false`. Swift cannot catch this exception.
+- Put a group of changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()). Then the session applies all changes as one operation.
 
-```swift file=AVCam/CaptureService.swift
-        // A device that cannot zoom, such as a simulated camera, reports a largest zoom factor of less than 1.
-        guard device.maxAvailableVideoZoomFactor >= 1.0 else { return }
-        // Keep the value in the range that the device supports. A value outside of the range raises an exception.
-        let smallestFactor = max(device.minAvailableVideoZoomFactor, 1.0)
-```
+`canAddControl(_:)` returns `false` in these cases:
 
-A second rule comes from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. Without the lock, the assignment also raises an exception.
+- The session already has `maxControlsCount` controls.
+- A custom control has no action.
+- The control is a second system zoom control for a camera that already has one.
 
-### A ramp or a direct assignment
+### The control classes
 
-There are two methods to change the zoom factor:
+The iOS SDK has four control classes that you can use. They arrived with iOS 18. The iOS 26 and iOS 27 SDKs added no new control classes.
 
-| | Direct assignment | Ramp |
+| Class | Kind | What it changes |
 |---|---|---|
-| API | `device.videoZoomFactor = factor` | [`ramp(toVideoZoomFactor:withRate:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:)) |
-| The picture | Jumps to the new value | Moves smoothly to the new value |
-| Use | A gesture that sends many small changes | A tap on a zoom level |
+| [`AVCaptureSystemZoomSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider) | System | The [`videoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor) of one camera. |
+| [`AVCaptureSystemExposureBiasSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemexposurebiasslider) | System | The [`exposureTargetBias`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposuretargetbias) of one camera. |
+| [`AVCaptureSlider`](https://developer.apple.com/documentation/avfoundation/avcaptureslider) | Custom | One `Float` value. Your code decides what the value means. |
+| [`AVCaptureIndexPicker`](https://developer.apple.com/documentation/avfoundation/avcaptureindexpicker) | Custom | One index into a list of choices. Your code decides what each choice means. |
 
-The rate of a ramp is not "zoom factor each second". The SDK defines it as the number of times that the zoom factor doubles in one second. With a rate of 1, the factor goes from 1 to 2 in one second, and from 2 to 4 in the next second. The reason is how people see zoom: a change from 1 to 2 looks as large as a change from 2 to 4. A ramp of this type looks constant to the eye.
+**System controls** do the work for you. You create one with a camera device, and the control is bound to that device.
 
-The app uses a rate of 8. A change from the display value 1x to 3x is approximately 1.6 doublings, so it takes approximately 0.2 seconds. The system limits the acceleration of a ramp, so the real time is a little longer.
+- The control takes its range from the active format of the device: [`systemRecommendedVideoZoomRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange) for zoom, and [`systemRecommendedExposureBiasRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedexposurebiasrange) for the exposure bias. When the active format changes, the control updates its range.
+- The control sets the device property itself. You write no code for the change.
+- The initializer raises an exception when the device does not support the property.
 
-Two more facts:
+A system control can have an optional action. The action runs on the main actor, and only when this control changed the value. Its purpose is to keep your own interface up to date, for example a zoom label. Do not set the device property in this action. The control already did that.
 
-- An assignment to `videoZoomFactor` during a ramp stops the ramp, and the picture jumps to the assigned value. Thus a pinch can always interrupt a ramp.
-- [`cancelVideoZoomRamp()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/cancelvideozoomramp()) stops a ramp smoothly, and [`isRampingVideoZoom`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isrampingvideozoom) tells you if a ramp is in progress. The app uses neither.
+**Custom controls** are for the settings that only your app has.
 
-During a pinch, the gesture sends a new value many times each second. Each value is near the value before it, so the direct assignment already looks smooth. A ramp for each small change makes the picture come after the fingers.
+- A slider can be continuous (a range), or discrete (a range with a step, or a list of values).
+- A picker shows a list of titles, and reports the index of the selected title.
+- Each custom control has a title and a symbol. The symbol must be the name of a symbol from [SF Symbols](https://developer.apple.com/sf-symbols/). Custom symbols do not work.
+- A custom control must have an action before you add it to the session. The session refuses a custom control that has no action.
 
-### One source of truth: the device
+### Action queues
 
-More than one thing can change the zoom factor:
+You give a custom control its action with [`setActionQueue(_:action:)`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/setactionqueue(_:action:)). The method takes a dispatch queue and a closure. The system calls the closure on that queue each time the person changes the value.
 
-- A tap on the zoom control starts a ramp.
-- A pinch assigns values.
-- The system zoom slider of the Camera Control, which you added in [chapter 12](ch12-concepts.md), sets `videoZoomFactor` itself. Your code is not part of that change.
+The choice of the queue is the important part. The SDK has this rule: if the action changes a property of the camera system, the queue must be the same exclusive execution context as the camera system. In plain words: the action must run where all your other camera code runs. If it runs somewhere else, two pieces of code can configure the camera at the same time.
 
-If the interface shows the value that the app sent last, the interface is wrong after the first slide on the Camera Control. It is also wrong during a ramp, and when the device limits a value.
+In AVCam, this place is the session queue. In chapter 1, you made this serial queue the executor of the `CaptureService` actor. Thus each method of the actor runs on the session queue. When the slider action also runs on the session queue, the action and the actor methods can never run at the same time.
 
-The solution is to show only what the device reports. `videoZoomFactor` supports key-value observation. The capture service observes the property with an [`NSKeyValueObservation`](https://developer.apple.com/documentation/foundation/nskeyvalueobservation), changes each new value to a display value, and publishes it. The model and the views read the published value.
+The same rule applies in the opposite direction. If your code changes the `value` of a slider or the `selectedIndex` of a picker, it must do that on the action queue.
 
-![A zoom command goes from the views through the model and the capture service to the capture device. The new zoom factor comes back from the device through an observation. The Camera Control slider changes the device directly.](../images/ch14-zoom-state.svg)
+### The controls delegate and the overlay
 
-With this design, the zoom control needs no special code for the Camera Control. The slider changes the device, the observation reports the change, and the control shows the new number.
+The session reports the state of the overlay to an [`AVCaptureSessionControlsDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate) object. You set it with [`setControlsDelegate(_:queue:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/setcontrolsdelegate(_:queue:)). The queue must be a serial queue.
+
+The delegate has four methods, and all four are required:
+
+| Callback | Meaning | AVCam |
+|---|---|---|
+| `sessionControlsDidBecomeActive(_:)` | The controls are available for interaction. | Writes a log line. |
+| [`sessionControlsWillEnterFullscreenAppearance(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate/sessioncontrolswillenterfullscreenappearance(_:)) | The overlay is about to use the full screen. Hide parts of your interface. | Sets a Boolean value to `true`. |
+| `sessionControlsWillExitFullscreenAppearance(_:)` | The fullscreen appearance is about to end. Show your interface again. | Sets the value to `false`. |
+| `sessionControlsDidBecomeInactive(_:)` | The person dismissed the controls. | Writes a log line. |
+
+Two facts about the delegate are important:
+
+- **No delegate, no controls.** The SDK says that the controls become active only when the session has a controls delegate. An app that adds controls but sets no delegate gets no overlay.
+- **The exit comes first.** `sessionControlsWillExitFullscreenAppearance(_:)` arrives before `sessionControlsDidBecomeInactive(_:)`.
 
 > [!NOTE]
-> The SDK says that you can observe `videoZoomFactor`. It does not say how frequently the value changes during a ramp. The expectation is that the number in the zoom control counts up during a ramp. Nobody verified this on a real iPhone.
+> Apple does not document exactly which gesture causes the "active" callbacks and which gesture causes the "fullscreen" callbacks. AVCam writes a log line in each callback. On an iPhone with a Camera Control, you can read the Xcode console and find out.
 
-### Digital zoom and quality
+### Why the app reduces its interface
 
-Between the full pictures of the lenses, each zoom factor is a crop. But a crop does not always decrease the quality. A sensor frequently has more pixels than the output format needs, so the camera scales the sensor picture down. While the crop still has sufficient pixels, the output is as sharp as before.
+In the fullscreen appearance, the system draws its overlay on top of your app. The person looks at two things: the value in the overlay and the preview. Buttons of the app that stay on the screen take attention away.
 
-[`videoZoomFactorUpscaleThreshold`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videozoomfactorupscalethreshold) of the active format is the limit. At this zoom factor, the crop has exactly the pixels of the output. Above it, the camera must scale the crop up. That is digital zoom: the picture becomes larger, but it gets no new detail.
+The Apple guidelines ask for a viewfinder with few distractions, and they ask you not to show the same control two times. For example, an app that has its own zoom slider hides it while the system zoom slider is on the screen.
 
-Some formats also have [`secondaryNativeResolutionZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/secondarynativeresolutionzoomfactors) (iOS 16). At these zoom factors, the sensor changes how it reads its pixels, and it supplies a picture that is not scaled up. This is the base of a "2x" level with the quality of a real lens on a camera that has no 2x lens.
+AVCam hides four views during the fullscreen appearance: the thumbnail button, the button that changes the camera, the capture mode picker, and the features toolbar. The value travels from the delegate to the views through the same layers as each other state of the capture service.
 
-The app in this chapter does not read these two properties. It offers a 2x level on a camera with one lens, and it permits each value up to the display value 10x. Above the threshold, the quality goes down. This is a limit of the design, not of the camera.
+![The fullscreen state of the controls goes from the controls delegate through the capture service to the model, and four views read it to set their opacity.](../images/ch14-overlay-state.svg)
 
 ## What the camera can do
 
-The chapter uses a small part of the zoom API.
+AVCam uses three controls. The API permits much more.
 
 | Capability | What it does | In this tutorial |
 |---|---|---|
-| `videoZoomFactor` | The zoom factor of a device. You can observe it. | This chapter |
-| `ramp(toVideoZoomFactor:withRate:)` | A smooth change to a zoom factor. | This chapter |
-| `virtualDeviceSwitchOverVideoZoomFactors` | The zoom factors at which the cameras of a virtual device meet. | This chapter |
-| `displayVideoZoomFactorMultiplier` | The ratio between the device value and the display value. | This chapter |
-| `minAvailableVideoZoomFactor`, `maxAvailableVideoZoomFactor` | The range that the device permits now. You can observe the two properties. | This chapter (read only at configuration) |
-| [`AVCaptureSystemZoomSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider) | The zoom control of the Camera Control. | Chapter 12 |
-| `cancelVideoZoomRamp()`, `isRampingVideoZoom` | A smooth stop of a ramp, and its state. For a zoom button that a person holds down. | Not in the app |
-| `videoZoomFactorUpscaleThreshold` | The zoom factor above which the picture is scaled up. For a quality mark in the interface, or for an upper limit. | Not in the app |
-| `secondaryNativeResolutionZoomFactors` | Zoom factors with a picture that is not scaled up. For more zoom levels of full quality. | Not in the app |
-| [`systemRecommendedVideoZoomRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange) | The range that the system recommends for a zoom slider (iOS 18). The system zoom slider uses it. | Not in the app |
-| [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) | The camera of a virtual device that supplies the picture now. You can observe it. | Not in the app |
-| [`setPrimaryConstituentDeviceSwitchingBehavior(_:restrictedSwitchingBehaviorConditions:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/setprimaryconstituentdeviceswitchingbehavior(_:restrictedswitchingbehaviorconditions:)) | Controls when a virtual device can change its camera, for example not during a recording. | Not in the app |
-| [`nominalFocalLengthIn35mmFilm`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/nominalfocallengthin35mmfilm) | The focal length of a camera (iOS 26), for labels such as "24 mm". The value is 0 for a virtual device, so read it from the constituent devices. | Not in the app |
+| System zoom slider | Zoom for one camera, in the range that the system recommends. | This chapter |
+| System exposure bias slider | Makes the picture brighter or darker. | This chapter |
+| Continuous custom slider | One value in a range. AVCam uses it for the lens position. | This chapter |
+| Discrete custom slider | Values with a fixed step, or values from a list. For example a frame rate. | Not in AVCam |
+| [`prominentValues`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/prominentvalues-199dz) | Values at which a slider stops more easily. | Not in AVCam |
+| [`localizedValueFormat`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/localizedvalueformat) | A format for the value label, for example a unit. It accepts only the `%@` placeholder. | Not in AVCam |
+| Index picker | A list of named choices: flash modes, filters, aspect ratios, or cameras. | Not in AVCam |
+| [`isEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturecontrol/isenabled) | Disables a control but keeps it in the list. For a control that does not apply to the current mode. | Not in AVCam |
+| Action on a system slider | [`init(device:action:)`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider/init(device:action:)) reports each change, so that a zoom label in the app stays correct. | Not in AVCam |
+| [`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) | Changes a zoom factor into the number that the system shows, for a label in your interface. | Not in AVCam |
+| The click as a shutter | The primary action of a capture event. | Chapter 13 |
+| Launch from a locked iPhone | A capture extension. | Chapter 15 |
 
-Some features make the zoom range smaller. The SDK names depth data delivery and Center Stage. An app that uses them must observe the two range properties and must not keep old limits.
+The system Camera app also has controls for depth, styles, tone, and the camera selection. These controls are not public API. To make something similar, you use a custom slider or a picker.
 
-## Why the app does it this way
+The guidelines recommend that you put the controls that people use most in the middle of the list. They also recommend that the layout of your app leaves space for the overlay, in portrait and in landscape.
 
-The design is this tutorial's own. These are its decisions and the alternatives.
+## Why AVCam does it this way
 
-**Virtual devices first.** The back discovery session of the sample lists `[.builtInDualCamera, .builtInWideAngleCamera]`. The chapter puts `.builtInTripleCamera` and `.builtInDualWideCamera` before them. A discovery session sorts its result in the order of the type list, so the first device is the one with the most cameras. The alternative is to use the physical cameras and to change the session input at each zoom level. That gives full manual control, but each change of the input probably interrupts the preview, and you must write the lens selection yourself.
+**One queue for all camera code.** The slider action, the delegate callbacks, and the methods of the actor all run on the session queue. This obeys the queue rule of the SDK, and it keeps the order of events. The alternative is an actor with the default executor. Then the action closure must start a task to get onto the actor. That adds a step, and two fast changes of the slider can arrive in the wrong order.
 
-**Zoom levels from the device, not from a table.** The code makes the levels from the smallest zoom factor and the switch-over zoom factors. It contains no list of iPhone models. A new iPhone with different lenses gets correct levels with no change of the code.
+**System sliders without an action.** AVCam has no zoom control and no exposure control on the screen. Nothing in the interface must stay in step with the sliders, so the sample uses the simple `init(device:)` form.
 
-**A zoom level has two numbers.** `ZoomLevel` keeps the device value and the display value. The capture service is the only place that knows the multiplier. The views show display values and send them back, and they never calculate with device values.
+**Controls are kept for each camera.** `CaptureService` has a dictionary, `controlsMap`. The key is the [`uniqueID`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/uniqueid) of a camera, and the value is the array of controls for that camera. The code of the sample does not say why. These reasons are conclusions from the code:
 
-**A 2x level for a camera with one lens.** A control with one button has no use. For a camera with one zoom level, such as a front camera, the code adds a second level at two times the first level, if the device permits that zoom factor.
+1. A system control is bound to one device when you create it. The back camera and the front camera need different control objects. The action of the custom slider also captures one device.
+2. A person can change the camera many times. Without the dictionary, each change makes new control objects and new closures.
+3. The value of a custom slider belongs to the object. The same object keeps its value. A new object starts again at the start of its range.
+4. The session can refuse a second system zoom control for a camera. One set of objects for each camera prevents this.
 
-**A ramp for a tap, an assignment for a pinch.** The reasons are in the section about ramps.
+**Remove all, then add.** When the camera changes, `configureControls(for:)` removes each control from the session and adds the controls of the new camera. This is simple, and it is correct for system controls, which are bound to a device.
 
-**The device is the source of truth.** The model never sets `displayZoomFactor` when it sends a command. It waits for the value from the observation. The alternative is the action of the system zoom slider, `init(device:action:)`. But that action reports only the changes that the slider makes. It does not report a ramp or a pinch.
+**Opacity, not removal.** The four views get an opacity of zero. They stay in the layout, so the capture button and the preview do not move when the overlay appears. The model changes the value in an animation block, so the views fade.
 
-**The same visibility rules as the other controls.** The zoom control hides until the session runs, as you made the other controls do in chapter 10. It also hides during the fullscreen appearance of the Camera Control overlay from chapter 12. There the reason is strong: the [guidelines for the Camera Control](https://developer.apple.com/design/human-interface-guidelines/camera-control) tell you not to show the same control two times, and the overlay can show a zoom slider.
+**The capture button stays.** The SDK text about the fullscreen appearance names sliders and shutter buttons as things that an app can hide. AVCam keeps its capture button on the screen. The name of the property tells you the idea: `prefersMinimizedUI`, a minimal interface, not an empty one.
 
-**An upper limit of 10x.** The largest zoom factor of a format can be very large, and the picture at that value has little detail. The app stops at the display value 10. The number is a decision of this tutorial, not a value from the SDK.
+**A delegate class of its own.** The delegate protocol is an Objective-C protocol, so the delegate is an `NSObject` subclass. The sample uses a small class, `CaptureControlsDelegate`, that publishes one Boolean value. This keeps the delegate methods out of the actor, as the photo capture delegate does in chapter 3. The actor publishes the value again, as it does for the capture activity.
 
-## Limits of this design
+## Things to know about the sample
 
-The code is short so that you can read it in one chapter. It has limits that a camera app for the App Store must remove.
+These points come from a careful read of the Apple sample. Nobody verified them on an iPhone for this tutorial. They do not stop the app from working.
 
-- **Two pinch values can arrive in the wrong order.** Each change of the pinch gesture starts a new task, and each task calls the model and then the capture service. Swift does not promise that these tasks run in the order in which they start. An old value can arrive after a newer value, and the zoom can jump back for a moment. A solution is one stream of values that one task reads in order.
-- **The zoom returns to 1x.** The app configures the zoom again after a change of the camera and after a change of the capture mode. Each time, it sets the 1x level. A person who zooms in photo mode and changes to video mode starts again at 1x.
-- **The 2x level of a camera with one lens is a crop.** The code does not test `videoZoomFactorUpscaleThreshold` or `secondaryNativeResolutionZoomFactors`, so it does not know if 2x has full quality on that camera.
-- **The range is read only at configuration.** The code does not observe `minAvailableVideoZoomFactor` and `maxAvailableVideoZoomFactor`. This is correct for this app, which has no depth data and no Center Stage.
-- **The first camera after a launch is the system-preferred camera.** The capture service starts with [`systemPreferredCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/systempreferredcamera), as in chapter 2. The new type list has an effect on the app's own list of cameras, which the button that changes the camera uses. Nobody verified which back camera the system prefers at the first launch on an iPhone with three back cameras.
-- **A virtual device has less manual control.** The SDK says that the multi-camera virtual devices do not lock the focus at a lens position that you select. The lens position slider of chapter 12 exists only when the device reports that it supports this lock. So it is possible that this slider is not available with a triple camera. This is a conclusion from the SDK text, and nobody verified it on a real iPhone.
+- **The lens slider can show an old value.** The slider locks the focus at a lens position. A tap on the preview (chapter 6) then starts automatic focus again, and the lens moves. The slider object keeps its old `value`. Apple's article about the Camera Control says to update the value of a control when the setting changes in a different place. AVCam does not do that.
+- **The lens slider does not return to automatic focus.** After a person uses the slider, the focus stays locked. The slider has no "automatic" position. The focus code of chapter 6 is the only code that starts automatic focus again, and it runs after a tap on the preview.
+- **The published value has no compiler check.** `CaptureControlsDelegate` is a plain class with a `@Published` property. The delegate callbacks change the property on the session queue, and the actor reads it on the same queue. This is safe only because the two queues are one queue. The project uses minimal concurrency checking, so the compiler does not examine it.
+- **The begin and commit pairs nest.** `changeCaptureDevice(to:)` calls `configureControls(for:)` between its own `beginConfiguration()` and `commitConfiguration()` calls. `configureControls(for:)` has a pair of its own. The session permits this.
+- **Each call sets the delegate again.** `configureControls(for:)` sets the same delegate object each time the camera changes. One time is sufficient. The repeat does no harm.
+- **`createControls(for:)` is not private.** All other helper methods of the actor are private. No code outside the actor calls this method.
+- **Controls change at run time.** The guidelines advise against a control list that changes while a person uses the app, because the system must then select a different control. AVCam replaces the list when the camera changes. For a setting that does not apply for some time, `isEnabled` is the better tool.
 
 ## Common mistakes
 
-- **You assign a value that is out of range.** The app stops with an exception that Swift cannot catch. Limit the value to the range first.
-- **You assume that each camera can zoom.** The simulated camera reports a largest zoom factor of 0. Read the range before you set a value.
-- **You forget `lockForConfiguration()`.** The assignment and the ramp raise an exception without the lock.
-- **You show the device value.** On a camera that starts with the ultra-wide lens, the label says "1x" for the picture that a person knows as "0.5x". Multiply by `displayVideoZoomFactorMultiplier`.
-- **You do not set a start level.** A virtual device with an ultra-wide camera then starts with the ultra-wide picture.
-- **You put `.builtInWideAngleCamera` first in the type list.** The first result is then always the wide camera, and the app never gets a virtual device.
-- **You write the zoom levels into the code.** The levels 0.5, 1, and 3 are correct for one iPhone model and wrong for the next one.
-- **You keep the zoom state in the interface.** The Camera Control changes the zoom without your code. Observe the device.
-- **You use a ramp for each change of a pinch.** The picture then comes after the fingers. Assign the value.
-- **You think of the ramp rate as a speed in "x each second".** The rate is the number of doublings each second.
-- **You keep the zoom levels of the old camera.** The levels and the multiplier belong to one device. Create them again when the camera changes.
-- **You test zoom in the Simulator.** The simulated camera cannot zoom. Use a real iPhone.
+- **You set no controls delegate.** The controls do not become active, and the person sees no overlay.
+- **You call `addControl(_:)` without `canAddControl(_:)`.** When the session refuses the control, the app stops with an exception that Swift cannot catch.
+- **You add a custom control that has no action.** The session refuses it.
+- **You run the action on the wrong queue.** The action changes the camera while other camera code runs. Use the queue that your camera code uses.
+- **You set the device property in the action of a system slider.** The system already set it. The action is for your interface only.
+- **You use the action of a system slider as the only source of the zoom value.** The action runs only for changes that come from this control. A pinch gesture or a zoom ramp does not call it. Observe the device property for those.
+- **You use one set of controls for all cameras.** A system control changes the device that it got at creation, not the camera that is active now.
+- **You keep your full interface on the screen.** The overlay then competes with your buttons. Reduce the interface between the "will enter" and the "will exit" callbacks.
+- **You use a symbol that is not in SF Symbols,** or a value format with a placeholder other than `%@`.
+- **You start a capture session only to get the Camera Control.** The WWDC session tells you not to do this.
+- **You test in the Simulator or on an iPad.** `supportsControls` is `false` there, and no control code runs.
+
+> [!NOTE]
+> In the Simulator with SimCam, `supportsControls` is `false`. The app builds and runs, but the new capture service code returns early. To see the overlay, you need an iPhone that has a Camera Control.
 
 ## Documentation
 
 ```links
-Choosing a capture device | https://developer.apple.com/documentation/avfoundation/choosing-a-capture-device | The Apple article about device types and discovery sessions.
-builtInTripleCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera | The virtual device with three cameras.
-builtInDualWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera | The virtual device with the ultra-wide and the wide camera.
-virtualDeviceSwitchOverVideoZoomFactors | https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors | The zoom factors at which the cameras of a virtual device meet.
-constituentDevices | https://developer.apple.com/documentation/avfoundation/avcapturedevice/constituentdevices | The physical cameras of a virtual device.
-videoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor | The zoom factor of a device, with its range rules.
-ramp(toVideoZoomFactor:withRate:) | https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:) | A smooth change of the zoom factor.
-cancelVideoZoomRamp() | https://developer.apple.com/documentation/avfoundation/avcapturedevice/cancelvideozoomramp() | A smooth stop of a ramp.
-minAvailableVideoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor | The lower limit of the zoom factor.
-maxAvailableVideoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/maxavailablevideozoomfactor | The upper limit of the zoom factor.
-displayVideoZoomFactorMultiplier | https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier | The ratio between the device value and the number that the system shows.
-videoMaxZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videomaxzoomfactor | The largest zoom factor of a format.
-videoZoomFactorUpscaleThreshold | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videozoomfactorupscalethreshold | The zoom factor above which the picture is scaled up.
-secondaryNativeResolutionZoomFactors | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/secondarynativeresolutionzoomfactors | Zoom factors with a picture that is not scaled up.
-systemRecommendedVideoZoomRange | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange | The zoom range that the system recommends for a slider.
-activePrimaryConstituent | https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent | The camera of a virtual device that supplies the picture now.
-AVCaptureSystemZoomSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider | The zoom control of the Camera Control.
-NSKeyValueObservation | https://developer.apple.com/documentation/foundation/nskeyvalueobservation | The object that keeps a key-value observation alive.
-HIG: Camera Control | https://developer.apple.com/design/human-interface-guidelines/camera-control | The design rules for an interface below the Camera Control overlay.
-WWDC19: Advances in Camera Capture & Photo Segmentation | https://developer.apple.com/videos/play/wwdc2019/225/ | The session that introduces the virtual devices of iOS 13.
-WWDC21: What's new in camera capture | https://developer.apple.com/videos/play/wwdc2021/10047/ | How a virtual device selects its camera, and how an app controls that.
-Build: zoom and lenses | ch14-build.md | The tutorial for this chapter.
+Enhancing your app experience with the Camera Control | https://developer.apple.com/documentation/avfoundation/enhancing-your-app-experience-with-the-camera-control | The main Apple article: system controls, custom controls, session setup, and the delegate.
+HIG: Camera Control | https://developer.apple.com/design/human-interface-guidelines/camera-control | The design rules for controls and for the interface below the overlay.
+Use the Camera Control on iPhone | https://support.apple.com/guide/iphone/use-the-camera-control-iph0c397b154/ios | The gestures, as Apple explains them to people who use an iPhone.
+WWDC25: Enhancing your camera experience with capture controls | https://developer.apple.com/videos/play/wwdc2025/253/ | Capture events and the Camera Control in one session.
+AVCaptureControl | https://developer.apple.com/documentation/avfoundation/avcapturecontrol | The base class of all controls.
+AVCaptureSystemZoomSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider | The system control for zoom.
+AVCaptureSystemExposureBiasSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemexposurebiasslider | The system control for the exposure bias.
+AVCaptureSlider | https://developer.apple.com/documentation/avfoundation/avcaptureslider | The custom slider.
+AVCaptureIndexPicker | https://developer.apple.com/documentation/avfoundation/avcaptureindexpicker | The custom picker.
+setActionQueue(_:action:) | https://developer.apple.com/documentation/avfoundation/avcaptureslider/setactionqueue(_:action:) | The action of a custom slider and the queue that it runs on.
+AVCaptureSessionControlsDelegate | https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate | The four callbacks about the state of the overlay.
+setControlsDelegate(_:queue:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/setcontrolsdelegate(_:queue:) | How to set the delegate and its serial queue.
+supportsControls | https://developer.apple.com/documentation/avfoundation/avcapturesession/supportscontrols | The hardware check.
+isLockingFocusWithCustomLensPositionSupported | https://developer.apple.com/documentation/avfoundation/avcapturedevice/islockingfocuswithcustomlenspositionsupported | The check that AVCam makes before it creates the lens slider.
+setFocusModeLocked(lensPosition:completionHandler:) | https://developer.apple.com/documentation/avfoundation/avcapturedevice/setfocusmodelocked(lensposition:completionhandler:) | The call that the lens slider makes.
+unownedExecutor | https://developer.apple.com/documentation/swift/actor/unownedexecutor | How an actor uses a serial queue as its executor.
+Build: Camera Control | ch14-build.md | The tutorial for this chapter.
 ```

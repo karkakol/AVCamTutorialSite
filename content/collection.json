@@ -138,186 +138,220 @@
     },
     {
       "number": 8,
-      "title": "Record video",
-      "abstract": "A mode picker and a swipe change between photo and video. The app records movies with sound, shows the recording time, and saves each movie to Photos.",
+      "title": "RAW and Apple ProRAW",
+      "abstract": "A new RAW control in the features toolbar offers Off, Apple ProRAW, and RAW. The app captures a DNG file together with the processed photo and saves both in one asset in Photos.",
       "pages": [
         {
           "slug": "ch08-concepts",
           "kind": "article",
-          "title": "Concepts: record video"
+          "title": "Concepts: RAW and Apple ProRAW"
         },
         {
           "slug": "ch08-build",
+          "kind": "tutorial",
+          "title": "Build: RAW and Apple ProRAW"
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Fast capture",
+      "abstract": "The app uses responsive capture, fast capture prioritization, and zero shutter lag. A readiness coordinator tells the capture button when the camera can take the next photo, and the button shows that state.",
+      "pages": [
+        {
+          "slug": "ch09-concepts",
+          "kind": "article",
+          "title": "Concepts: fast capture"
+        },
+        {
+          "slug": "ch09-build",
+          "kind": "tutorial",
+          "title": "Build: fast capture"
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Record video",
+      "abstract": "A mode picker and a swipe change between photo and video. The app records movies with sound, shows the recording time, and saves each movie to Photos.",
+      "pages": [
+        {
+          "slug": "ch10-concepts",
+          "kind": "article",
+          "title": "Concepts: record video"
+        },
+        {
+          "slug": "ch10-build",
           "kind": "tutorial",
           "title": "Build: record video"
         }
       ]
     },
     {
-      "number": 9,
+      "number": 11,
       "title": "HDR video",
       "abstract": "An HDR button appears in video mode when the camera supports 10-bit HDR. The app then records HDR video.",
       "pages": [
         {
-          "slug": "ch09-concepts",
+          "slug": "ch11-concepts",
           "kind": "article",
           "title": "Concepts: HDR video"
         },
         {
-          "slug": "ch09-build",
+          "slug": "ch11-build",
           "kind": "tutorial",
           "title": "Build: HDR video"
         }
       ]
     },
     {
-      "number": 10,
+      "number": 12,
       "title": "A robust session",
       "abstract": "The app shows a message during an interruption and recovers from a media services reset. It starts fast, hides the controls until the session runs, and covers the old preview frame when it comes back from the background.",
       "pages": [
         {
-          "slug": "ch10-concepts",
+          "slug": "ch12-concepts",
           "kind": "article",
           "title": "Concepts: a robust session"
         },
         {
-          "slug": "ch10-build",
+          "slug": "ch12-build",
           "kind": "tutorial",
           "title": "Build: a robust session"
         }
       ]
     },
     {
-      "number": 11,
+      "number": 13,
       "title": "Hardware buttons and AirPods",
       "abstract": "The volume buttons, the Action button, the Camera Control, and a click on an AirPods stem capture media with the correct sounds. AirPods record high-quality audio.",
       "pages": [
         {
-          "slug": "ch11-concepts",
+          "slug": "ch13-concepts",
           "kind": "article",
           "title": "Concepts: hardware buttons and AirPods"
         },
         {
-          "slug": "ch11-build",
+          "slug": "ch13-build",
           "kind": "tutorial",
           "title": "Build: hardware buttons and AirPods"
         }
       ]
     },
     {
-      "number": 12,
+      "number": 14,
       "title": "Camera Control",
       "abstract": "The Camera Control shows zoom, exposure bias, and a custom slider for the lens position. The app interface becomes minimal while the control overlay is on the screen.",
       "pages": [
         {
-          "slug": "ch12-concepts",
+          "slug": "ch14-concepts",
           "kind": "article",
           "title": "Concepts: Camera Control"
         },
         {
-          "slug": "ch12-build",
+          "slug": "ch14-build",
           "kind": "tutorial",
           "title": "Build: Camera Control"
         }
       ]
     },
     {
-      "number": 13,
+      "number": 15,
       "title": "Lock Screen and Control Center",
       "abstract": "The app starts from the Lock Screen, Control Center, and the Action button through a capture extension and a control. The app and the extension share their state.",
       "pages": [
         {
-          "slug": "ch13-concepts",
+          "slug": "ch15-concepts",
           "kind": "article",
           "title": "Concepts: Lock Screen and Control Center"
         },
         {
-          "slug": "ch13-build",
+          "slug": "ch15-build",
           "kind": "tutorial",
           "title": "Build: Lock Screen and Control Center"
         }
       ]
     },
     {
-      "number": 14,
+      "number": 16,
       "title": "Zoom and lenses",
       "abstract": "The app uses the back camera with the most lenses, shows zoom levels such as 0.5x, 1x, and 3x, and zooms with a pinch. This chapter goes beyond the Apple sample.",
       "pages": [
         {
-          "slug": "ch14-concepts",
+          "slug": "ch16-concepts",
           "kind": "article",
           "title": "Concepts: zoom and lenses"
         },
         {
-          "slug": "ch14-build",
+          "slug": "ch16-build",
           "kind": "tutorial",
           "title": "Build: zoom and lenses"
         }
       ]
     },
     {
-      "number": 15,
+      "number": 17,
       "title": "Fix the sample",
       "abstract": "You correct four defects of the Apple sample: a recording that ends by itself, the Live Photo badge, the rotation of a new movie connection, and a late capture sound.",
       "pages": [
         {
-          "slug": "ch15-concepts",
+          "slug": "ch17-concepts",
           "kind": "article",
           "title": "Concepts: fix the sample"
         },
         {
-          "slug": "ch15-build",
+          "slug": "ch17-build",
           "kind": "tutorial",
           "title": "Build: fix the sample"
         }
       ]
     },
     {
-      "number": 16,
+      "number": 18,
       "title": "iPhone Duo",
       "abstract": "On iPhone Duo, a camera can change the direction that it faces. The app follows the direction with a direction coordinator, mirrors the preview correctly, and centers its interface on the Duo display.",
       "pages": [
         {
-          "slug": "ch16-concepts",
+          "slug": "ch18-concepts",
           "kind": "article",
           "title": "Concepts: iPhone Duo"
         },
         {
-          "slug": "ch16-build",
+          "slug": "ch18-build",
           "kind": "tutorial",
           "title": "Build: iPhone Duo"
         }
       ]
     },
     {
-      "number": 17,
+      "number": 19,
       "title": "Two cameras at once",
       "abstract": "A multi-camera session captures from the back camera and the front camera at the same time. The app adds a dual mode, connects each camera to its own preview by hand, and keeps the hardware cost in budget.",
       "pages": [
         {
-          "slug": "ch17-concepts",
+          "slug": "ch19-concepts",
           "kind": "article",
           "title": "Concepts: two cameras at once"
         },
         {
-          "slug": "ch17-build",
+          "slug": "ch19-build",
           "kind": "tutorial",
           "title": "Build: two cameras at once"
         }
       ]
     },
     {
-      "number": 18,
+      "number": 20,
       "title": "Record picture in picture",
       "abstract": "The dual mode records a movie. Data outputs deliver the frames of both cameras, a Metal kernel draws the small picture into the full picture, and an asset writer saves the result to a movie file.",
       "pages": [
         {
-          "slug": "ch18-concepts",
+          "slug": "ch20-concepts",
           "kind": "article",
           "title": "Concepts: record picture in picture"
         },
         {
-          "slug": "ch18-build",
+          "slug": "ch20-build",
           "kind": "tutorial",
           "title": "Build: record picture in picture"
         }

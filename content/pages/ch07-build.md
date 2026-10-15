@@ -81,7 +81,7 @@ enum CaptureActivity {
 ### Step
 Below the `Photo` structure, add the `QualityPrioritization` enumeration with the cases `speed`, `balanced`, and `quality`.
 
-The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. The raw values are 1, 2, and 3. These are the raw values of the AVFoundation type [`AVCapturePhotoOutput.QualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/qualityprioritization), so the capture code can convert with the raw value. `Identifiable` and `CaseIterable` let a SwiftUI picker list the cases. `Codable` is for chapter 13, where the app stores the value. The `description` property for `CustomStringConvertible` comes in the next step.
+The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. The raw values are 1, 2, and 3. These are the raw values of the AVFoundation type [`AVCapturePhotoOutput.QualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/qualityprioritization), so the capture code can convert with the raw value. `Identifiable` and `CaseIterable` let a SwiftUI picker list the cases. `Codable` is for chapter 15, where the app stores the value. The `description` property for `CustomStringConvertible` comes in the next step.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-11
 /// A structure that represents a captured photo.
@@ -145,7 +145,7 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ### Step
 Below the `PhotoFeatures` structure, add the `CaptureCapabilities` structure with the property `isLivePhotoCaptureSupported`, an initializer, and the start value `unknown`.
 
-This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The property is `let isLivePhotoCaptureSupported: Bool`. The initializer is `init(isLivePhotoCaptureSupported: Bool = false)`. The start value is `static let unknown = CaptureCapabilities()`, with each capability set to `false`. The sample has an empty line directly after the opening brace of the structure; keep it, so that your file equals the branch. Above the structure, the sample has a documentation comment on two lines: "A structure that represents the capture capabilities of `CaptureService` in" and "its current configuration." In chapter 9, you add a second capability for HDR video.
+This type goes in the opposite direction. It tells the interface what the camera can do in its current configuration. The property is `let isLivePhotoCaptureSupported: Bool`. The initializer is `init(isLivePhotoCaptureSupported: Bool = false)`. The start value is `static let unknown = CaptureCapabilities()`, with each capability set to `false`. The sample has an empty line directly after the opening brace of the structure; keep it, so that your file equals the branch. Above the structure, the sample has a documentation comment on two lines: "A structure that represents the capture capabilities of `CaptureService` in" and "its current configuration." In chapter 11, you add a second capability for HDR video.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=6-17
 struct PhotoFeatures {
@@ -534,7 +534,7 @@ The "supported" values change with the camera and the session configuration. Thu
 ### Step
 In `DataTypes.swift`, add the `capabilities` requirement to the `OutputService` protocol.
 
-Each output service must now tell what it supports. `PhotoCapture` already has the property. The movie service of chapter 8 gets one too.
+Each output service must now tell what it supports. `PhotoCapture` already has the property. The movie service of chapter 10 gets one too.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=5
 protocol OutputService {
@@ -567,7 +567,7 @@ actor CaptureService {
 ### Step
 In `updateCaptureCapabilities()`, copy the capabilities of the photo service to the new property.
 
-Now the name of this method from chapter 3 is correct: it configures the outputs, and then it publishes what they can do. In this chapter, no code reads the published value. In chapter 9, the model observes it to show or hide the HDR button.
+Now the name of this method from chapter 3 is correct: it configures the outputs, and then it publishes what they can do. In this chapter, no code reads the published value. In chapter 11, the model observes it to show or hide the HDR button.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5
     private func updateCaptureCapabilities() {
@@ -1131,7 +1131,7 @@ Note: In the Simulator with SimCam, the photo is not a Live Photo, and no badge 
 On a real iPhone, set the menu to "Speed" and take five photos as quickly as you can. Then set it to "Quality" and do it again. Compare the time between the photos, and compare the photos in the Photos app.
 
 ### Text
-Your code is now the same as the `chapter-07` branch. The photo side of the app is complete. Until chapter 8, the movie of a Live Photo has no sound, because the session has no microphone input. In the next chapter, you add the microphone, a movie output, and a switch between photo mode and video mode.
+Your code is now the same as the `chapter-07` branch. The photo side of the app is complete. Until chapter 10, the movie of a Live Photo has no sound, because the session has no microphone input. In the next chapter, you add the microphone, a movie output, and a switch between photo mode and video mode.
 
 ## Check your understanding
 

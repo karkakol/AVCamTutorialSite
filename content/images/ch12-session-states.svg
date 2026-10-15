@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320">
   <title>The states of a capture session: not running, running, interrupted, and stopped by an error, with the events that move the session between them</title>
   <defs>
-    <marker id="ch10-states-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch12-states-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -31,7 +31,7 @@
       <text x="432" y="290">startRunning()</text>
     </g>
   </g>
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch10-states-arrow)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch12-states-arrow)">
     <path d="M170 160 L288 160"/>
     <path d="M410 123 C430 70 480 50 538 50"/>
     <path d="M538 85 C500 90 462 105 442 135"/>

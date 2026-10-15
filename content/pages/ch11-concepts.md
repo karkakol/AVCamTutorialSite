@@ -1,332 +1,320 @@
 ---
 kind: article
 chapter: 11
-title: Concepts: hardware buttons and AirPods
-abstract: How the system sends a press of a hardware button or an AirPods stem to a camera app as a capture event, how the app answers with the correct sound, and how AirPods become a high-quality microphone.
-estimatedMinutes: 12
+title: Concepts: HDR video
+abstract: What a camera format is, how a session preset and the active format decide the video that a camera makes, and how AVCam selects a 10-bit HDR format.
+estimatedMinutes: 14
 branch: chapter-11
 ---
 
-A person who holds an iPhone as a camera does not always want to touch the screen. A finger on the screen can hide the subject, and a tap can move the device. People know from the Camera app that a volume button also takes the photo. With AirPods, a person can put the iPhone on a tripod, walk into the picture, and click the stem of an AirPod.
+In chapter 10, the app records movies. You set one value, the `.high` session preset, and the session decided all other things: the size of the picture, the frame rate, the number of bits for each pixel, and the color. In this chapter, you add an HDR button for video mode. To do that, the app must decide one of these things itself.
 
-Until now, AVCam captures only from its button on the screen. In this chapter, the volume buttons, the Action button, the Camera Control, and an AirPods stem click do the same job. AirPods also become a microphone with a good sound quality.
-
-The chapter has little code: 31 lines. The ideas behind the lines are what you must know. You write the code in [Build: hardware buttons and AirPods](ch11-build.md).
-
-> [!IMPORTANT]
-> Nothing in this chapter works in the Simulator, with or without SimCam. All of it needs a real iPhone, and this tutorial did not run the code on one. The descriptions come from the SDK, from Apple's documentation, and from Apple's WWDC sessions. The two AirPods features are also not available in the European Union at this time.
+The code of this chapter is small. The idea behind it is large. Each property of the video that a camera makes comes from one object: the **format**. When you know how to read the formats of a camera and how to select one, you know the way to HDR, to 4K, to slow motion, and to most of the professional video features of an iPhone. This article explains formats first, and then what "HDR video" means in AVCam. You write the code in [Build: HDR video](ch11-build.md).
 
 ## How it works
 
-### Before capture events
+### A camera has many formats
 
-For many years, iOS had no API that told an app about a press of a volume button. Camera apps wanted a hardware shutter, so they used tricks. The usual trick was to observe the output volume of the audio session: when the value changed, a volume button was pressed.
+An [`AVCaptureDevice.Format`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format) object describes one way in which a camera can operate. The sensor and the image pipeline behind it cannot do all things at the same time. A camera can make large frames, or many frames in each second, or frames with more bits, but only in specified combinations. Each permitted combination is one format.
 
-The trick had many problems. The volume really changed with each photo. At the maximum volume, the value could not go higher, so the app had to set it back in secret. The app also had to hide the volume indicator of the system. And the trick knew nothing about buttons that came later, such as the Camera Control.
+A camera has many formats. The [`formats`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/formats) property of the device is the full list. The [`activeFormat`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat) property is the format that the camera uses now. A format object does not change. You cannot edit a format. You can only select a different one from the list.
 
-Do not use this trick in new code. Since iOS 17.2, there is an API for this job.
+### How to read a format
 
-### Capture events
+A format answers many questions. These are the most important ones for video:
 
-The API has the name **capture events**. Its idea is simple: you attach a handler to a view of your camera interface. While the handler is active, the system sends a press of a hardware control to your app as an [`AVCaptureEvent`](https://developer.apple.com/documentation/avkit/avcaptureevent) object, and it does not do the usual job of the button. A volume button does not change the volume.
+| Question | Where you read it |
+|---|---|
+| How large is a frame? | `formatDescription.dimensions`, a width and a height in pixels. |
+| How are the pixels stored? | `formatDescription.mediaSubType`, a four-character code such as `420v` or `x420`. |
+| How fast can the camera run? | [`videoSupportedFrameRateRanges`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges), one or more ranges with a minimum and a maximum rate. |
+| Which colors can it describe? | [`supportedColorSpaces`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/supportedcolorspaces), for example sRGB, P3, or HLG BT.2020. |
+| Does it combine sensor pixels? | [`isVideoBinned`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/isvideobinned). A binned format is more sensitive to light and has less resolution. |
+| Which stabilization modes work? | [`isVideoStabilizationModeSupported(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/isvideostabilizationmodesupported(_:)). |
+| How large can a photo be? | [`supportedMaxPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/supportedmaxphotodimensions), which you used in chapter 3. |
 
-The API is in the AVKit framework, not in AVFoundation. It has two forms, and the two forms behave in the same way:
+The first two answers are in the [`formatDescription`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/formatdescription) of the format. This is a Core Media object, a [`CMFormatDescription`](https://developer.apple.com/documentation/coremedia/cmformatdescription).
 
-| | UIKit | SwiftUI |
-|---|---|---|
-| API | [`AVCaptureEventInteraction`](https://developer.apple.com/documentation/avkit/avcaptureeventinteraction), an interaction object that you add to a view | The `onCameraCaptureEvent` view modifier |
-| Since | iOS 17.2 | iOS 18 |
-| Import | `AVKit` | `SwiftUI` and `AVKit` |
-
-In UIKit, you make the interaction with a closure and add it to the view that shows the preview:
+The best way to learn the formats of a camera is to print the list. This loop is a sketch that writes the main values of each format to the console:
 
 ```swift
-let interaction = AVCaptureEventInteraction { event in
-    if event.phase == .ended {
-        capture()
+for format in device.formats {
+    let size = format.formatDescription.dimensions
+    let pixelFormat = format.formatDescription.mediaSubType
+    let rates = format.videoSupportedFrameRateRanges.map { "\($0.minFrameRate)-\($0.maxFrameRate)" }
+    let hasHLG = format.supportedColorSpaces.contains(.HLG_BT2020)
+    print("\(size.width) x \(size.height), \(pixelFormat), \(rates) fps, HLG: \(hasHLG)")
+}
+```
+
+When you read such a list, you see that two formats can have the same size and the same frame rates and still be different formats. They can differ in the pixel format, in the field of view, in binning, or in the features that they support. Since iPhone 12, some formats come in groups of three with the same size and the same frame rate range: one with the code `420v`, one with `420f`, and one with `x420`. The third one is the subject of this chapter.
+
+### Presets against the active format
+
+There are two ways to select a format. On iOS, you use one or the other.
+
+- **A preset.** You set [`sessionPreset`](https://developer.apple.com/documentation/avfoundation/avcapturesession/sessionpreset) on the session, and the session selects a format for you. This is what the app did until now: `.photo` in photo mode and [`.high`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/high) in video mode. A preset is a quality level, not a format. Apple does not state a frame size for `.high`. The result depends on the device.
+- **The format itself.** You lock the device and set `activeFormat` to one of the entries in `formats`. The session then changes its preset to [`.inputPriority`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/inputpriority) by itself. This value means: the app selected the format, and the session does not change it.
+
+![With the high preset the session selects the format; after the app sets the active format, the preset is inputPriority](../images/ch11-format-control.svg)
+
+The way back is also simple. When you set a preset again, for example `.high`, the session takes control again and can replace your format.
+
+Three rules apply when you set the format yourself:
+
+- You need the configuration lock: [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before the change and `unlockForConfiguration()` after it. [Concepts: focus and exposure](ch06-concepts.md) explains the lock. Without the lock, the device raises an exception.
+- The format must be an entry of the `formats` list of that device. A format of a different camera raises an exception.
+- A format change builds the capture pipeline again. The preview can stop for a moment, and a recording that is in progress ends. Put the change between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()), so that the session applies it together with your other changes.
+
+### Pixel formats: 8 bits and 10 bits
+
+The pixel format says how the camera stores each frame in memory. The camera does not store red, green, and blue values. It stores one brightness value (luma) for each pixel and two color values (chroma) for a group of pixels. These are the codes that you see in a format list:
+
+| Code | Bits | Meaning |
+|---|---|---|
+| `420v` | 8 | Chroma at half resolution in each direction (4:2:0). Video range: the values do not use the full number range. |
+| `420f` | 8 | 4:2:0, full range: the values use the full number range. |
+| `x420` | 10 | 4:2:0, video range. The luma values go from 64 to 940. |
+| `x422` | 10 | Chroma at half resolution in one direction only (4:2:2), video range. |
+| `xf20` | 10 | 4:2:0, full range. |
+
+The number of bits is the important difference. With 8 bits, a value has 256 possible levels. With 10 bits, it has 1024 levels. HDR video describes a much larger range of brightness than standard video. If you divide a larger range into only 256 levels, the steps between two levels become visible as bands, for example in a sky. With 1024 levels, the steps stay small.
+
+The full name of `x420` in code is [`kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange`](https://developer.apple.com/documentation/corevideo/kcvpixelformattype_420ypcbcr10biplanarvideorange). "BiPlanar" means that the frame has two planes in memory: one for luma and one for chroma.
+
+### HLG and BT.2020
+
+More bits are only a container. Two more definitions say what the numbers mean. Together they are the **color space** of the video.
+
+- **The color primaries** say which red, green, and blue the numbers refer to. **BT.2020** is a set of primaries with a wide range of colors. HDR video uses it.
+- **The transfer function** is the rule that changes an amount of light into a number. **HLG** (Hybrid Log-Gamma) is a transfer function for HDR. It can describe highlights that are much brighter than the white of standard video.
+
+In AVFoundation, the [`AVCaptureColorSpace`](https://developer.apple.com/documentation/avfoundation/avcapturecolorspace) enumeration names the color spaces of a camera:
+
+| Value | Since | Meaning |
+|---|---|---|
+| `.sRGB` | iOS 10 | The standard color space. |
+| `.P3_D65` | iOS 10 | Wide color. |
+| [`.HLG_BT2020`](https://developer.apple.com/documentation/avfoundation/avcapturecolorspace/hlg_bt2020) | iOS 14.1 | BT.2020 primaries with the HLG transfer function. The color space of HDR video. |
+| `.appleLog` | iOS 17 | BT.2020 primaries with a log curve from Apple, for video that a colorist grades later. |
+| `.appleLog2` | iOS 26 | Apple Gamut primaries with the log curve from Apple. |
+
+The `supportedColorSpaces` property of a format lists what the format permits. The [`activeColorSpace`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activecolorspace) property of the device is the color space in use.
+
+Usually you do not set the color space. The session has a property, [`automaticallyConfiguresCaptureDeviceForWideColor`](https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyconfigurescapturedeviceforwidecolor), which is `true` by default. With this value, the session selects the color space. If you set `activeColorSpace` yourself, set this property to `false` first. If you do not, the session can undo your selection, also when the preset is `.inputPriority`.
+
+When the camera records a 10-bit HLG BT.2020 format into a movie, the movie also contains **Dolby Vision** metadata for each frame. With the movie file output, this is automatic. The movie file output has no property that turns it on or off.
+
+### Two features with the name "HDR video"
+
+AVFoundation uses the words "HDR video" for two different features. This is a frequent source of confusion.
+
+| | Video HDR (also named EDR) | 10-bit HDR |
+|---|---|---|
+| API | [`isVideoHDRSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/isvideohdrsupported) on the format, [`isVideoHDREnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvideohdrenabled) on the device | A 10-bit format with the HLG BT.2020 color space |
+| How it works | The sensor runs at two times the frame rate. The system merges a dark frame and a normal frame into one frame. | The camera stores more levels, with the HLG transfer function and the BT.2020 primaries. |
+| On and off | A switch on the device. By default the system decides ([`automaticallyAdjustsVideoHDREnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/automaticallyadjustsvideohdrenabled) is `true`). | No switch. It is a property of the format. To turn it off, you select a different format. |
+| The movie | A standard movie with better highlights. It is not a 10-bit HDR movie. | A 10-bit HEVC movie with Dolby Vision metadata |
+
+The two features do not combine. For a 10-bit format that supports only HLG BT.2020, `isVideoHDRSupported` is always `false`, and the system ignores `isVideoHDREnabled` while the color space is HLG BT.2020.
+
+**The HDR button in AVCam means 10-bit HDR.** The sample never touches `isVideoHDREnabled`. The model of the app has a property with almost the same name, `isHDRVideoEnabled`, but that is the app's own state. Do not confuse the two.
+
+### How AVCam finds the 10-bit format
+
+"Turn HDR on" thus means "select a different format". But which one? The app wants to keep all that the person has now, the size and the frame rate, and change only the bit depth. AVCam does this with three small properties:
+
+```swift file=AVCam/Support/CaptureExtensions.swift
+extension AVCaptureDevice {
+    var activeFormat10BitVariant: AVCaptureDevice.Format? {
+        formats.filter {
+            $0.maxFrameRate == activeFormat.maxFrameRate &&
+            $0.formatDescription.dimensions == activeFormat.formatDescription.dimensions
+        }
+        .first(where: { $0.isTenBitFormat })
     }
 }
-previewView.addInteraction(interaction)
+
+extension AVCaptureDevice.Format {
+    var isTenBitFormat: Bool {
+        formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+    }
+    var maxFrameRate: Double {
+        videoSupportedFrameRateRanges.last?.maxFrameRate ?? 0
+    }
+}
 ```
 
-This code is not in the project. It compiles against the iOS 26 SDK, and nobody ran it.
+The search has four steps:
 
-In SwiftUI, the modifier does the same work. AVCam uses the modifier, because its interface is SwiftUI.
+1. Take all formats of the camera.
+2. Keep the formats that have the same pixel size as the active format.
+3. Keep the formats that have the same maximum frame rate as the active format. The "maximum frame rate" of a format is the maximum of its last frame rate range.
+4. Return the first of these formats that has the pixel format `x420`. If there is none, return `nil`.
 
-> [!NOTE]
-> The modifier is in a small module that Swift loads only when a file imports `SwiftUI` and `AVKit` together. `import AVFoundation` does not give you the modifier or the `AVCaptureEvent` type. `CameraView.swift` already has the two imports. You added `import AVKit` in chapter 8.
+![An example format list: the search keeps the formats with the size and rate of the active format and returns the first 10-bit one](../images/ch11-format-search.svg)
 
-### When the system sends events
+The result has two uses. If it is not `nil`, the camera can record HDR in its current configuration, and the app shows the HDR button. And the result is the format that the app sets when the person turns HDR on.
 
-The system sends capture events only when all of these conditions are true:
+The search starts from the active format. Its answer thus depends on the current preset. If the 10-bit format is already active, the search finds a format with the same size and rate again, so the answer stays "supported".
 
-- The app is in the foreground.
-- The app uses the camera. In practice, this means that a capture session runs.
-- The view that has the handler is part of the interface.
-- The app uses the events to capture media, and for nothing else.
+### How AVCam turns HDR on and off
 
-The conditions protect the person. A game or a reader app cannot take the volume buttons for its own functions. Only a camera that the person can see gets the events.
+The capture service has one method for the two directions, `setHDRVideoEnabled(_:)`.
 
-The conditions also give a rule for you. Because the handler replaces the usual job of the button, your app must do something for each event. If the app cannot capture at this time, disable the handler. Then the buttons do their usual job again. The `isEnabled` parameter of the modifier, and the [`isEnabled`](https://developer.apple.com/documentation/avkit/avcaptureeventinteraction/isenabled) property in UIKit, are for this.
+- **On.** The method locks the device and sets `activeFormat` to the 10-bit variant. The preset becomes `.inputPriority`.
+- **Off.** The method sets the preset to `.high`. The app did not keep the old format, and it does not need it. The preset gives control back to the session, and the session selects its normal 8-bit format again.
 
-### Primary and secondary events
+The same "off" path runs when the person asks for HDR but the camera has no 10-bit variant.
 
-There are two kinds of event. A **primary** event is the shutter. A **secondary** event is for a second function that the app selects, for example a camera switch.
+One more place needs care. Each change to video mode sets the `.high` preset, as in chapter 10. This removes a 10-bit format that was active before. For this reason, the capture service keeps its own `isHDRVideoEnabled` flag, and `setCaptureMode(_:)` calls `setHDRVideoEnabled(true)` again when the flag is set.
 
-![Four hardware controls send a primary event. The volume up button sends a secondary event, or a primary event when the app has no secondary handler. AVCam handles the two kinds in one closure.](../images/ch11-event-sources.svg)
+The capability travels to the interface on the path that you built in chapter 7. The movie service computes `isHDRSupported` each time the capture service calls `updateConfiguration(for:)`. The capture service publishes the value in `CaptureCapabilities`. The model copies it to `isHDRVideoSupported`, and the toolbar shows the button only when the value is `true`.
 
-| Hardware control | Event | Notes |
-|---|---|---|
-| Volume down button | Primary | Since iOS 17.2 |
-| Volume up button | Secondary | Becomes a primary event when the app has no secondary handler |
-| Action button | Primary | |
-| Camera Control, full press | Primary | iPhone 16 and later, since iOS 18 |
-| AirPods stem click | Primary | Since iOS 26, AirPods with the H2 chip |
+### Frame rates
 
-Three more rules:
+A format does not have one frame rate. It has one or more ranges, each an [`AVFrameRateRange`](https://developer.apple.com/documentation/avfoundation/avframeraterange) object with a minimum and a maximum rate. The camera runs at a rate inside a range. In low light, automatic exposure can make the rate lower to get a longer exposure time for each frame.
 
-- One press calls one handler only. It never calls the two handlers.
-- If one control starts an event, the system ignores the other controls until that event ends or is cancelled.
-- The event has no property for the control that sent it. Your code knows only if the event is primary or secondary.
+You control the rate with two properties of the device. AVFoundation states them as frame **durations**, which is the inverse of the rate:
 
-The Camera Control does more than the full press. A light press and a slide change camera settings, with a different API. That is the subject of chapter 12.
+- [`activeVideoMinFrameDuration`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activevideominframeduration) is 1 divided by the **maximum** frame rate.
+- [`activeVideoMaxFrameDuration`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activevideomaxframeduration) is 1 divided by the **minimum** frame rate.
 
-### The phases of an event
+The minimum duration limits the top speed. Many people read it the wrong way the first time. To get a constant rate, set the two properties to the same value:
 
-One press gives more than one call of your handler. Each call has a [`phase`](https://developer.apple.com/documentation/avkit/avcaptureeventphase):
-
-| Phase | Meaning |
-|---|---|
-| `.began` | The person pushed the control down. |
-| `.ended` | The person released the control. |
-| `.cancelled` | The system stopped the event before the person released the control. The press must not count. |
-
-For "one click, one photo", you act on one phase only. If you act on all phases, one click takes two photos. AVCam acts on `.ended`.
-
-The `.began` phase is for a function that needs to know how long the press is. For example, an app can start a timer at `.began`. If the control is still down after half a second, the app records a movie until `.ended`. If `.ended` comes first, the app takes a photo. An app that starts something at `.began` must also stop it at `.cancelled`.
-
-### The overloads of the modifier
-
-The SDK has six overloads of `onCameraCaptureEvent`. They differ in three ways:
-
-- **One closure or two.** With `action:`, one closure gets the primary and the secondary events. With `primaryAction:` and `secondaryAction:`, each kind has its own closure.
-- **With or without a sound parameter.** The iOS 18 overloads have only [`isEnabled`](https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:action:)). The iOS 26 overloads add [`defaultSoundDisabled`](https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:action:)).
-- **Synchronous or `async` closures.** The iOS 26 overloads exist with synchronous closures and with `async` closures. Apple's documentation pages show only the synchronous forms. The `async` forms are in the interface file of the SDK.
-
-You do not select an overload by name. The compiler selects it from the arguments and from the body of the closure. AVCam gives one closure, the `defaultSoundDisabled` argument, and a body that contains `await`. So the compiler selects the iOS 26 overload with one `async` closure.
-
-The modifier is a main actor API, and `CameraView` is a main actor type. The model lives on the main actor too, so the closure can read the model directly.
-
-### Sounds for a person who is not near the screen
-
-When a person presses a volume button, the person holds the iPhone and sees the screen flash. When a person clicks an AirPods stem, the iPhone can be some meters away. That person needs a different confirmation: a sound in the AirPods.
-
-iOS 26 adds the sound API to capture events:
-
-- **The default sound.** For a stem click, the system plays a default tone in the AirPods. The app does nothing.
-- **`defaultSoundDisabled`.** If you set this parameter to `true`, the system plays no tone. Your app now has the responsibility for the sound. In UIKit, the same switch is the class property [`defaultCaptureSoundDisabled`](https://developer.apple.com/documentation/avkit/avcaptureeventinteraction/defaultcapturesounddisabled), which applies to the full app.
-- **[`shouldPlaySound`](https://developer.apple.com/documentation/avkit/avcaptureevent/shouldplaysound).** This property of the event is `true` only when two things are true: the event came from an AirPods stem click, and the app disabled the default sound.
-- **[`play(_:)`](https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:)).** This method of the event plays a sound through the AirPods.
-- **[`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound).** The sound itself. The system supplies three: `.cameraShutter`, `.beginVideoRecording`, and `.endVideoRecording`. You can also make a sound from a file in your app bundle with `AVCaptureEventSound(url:)`.
-
-Why would an app disable the default tone? Because the default tone is the same for each action. AVCam has three actions: a photo, the start of a movie, and the end of a movie. With its own sounds, the person can hear which of the three occurred.
-
-The sound API has limits that you must know:
-
-- `play(_:)` does nothing when `shouldPlaySound` is `false`. So it does nothing for a volume button, for the Action button, and for the Camera Control.
-- `play(_:)` does nothing when the event is more than 15 seconds old.
-- The sound is not the usual shutter sound of the iPhone. The photo output plays that sound by itself, as it did in chapter 3. Do not use `shouldPlaySound` to control the usual shutter sound.
-- When you disable the default tone and then play nothing, the person hears nothing at all. The person cannot know if the capture occurred.
-
-### What AVCam does with an event
-
-This is the complete code that AVCam adds to its preview:
-
-```swift file=AVCam/CameraView.swift
-                CameraPreview(source: camera.previewSource)
-                    // Handle capture events from device hardware buttons.
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-                        if event.phase == .ended {
-                            let sound: AVCaptureEventSound
-                            switch camera.captureMode {
-                            case .photo:
-                                sound = .cameraShutter
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-                            case .video:
-                                sound = camera.captureActivity.isRecording ?
-                                    .endVideoRecording : .beginVideoRecording
-                                // Toggle video recording when pressing a hardware button.
-                                await camera.toggleRecording()
-                            }
-                            // Play a sound when capturing by clicking an AirPods stem.
-                            if event.shouldPlaySound {
-                                event.play(sound)
-                            }
-                        }
-                    }
+```swift
+try device.lockForConfiguration()
+device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
+device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+device.unlockForConfiguration()
 ```
 
-Read it from top to bottom:
+The values must be inside a range of the active format. A value that the format does not support raises an exception. The system sets the two properties back to their defaults when the format changes, when the preset changes, and when you add the input to a session. Thus you set the format first and the durations second.
 
-1. The closure ignores all phases but `.ended`.
-2. It reads the capture mode. In photo mode, it selects the shutter sound and takes a photo.
-3. In video mode, it selects the sound first and toggles the recording second. This order is necessary. After the toggle, `isRecording` can have the opposite value, and the closure would then select the wrong sound.
-4. At the end, it plays the sound, but only if the event asks for one.
-
-The closure calls `capturePhoto()` and `toggleRecording()`. These are the same two methods that the button on the screen calls. So a hardware control and the screen button always do the same thing.
-
-### AirPods as a remote control
-
-The stem click is not a separate API. It arrives as a primary capture event, the same as a volume down press. An app that already used capture events got this feature in iOS 26 with no new code. The only new work for a developer is the sound.
-
-The person must turn the feature on. In the Settings app, the page of the connected AirPods has a **Camera Remote** setting, with the choices "Press Once" and "Press and Hold". Apple's support page [Use AirPods with supported camera apps](https://support.apple.com/guide/airpods/use-airpods-with-camera-apps-dev8e2a2ba2e/web) lists the steps and the AirPods models. While a camera app is in use, the selected stem gesture does not do its usual job, for example play and pause.
-
-### AirPods as a microphone
-
-The second AirPods feature is about audio and is independent of capture events.
-
-In the usual Bluetooth recording mode, a headset sends its microphone signal with the Hands-Free Profile (HFP). That profile was made for phone calls, and its audio quality is low. iOS 26 adds a high-quality recording mode for AirPods that support it. Apple tuned it for people who make videos: it balances the voice and the background sounds, as a small microphone on the clothes does.
-
-An app must ask for this mode. In [chapter 8](ch08-concepts.md), you learned that the capture session configures the audio session of the app by default. So the request is one property of the session:
-
-```swift file=AVCam/CaptureService.swift
-            // Enable using AirPods as a high-quality lapel microphone.
-            captureSession.configuresApplicationAudioSessionForBluetoothHighQualityRecording = true
-```
-
-[`configuresApplicationAudioSessionForBluetoothHighQualityRecording`](https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessionforbluetoothhighqualityrecording) is `false` by default. When it is `true`, the session includes the high-quality mode in the audio session configuration that it makes.
-
-> [!IMPORTANT]
-> The property does not select the AirPods as the microphone. It only makes them available. The person selects the microphone, for example in Control Center while the camera app is in use. If the person selects nothing, the microphone of the iPhone probably records, as before. Apple's sources do not say this directly.
+AVCam does not set a frame rate. It uses the default range of the format that the preset or the HDR search selected. The only frame rate code in the sample is the `maxFrameRate` property of the search.
 
 ## What the camera can do
 
-AVCam uses a small part of the two APIs. This is the full map.
+The format list and the properties around it give access to much more than this chapter uses. The "Since" column shows the iOS version of the API.
+
+**Dynamic range and color**
+
+| Capability | How you get it | Since | In this tutorial |
+|---|---|---|---|
+| 10-bit HDR video (HLG) | Select a 10-bit format with the HLG BT.2020 color space. | 14.1 | This chapter |
+| Dolby Vision | Automatic: a movie from a 10-bit HLG format contains the metadata. | | This chapter, with no code |
+| Video HDR (EDR) | Set `automaticallyAdjustsVideoHDREnabled` to `false`, then set `isVideoHDREnabled`. | | Not in AVCam |
+| Apple Log and Apple Log 2 | Select a format that supports the log color space, turn off the automatic wide color configuration, and set `activeColorSpace`. While a log color space is active, the photo output does not work. | 17 and 26 | Not in AVCam |
+| Global tone mapping | [`isGlobalToneMappingEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isglobaltonemappingenabled) on the device. | | Not in AVCam |
+
+**Frame rate**
+
+| Capability | How you get it | Since | In this tutorial |
+|---|---|---|---|
+| Constant frame rate | Set the two frame durations to the same value. | | Not in AVCam |
+| Slow motion | Select a format with a high maximum rate (for example 120 or 240 frames in a second, if the camera has such a format) through `activeFormat`, then set the two frame durations. This tutorial did not verify the result. The movie is probably a normal movie with many frames, and "slow" is a decision at playback. | | Not in AVCam |
+| Automatic frame rate | [`isAutoVideoFrameRateEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isautovideoframerateenabled): the device makes the rate lower in low light, for example from 30 to 24. | 18 | Not in AVCam |
+| Locked frame rate and external sync | [`activeLockedVideoFrameDuration`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/activelockedvideoframeduration) on the input, for productions with more than one camera. | 26 | Not in AVCam |
+| Low light video noise reduction | [`isLowLightVideoNoiseReductionEnabled`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/islowlightvideonoisereductionenabled) on the connection. Automatic by default for a movie file output. | 27 | Not in AVCam |
+
+**Codecs and storage**
+
+| Capability | How you get it | Since | In this tutorial |
+|---|---|---|---|
+| HEVC | The output settings of the movie output. | | Chapter 10 |
+| ProRes | When `availableVideoCodecTypes` of the movie output contains a ProRes type for the active format, pass it in the output settings. The data rates are very high. | | Not in AVCam |
+| ProRes RAW | The codec types `.proResRAW` and `.proResRAWHQ`. Stabilization gives only metadata. | 26 | Not in AVCam |
+| External storage | [`AVExternalStorageDevice`](https://developer.apple.com/documentation/avfoundation/avexternalstoragedevice): record directly to an external storage device. | 17 | Not in AVCam |
+| Pro Video Storage | [`AVProVideoStorage`](https://developer.apple.com/documentation/avfoundation/avprovideostorage): space that the system prepares for constant writes at a high data rate. | 27 | Not in AVCam |
+
+**Other video features**
+
+| Capability | How you get it | Since | In this tutorial |
+|---|---|---|---|
+| Video stabilization | The preferred stabilization mode of the connection. The format decides which modes work. | | Chapter 10 |
+| Cinematic video | [`isCinematicVideoCaptureEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/iscinematicvideocaptureenabled) on the device input: a shallow depth of field with focus that follows a subject. `simulatedAperture` sets the strength of the blur. | 26 | Not in AVCam |
+| Cinematic video metadata | [`isCinematicVideoMetadataCaptureEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/iscinematicvideometadatacaptureenabled) on the movie output: data for later edits with the Cinematic framework. | 27 | Not in AVCam |
+| Spatial video | [`isSpatialVideoCaptureEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/isspatialvideocaptureenabled) on the movie output: video from two cameras for Apple Vision Pro. It needs a format that supports it and a cinematic stabilization mode. | 18 | Not in AVCam |
+| Pause and resume | `pauseRecording()` and `resumeRecording()` on the movie output. | 18 | Not in AVCam |
+| Dynamic aspect ratio | `setDynamicAspectRatio(_:completionHandler:)` on the device: a different aspect ratio with no format change. | 26 | Not in AVCam |
+| Timecode | [`AVCaptureTimecodeGenerator`](https://developer.apple.com/documentation/avfoundation/avcapturetimecodegenerator): timecode for sync in post-production. | 26 | Not in AVCam |
+| More than one camera | [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession). | 13 | Not in AVCam |
 
 > [!NOTE]
-> Nobody tested these features on a real device for this tutorial. Test each one on hardware before you rely on it.
+> The research for this tutorial found no capture API with the name "Action mode" in the iOS 27.1 SDK. The public tools for a stable picture are the stabilization modes of the connection.
 
-### Capture events
-
-- **Two functions.** Give a `primaryAction` and a `secondaryAction`. The volume up button then has its own function. This sketch takes a photo for a primary event and changes the camera for a secondary event. It is not in the project, and `isReady` is a Boolean value that you must supply. The sketch compiles against the iOS 26 SDK, and nobody ran it.
-
-```swift
-CameraPreview(source: camera.previewSource)
-    .onCameraCaptureEvent(isEnabled: isReady, defaultSoundDisabled: true) { event in
-        // Primary: volume down, Action button, Camera Control, AirPods stem.
-        guard event.phase == .ended else { return }
-        if event.shouldPlaySound { event.play(.cameraShutter) }
-        await camera.capturePhoto()
-    } secondaryAction: { event in
-        // Secondary: volume up.
-        guard event.phase == .ended else { return }
-        await camera.switchVideoDevices()
-    }
-```
-
-- **Press and hold.** Use `.began` and `.ended` together to tell a short click from a long press, as the section about phases describes.
-- **A switch.** Give `isEnabled: false` while the app cannot capture. The buttons then do their usual job.
-- **A custom sound.** Make an `AVCaptureEventSound` from a sound file in the app bundle.
-- **The default tone.** Leave `defaultSoundDisabled` out. The system then plays its tone for a stem click, and your closure does not need sound code.
-- **UIKit.** [`init(handler:)`](https://developer.apple.com/documentation/avkit/avcaptureeventinteraction/init(handler:)) and [`init(primary:secondary:)`](https://developer.apple.com/documentation/avkit/avcaptureeventinteraction/init(primary:secondary:)) give the same two choices as the modifier.
-
-### Audio for video
-
-- **A manual audio session.** An app that configures its `AVAudioSession` itself does not use the session property. It adds the category option [`bluetoothHighQualityRecording`](https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/bluetoothhighqualityrecording) to a play-and-record category with the default mode. Together with the HFP option, HFP is the fallback for a headset that does not support the new mode.
-- **A microphone picker in the app.** [`AVInputPickerInteraction`](https://developer.apple.com/documentation/avkit/avinputpickerinteraction) (AVKit, iOS 26) shows the system menu of audio inputs from a button in your interface. The person then does not have to open Control Center.
-- **A question to the microphone.** A Bluetooth input port has a [`bluetoothMicrophoneExtension`](https://developer.apple.com/documentation/avfaudio/avaudiosessionportdescription/bluetoothmicrophoneextension). It tells you if the microphone supports high-quality recording, and if the mode is on. An app can use it to show which microphone records.
-- **No ringtone in the recording.** [`setPrefersNoInterruptionsFromSystemAlerts(_:)`](https://developer.apple.com/documentation/avfaudio/avaudiosession/setprefersnointerruptionsfromsystemalerts(_:)) asks the system not to interrupt a recording with the sound of an incoming call.
-- **Audio from other apps.** [`configuresApplicationAudioSessionToMixWithOthers`](https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessiontomixwithothers) lets music from a different app continue while your session runs.
-- **Stereo and Spatial Audio.** The [`multichannelAudioMode`](https://developer.apple.com/documentation/avfoundation/avcapturedeviceinput/multichannelaudiomode) property of the microphone input records stereo or Spatial Audio. It applies to the built-in microphones only. With an external microphone, and AirPods are one, the system ignores it.
-
-### Limits
-
-- **Region.** The AirPods remote control and the high-quality recording mode are not available in the European Union at this time. A learner there cannot test them.
-- **Hardware.** The stem click needs AirPods with the H2 chip. The Camera Control exists on iPhone 16 models and later, and not on iPad.
-- **Delay.** The high-quality mode can add a delay to the microphone signal. It is for recordings, not for calls.
-- **Other platforms.** The SDK marks the sound API and the session property as not available for Mac Catalyst.
-- **Unknown.** No Apple source that this tutorial found says if a Bluetooth shutter remote from a different company sends capture events.
+Most of these features have the same structure as HDR in this chapter. First you ask the format (or the output) if it supports the feature. Then you select a format that does. Then you turn the feature on. A format with a high frame rate does not always support HDR, all stabilization modes, or large photos. You must examine each format.
 
 ## Why AVCam does it this way
 
-**One closure for all controls.** The sample has no second function for the volume up button. With the `action:` form, the volume up button is a shutter too, as in the Camera app.
+**A variant of the active format, not a fixed format.** The sample does not contain a line such as "use 4K HDR at 30". It lets the preset select a format first and then looks for the 10-bit format with the same size and rate. The picture keeps its size, and the code works on each camera with no table of devices. The cost: the search is simple, and it has limits (see the next section).
 
-**The modifier is on the preview.** A capture event belongs to a camera view. `CameraPreview` is the view that shows the camera, and it is on the screen as long as the camera interface is.
+**A preset to go back.** To turn HDR off, the sample sets `.high` again. The alternative is to keep the old format in a property and to set it again. The preset is less code, and it is also correct after a change of camera, when an old format object is not valid for the new device.
 
-**The `.ended` phase.** A photo at the release of the button is the behavior of a click. It also leaves the `.began` phase free for a press-and-hold function, which the sample does not have.
+**The button appears only when the feature is there.** Not each camera has a 10-bit format. The sample asks the device each time the configuration changes and publishes the answer. The interface does not show a control that cannot work.
 
-**The same model methods as the screen button.** The closure does not talk to the capture service. It calls the `Camera` protocol, as `CaptureButton` does. All rules of a capture stay in one place: the model.
+**The service keeps the state.** The model has `isHDRVideoEnabled` for the interface. The capture service has its own flag, because only the service knows when a preset removed the 10-bit format, and it must apply HDR again in the same configuration change.
 
-**An `async` closure.** Before iOS 26, the sample used the synchronous overload and started a `Task` in it, as the tap gesture from chapter 6 still does. The `async` overload removes the `Task`. It also lets the closure wait for the capture before it plays the sound.
+**A nested configuration pair.** `setHDRVideoEnabled(_:)` opens its own `beginConfiguration()` and `commitConfiguration()` pair. When `setCaptureMode(_:)` calls the method, the pair is inside the pair of the caller. That is legal: the session applies the changes at the outer commit. The method thus works alone and as part of a larger change.
 
-**Three sounds.** The sample disables the default tone, because one tone cannot tell a photo from the start or the end of a movie.
+**The session selects the color space.** The sample never sets `activeColorSpace`. It relies on the automatic wide color configuration of the session to select HLG BT.2020 for the 10-bit format. This is the conclusion from the code and the documentation. Nobody verified it on an iPhone for this tutorial.
 
-**The capture button follows the model.** `CaptureButton` has its own `isRecording` state, and `MovieCaptureButton` changes the state when the person taps it. A hardware control does not tap the button. So `CaptureButton` now observes `camera.captureActivity.isRecording` and copies each change into the state, with the same animation that a tap uses:
-
-```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift
-            // Respond to recording state changes that occur from hardware button presses.
-            .onChange(of: camera.captureActivity.isRecording) { _, newValue in
-                // Ensure the button animation occurs when toggling recording state from a hardware button.
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    isRecording = newValue
-                }
-            }
-```
-
-**One Boolean for the audio.** AVCam lets the capture session manage the audio session, as chapter 8 explained. So one property of the capture session is sufficient, and the sample has no `AVAudioSession` code. The sample sets the property before it adds the microphone input and before the session starts. The session then probably configures the audio one time, with the correct value.
-
-**One more reason, for chapter 13.** A capture extension for the Lock Screen must have a camera view that handles capture events. If it has none, the system stops the extension a short time after launch. The extension of AVCam uses the same `CameraView`, so it gets the handler from this chapter.
+**No button during a recording.** A format change ends a recording. Thus the toolbar disables the HDR button while the movie output records.
 
 ## Things to know about the sample
 
-These points come from a careful read of the code. Nobody tested them on an iPhone for this tutorial.
+These points come from a careful read of the Apple sample and of the SDK. Nobody verified them on an iPhone for this tutorial. HDR recording needs a real iPhone.
 
-- **The sound comes late.** In photo mode, the closure plays the sound after `await camera.capturePhoto()` returns. That method waits for the capture, and then for the save to the Photos library, which includes the location. So the person hears the shutter sound after the save, not at the moment of the capture. If the work takes more than 15 seconds, `play(_:)` does nothing. A better order is to play the sound first and to capture second. The sketch in the capability map does this.
+- **"Maximum frame rate" is the last range, not the maximum.** `maxFrameRate` reads `videoSupportedFrameRateRanges.last`. This assumes that the ranges are in order. The documentation does not promise an order.
+- **The search does not examine the color space.** It never reads `supportedColorSpaces`. It treats a format as "HDR" because of its pixel format only.
+- **The search knows only `x420`.** It ignores 10-bit formats with the codes `x422` and `xf20`.
+- **The same size and rate are not the same format.** Two formats can agree in these two values and differ in the field of view, in binning, or in the stabilization modes. `first` takes the format that comes first in the list.
+- **The frame rate does not move to the new format.** A format change sets the frame durations back to the defaults. This does not matter for AVCam, which sets no frame rate.
+- **HDR after a change of camera.** `changeCaptureDevice(to:)` does not call `setHDRVideoEnabled(_:)` for the new camera. The preset is still `.inputPriority`, so the session selects no format for the new camera. It is possible that the button shows "HDR On" while the new camera uses an 8-bit format. This is not verified.
+- **The order inside a mode change.** In `setCaptureMode(_:)`, the code sets `.high` and then calls `setHDRVideoEnabled(true)` before the commit. The search reads `activeFormat` at that moment. The sample depends on `activeFormat` to show the format of the new preset before the commit. This is not verified.
+- **The model does not learn about a failure.** If the lock fails, the service writes to the log and changes nothing. The model keeps the value that the button set, so the button can show a state that is not true.
 
-![The event closure waits for the capture and the save, and plays the sound after them. After 15 seconds, the sound does not play.](../images/ch11-sound-timeline.svg)
-
-- **The handler is always enabled.** The sample never gives `isEnabled: false`. While the app changes the capture mode, a volume button does not change the volume, and it probably captures nothing useful. A better value is a condition such as "the status is `running`, and no mode change is in progress". After the camera failed to start, no session runs, so the system sends no events and the buttons do their usual job.
-- **`.cancelled` is ignored.** For a click, this is correct: a cancelled press must not take a photo.
-- **The stop sound depends on a value that arrives later.** `captureActivity` goes from the capture service to the model through an asynchronous stream. If a person clicks two times very quickly, the closure can read an old value of `isRecording` and select the wrong sound.
-- **The button has two sources for one fact.** A tap on the screen button changes the local `isRecording` state immediately. The model value follows later. If a recording does not start, the model value stays `false`, `onChange` does not run, and the button can stay in the "recording" form.
-- **No availability check.** The sample sets the audio property with no `if #available`. That is correct for a deployment target of iOS 26. A project with an older target needs the check.
-- **No microphone indicator.** The interface does not show which microphone records. A person who thinks that the AirPods record can get a movie with the sound of the iPhone microphone.
+A more careful search also compares the color space, the binning, and the field of view, and takes the maximum of all frame rate ranges. Write it when you build your own camera app.
 
 ## Common mistakes
 
-- **Only `import AVFoundation`.** The modifier and the event types are in AVKit. Without `import AVKit`, the compiler does not find `onCameraCaptureEvent`.
-- **No phase test.** The closure runs for `.began` and for `.ended`. Without a test, one click captures two times.
-- **A handler that does nothing.** When the handler is enabled, the volume buttons do not change the volume. If your closure does nothing in some state, the buttons look broken. Disable the handler in that state.
-- **A handler outside a camera interface.** The system sends events only to an app that uses the camera for capture. The modifier is not a general "volume button" API.
-- **A test before the session runs.** No events arrive in a SwiftUI preview, in the Simulator, before `startRunning()`, or in the background. This is not a bug in your code.
-- **The default tone disabled, and no sound played.** A person with AirPods then gets no confirmation. If you set `defaultSoundDisabled` to `true`, each path through your closure must call `play(_:)` when `shouldPlaySound` is `true`.
-- **`play(_:)` after long work.** The person waits for the confirmation, and after 15 seconds the sound does not play at all.
-- **The recording state read after the toggle.** The closure can then play the start sound for a stop, and the stop sound for a start.
-- **`shouldPlaySound` used for the usual shutter sound.** The value is `false` for the buttons of the iPhone. The photo output plays the usual shutter sound by itself.
-- **The belief that the audio property selects the AirPods.** It only makes them available. The person selects the microphone.
-- **A feature that depends on the AirPods.** The two AirPods features do not exist in all regions and not with all AirPods models. Your app must be fully usable without them.
+- **You confuse the two HDR features.** `isVideoHDREnabled` does not give you a 10-bit HLG movie. For that, you select a 10-bit format.
+- **You set `activeFormat` without the lock, or with a format of a different camera.** The device raises an Objective-C exception. Swift `try` does not catch it.
+- **You set a preset after you set a format.** The session takes control again and can replace your format. This is the "off" path of the sample, but it is a bug when you do not intend it.
+- **You set the frame durations before the format.** The format change sets them back to the defaults. Set the format first.
+- **You read the minimum frame duration as the minimum frame rate.** It is the inverse: the minimum duration gives the maximum rate.
+- **You change the format during a recording.** The recording ends. Disable the control while the output records.
+- **You show a control for a feature that the camera does not have.** Ask the device first, and ask again after each change of mode or camera.
+- **You show 10-bit frames with your own renderer and do not handle HLG.** The colors are then wrong. `AVCaptureVideoPreviewLayer` does the HDR tone mapping for you.
+- **You set `activeColorSpace` and leave the automatic wide color configuration on.** The session can undo your selection.
+
+> [!NOTE]
+> In the Simulator with SimCam, the HDR button does not appear. The search for a 10-bit format finds nothing for the SimCam camera, so `isHDRVideoSupported` stays `false`. This is the correct behavior of the code. To record HDR video, you need a real iPhone.
 
 ## Documentation
 
 ```links
-AVCaptureEventInteraction | https://developer.apple.com/documentation/avkit/avcaptureeventinteraction | The UIKit interaction that sends hardware capture events to a view.
-AVCaptureEvent | https://developer.apple.com/documentation/avkit/avcaptureevent | The event object, with its phase and its sound methods.
-AVCaptureEventPhase | https://developer.apple.com/documentation/avkit/avcaptureeventphase | The three phases: began, ended, and cancelled.
-AVCaptureEventSound | https://developer.apple.com/documentation/avkit/avcaptureeventsound | The three system sounds, and sounds from your app bundle.
-shouldPlaySound | https://developer.apple.com/documentation/avkit/avcaptureevent/shouldplaysound | The property that tells you if your app must play a sound for the event.
-play(_:) | https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:) | The method that plays a capture sound through the AirPods.
-onCameraCaptureEvent(isEnabled:action:) | https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:action:) | The SwiftUI modifier with one closure, since iOS 18.
-onCameraCaptureEvent(isEnabled:primaryAction:secondaryAction:) | https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:primaryaction:secondaryaction:) | The SwiftUI modifier with two closures, since iOS 18.
-onCameraCaptureEvent(isEnabled:defaultSoundDisabled:action:) | https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:action:) | The iOS 26 modifier with the sound parameter. AVCam uses the async form of it.
-onCameraCaptureEvent(isEnabled:defaultSoundDisabled:primaryAction:secondaryAction:) | https://developer.apple.com/documentation/swiftui/view/oncameracaptureevent(isenabled:defaultsounddisabled:primaryaction:secondaryaction:) | The iOS 26 modifier with the sound parameter and two closures.
-configuresApplicationAudioSessionForBluetoothHighQualityRecording | https://developer.apple.com/documentation/avfoundation/avcapturesession/configuresapplicationaudiosessionforbluetoothhighqualityrecording | The session property that makes AirPods available as a high-quality microphone.
-automaticallyConfiguresApplicationAudioSession | https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyconfiguresapplicationaudiosession | The property that decides if the capture session configures the audio session for you.
-bluetoothHighQualityRecording | https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/bluetoothhighqualityrecording | The audio session option for apps that configure their audio session themselves.
-AVInputPickerInteraction | https://developer.apple.com/documentation/avkit/avinputpickerinteraction | The system menu of audio inputs, for use in your app.
-Use AirPods with supported camera apps | https://support.apple.com/guide/airpods/use-airpods-with-camera-apps-dev8e2a2ba2e/web | Apple's steps for the person: the Camera Remote setting, the AirPods models, and the microphone choice.
-HIG: Action button | https://developer.apple.com/design/human-interface-guidelines/action-button | Apple's design rules for the Action button.
-WWDC25: Enhancing your camera experience with capture controls | https://developer.apple.com/videos/play/wwdc2025/253/ | The session about capture events, primary and secondary events, and the AirPods remote control.
-WWDC25: Enhance your app's audio recording capabilities | https://developer.apple.com/videos/play/wwdc2025/251/ | The session about high-quality recording with AirPods and the input picker.
-Build: hardware buttons and AirPods | ch11-build.md | The tutorial for this chapter.
+Formats | https://developer.apple.com/documentation/avfoundation/capture-device-formats | The collection of the format and frame duration API.
+Color | https://developer.apple.com/documentation/avfoundation/capture-device-color | The collection of the HDR and color space API.
+AVCaptureDevice.Format | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format | One way in which a camera can operate.
+activeFormat | https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeformat | The format in use, and the rules to set it.
+AVCaptureSession.Preset | https://developer.apple.com/documentation/avfoundation/avcapturesession/preset | All session presets.
+Preset.inputPriority | https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/inputpriority | The preset after the app sets the active format.
+kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange | https://developer.apple.com/documentation/corevideo/kcvpixelformattype_420ypcbcr10biplanarvideorange | The 10-bit pixel format with the code x420.
+AVCaptureColorSpace | https://developer.apple.com/documentation/avfoundation/avcapturecolorspace | The color spaces of a camera.
+AVCaptureColorSpace.appleLog | https://developer.apple.com/documentation/avfoundation/avcapturecolorspace/applelog | The Apple Log color space.
+automaticallyConfiguresCaptureDeviceForWideColor | https://developer.apple.com/documentation/avfoundation/avcapturesession/automaticallyconfigurescapturedeviceforwidecolor | How the session selects the color space.
+isVideoHDREnabled | https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvideohdrenabled | The switch of the older video HDR feature.
+videoSupportedFrameRateRanges | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videosupportedframerateranges | The frame rate ranges of a format.
+activeVideoMinFrameDuration | https://developer.apple.com/documentation/avfoundation/avcapturedevice/activevideominframeduration | The maximum frame rate, as a duration.
+Recording movies in alternative formats | https://developer.apple.com/documentation/avfoundation/recording-movies-in-alternative-formats | The Apple article about the codecs of the movie output.
+Capturing Cinematic video | https://developer.apple.com/documentation/avfoundation/capturing-cinematic-video | The Apple sample for Cinematic video.
+AVCam: Building a camera app | https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app | The documentation page of the Apple sample.
+WWDC21: What's new in camera capture | https://developer.apple.com/videos/play/wwdc2021/10047/ | The session that introduces 10-bit HDR video and the 10-bit search of AVCam.
+WWDC20: Edit and play back HDR video with AVFoundation | https://developer.apple.com/videos/play/wwdc2020/10009/ | How to play and edit HDR movies.
+WWDC20: Export HDR media in your app with AVFoundation | https://developer.apple.com/videos/play/wwdc2020/10010/ | Background about HLG, PQ, and Dolby Vision.
+WWDC25: Capture cinematic video in your app | https://developer.apple.com/videos/play/wwdc2025/319/ | The Cinematic video capture API.
+WWDC24: Build compelling spatial photo and video experiences | https://developer.apple.com/videos/play/wwdc2024/10166/ | Spatial video with the movie file output.
+WWDC26: Build a responsive camera app that launches quickly | https://developer.apple.com/videos/play/wwdc2026/303/ | Preview rendering, hardware cost, and Pro Video Storage.
+Build: HDR video | ch11-build.md | The tutorial for this chapter.
 ```

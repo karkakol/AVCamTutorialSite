@@ -2,10 +2,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250">
   <title>Who selects the camera format: with the high preset the session selects it, and after the app sets activeFormat the preset is inputPriority and the app has control</title>
   <defs>
-    <marker id="ch09-control-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch11-control-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
-    <marker id="ch09-control-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch11-control-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
     </marker>
   </defs>
@@ -25,6 +25,6 @@
     <text x="360" y="34" font-size="13" fill="var(--accent)">HDR on: the app sets activeFormat</text>
     <text x="360" y="232" font-size="13" fill="var(--muted)">HDR off: the app sets sessionPreset = .high</text>
   </g>
-  <path d="M140 78 V46 H580 V76" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch09-control-arrow-accent)"/>
-  <path d="M580 172 V204 H140 V174" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch09-control-arrow)"/>
+  <path d="M140 78 V46 H580 V76" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#ch11-control-arrow-accent)"/>
+  <path d="M580 172 V204 H140 V174" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch11-control-arrow)"/>
 </svg>

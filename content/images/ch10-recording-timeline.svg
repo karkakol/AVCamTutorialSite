@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 270">
   <title>The four stages of a recording: the start request, the recording, the stop request, and the delegate callback that completes the file</title>
   <defs>
-    <marker id="ch08-timeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch10-timeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -37,7 +37,7 @@
     <text x="451" y="208" fill="var(--muted)" font-size="13">the caller waits</text>
     <text x="451" y="228" fill="var(--muted)" font-size="13">for the movie</text>
   </g>
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch08-timeline-arrow)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch10-timeline-arrow)">
     <path d="M168 62 H189"/>
     <path d="M349 62 H370"/>
     <path d="M530 62 H551"/>

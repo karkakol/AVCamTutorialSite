@@ -1,255 +1,245 @@
 ---
 kind: article
 chapter: 16
-title: Concepts: iPhone Duo
-abstract: Why the position of a camera is not the direction that it faces, how a direction coordinator reports the direction, how the preview gets the correct mirroring, and how the interface gets to the center of the Duo display.
-estimatedMinutes: 14
+title: Concepts: zoom and lenses
+abstract: What zoom is on an iPhone camera, how a virtual device changes between its lenses, why the number on the screen is not the number of the device, and how an app keeps its zoom control in step with the camera.
+estimatedMinutes: 13
 branch: chapter-16
 ---
 
-Until now, one rule was true for each iPhone: the front camera looks at the person, and the back cameras look at the scene. Your code used this rule each time it read the position of a camera. iPhone Duo breaks the rule. It has a display on each side and a camera above each display. When a person opens or closes the device, the app moves to the other display, and a camera that looked at the scene can now look at the person.
+The Apple sample has no zoom in its interface. A person can zoom only with the Camera Control, and the back camera of the sample never uses the ultra-wide lens. In this chapter, you add what each camera app has: zoom levels such as 0.5x, 1x, and 3x, a control to select them, and a pinch gesture.
 
-In this chapter, you learn the difference between the position of a camera and its direction. You learn how the system reports the direction, what the app does with the report, and why the preview needs a new mirroring rule. You also learn why the interface of the app was not in the center of the Duo display. Then you write the code in [Build: iPhone Duo](ch16-build.md).
-
-This chapter is a part of "Beyond the sample". The code is not in the Apple sample. It follows the Apple article [Choosing a camera by the direction it faces](https://developer.apple.com/documentation/avkit/choosing-a-camera-by-the-direction-it-faces), changed to fit the structure of this app.
+This chapter starts part 2 of the tutorial, "Beyond the sample". The code of part 2 is not Apple's code. The design is this tutorial's own, and it is one of many possible designs. This article explains the camera facts that each design must obey, and then the decisions of this design, with their limits. In [Build: zoom and lenses](ch16-build.md), you write the code.
 
 > [!IMPORTANT]
-> Read this before you rely on the chapter. **Verified:** the app builds, and it ran in the iPhone Duo simulator (iOS 27.1) with a simulated camera from SimCam. There, the interface moved to the center of the display, and the direction coordinator reported the two simulated cameras one time. **Not verified:** all behavior on a real iPhone Duo, a change of direction (a person opens or closes the device), the camera change that follows it, the mirroring, and the two new camera types. The facts about these things come from the Apple documentation and the SDK headers. This article tells you each time when a statement comes only from a read of the code.
+> Nobody ran the code of this chapter on a real iPhone. The simulated camera cannot zoom, so the Simulator shows no zoom control and no change of the picture. The facts in this article come from the comments in the Apple SDK and from the Apple documentation. Where a statement is a conclusion or an expectation, the text tells you.
 
 ## How it works
 
-### Position against direction
+### Zoom is a crop, or a different lens
 
-In chapter 2, you learned that a camera has a [`position`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/position-swift.enum): `.front`, `.back`, or `.unspecified`. The position tells you where the camera sits on the device. It is a property of the hardware, and it never changes.
+A phone camera has no zoom lens that moves. Each lens has one fixed focal length. Thus a phone has only two methods to make a subject larger:
 
-The **direction** is a different thing. It tells you which way the camera looks in relation to the view that shows your preview:
+- **A crop.** The camera uses a smaller area in the center of the sensor picture and scales it to the output size. The SDK describes [`videoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor) in exactly this manner: a centered crop for all outputs. The value 1.0 is the full field of view. The value 2.0 shows half of the width and half of the height.
+- **A change of lens.** The system takes the picture from a different camera that has a longer focal length. That camera sees a smaller part of the scene with its full sensor.
 
-- A **forward-facing** camera looks at the person who looks at the preview.
-- A **backward-facing** camera looks at the scene behind the preview.
+A crop is free, but it has fewer pixels to work with. A change of lens keeps the quality, but an iPhone has only two or three lenses. A good zoom uses the two methods together: a crop between the lenses, and a change of lens when the next lens can show the same picture.
 
-On an iPhone with one display, the position and the direction always agree. So one value did the work of two. On iPhone Duo, the direction depends on the display that shows your app. The Apple article says that two cameras with different positions can face the same way.
+### Virtual devices change the lens for you
 
-![The same two cameras in two configurations of the device. The position of each camera stays the same, and the direction of each camera changes.](../images/ch16-position-direction.svg)
+In [chapter 2](ch02-concepts.md), you read about virtual devices: a group of physical cameras that the system shows to your app as one [`AVCaptureDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice). The back of an iPhone can have up to three of them:
 
-This has a useful result. A back camera can face the person. That is how a person takes a selfie with the best camera of the device, and sees the preview at the same time.
+| Device type | Cameras in the group |
+|---|---|
+| [`.builtInTripleCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) | Ultra-wide, wide, telephoto |
+| [`.builtInDualWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) | Ultra-wide, wide |
+| [`.builtInDualCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualcamera) | Wide, telephoto |
 
-It also has a result that breaks old code. Each line that reads `position == .front` and means "this camera looks at the person" can now be wrong. The system does not put the direction in a property of the device. Only one object reports it: the direction coordinator.
+A virtual device has one zoom axis for all its cameras. Your app sets one zoom factor, and the system selects the camera. The property [`virtualDeviceSwitchOverVideoZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors) tells you where on this axis the cameras meet. At each switch-over zoom factor, the crop of one camera shows the same field of view as the full picture of the next camera.
 
-### The virtual front camera
+![One zoom axis of a triple camera, with the device values above the axis and the display values below it. The values are an example.](../images/ch16-zoom-axis.svg)
 
-You do not always need the coordinator. For the front position, the system gives iPhone Duo a **virtual front camera**. The Apple article says these things about it:
+The SDK gives these rules for the array:
 
-- A discovery session with the front position and the type `.builtInWideAngleCamera` or `.builtInUltraWideCamera` returns it.
-- It streams from the camera above the display that shows your app. When the person opens or closes the device, the system changes the physical camera for you.
-- It is a virtual device, so [`isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice) is `true`. Its [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) tells you which physical camera streams now. The value is `nil` until the session runs.
-- It can do only the things that the two physical cameras can both do.
+- It has one value less than the device has cameras. A triple camera has two values. A camera with one lens has an empty array.
+- The values are in the same order as the cameras in [`constituentDevices`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/constituentdevices).
+- At or above a switch-over zoom factor, the device **can** change to the next camera. It does not always do so. A telephoto camera cannot focus on a near subject, and it needs more light. In those conditions, the system stays on the wider camera and crops its picture.
 
-The front discovery session of this app asks for `.builtInTrueDepthCamera` first, and then for `.builtInWideAngleCamera`. The article says nothing about the TrueDepth type. If iPhone Duo has no TrueDepth camera, the front camera of the app is probably the virtual front camera, and the selfie camera continues to work with no change. Nobody examined this on a device.
+These values are also the natural zoom levels for the interface. At each of them, a camera can supply its full picture, with no crop.
 
-So when is the coordinator necessary? In two situations:
+> [!NOTE]
+> The values 2 and 6 in the diagram are an example. The real values depend on the iPhone model. Nobody read them from a real iPhone for this tutorial, so the code reads them at run time and assumes nothing.
 
-- A back camera is selected, and the device changes its configuration. The back camera now faces the person.
-- The app captures from the two physical front cameras directly, to get all their capabilities. The types are [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera) and [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera). Then no virtual device does the work, and the app must follow the direction itself.
+### The number of the device and the number on the screen
 
-This app handles the first situation. It does not capture from the two physical front cameras.
+The smallest zoom factor of a device is 1.0, and it means "the full field of view of this device". For a triple camera, the full field of view is the picture of the ultra-wide camera. The Camera app shows that picture as "0.5x", not as "1x". For a person, "1x" is the picture of the wide camera.
 
-### The coordinator, the map, and the descriptor
+So there are two scales:
 
-Three classes of AVKit work together. All three need iOS 27.1.
+- **The device value**: the number that you set on `videoZoomFactor`.
+- **The display value**: the number that a person reads on the screen.
 
-An [`AVCaptureDeviceDirectionCoordinator`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator) observes the directions. Its initializer, [`init(view:deviceTypes:changeHandler:)`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator/init(view:devicetypes:changehandler:)), takes three values:
+[`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) (iOS 18) connects the two scales. You multiply the device value by it, and you get the display value. The SDK gives this example: a device value of 1.0 and a multiplier of 0.5 make the display value 0.5.
 
-- **The view.** It is the frame of reference: "forward" means "the same way as this view". The coordinator draws nothing in the view.
-- **The device types.** List each built-in camera type that your app captures from, and include the back cameras. External cameras, Continuity cameras, and Desk View cameras have no effect. The coordinator also leaves out the virtual front camera, because the system moves that camera itself. To follow the front cameras, list the two physical types in its place.
-- **The change handler.** The coordinator calls it on the main queue, a short time after you create the coordinator, and again after each change.
+| Camera | Multiplier | Device value 1.0 shows | The "1x" of a person is device value |
+|---|---|---|---|
+| A virtual device that starts with the ultra-wide camera | 0.5 in the SDK example | 0.5x | 2.0 |
+| A camera that starts with the wide camera | 1 is the expected value | 1x | 1.0 |
 
-You must hold a strong reference to the coordinator while the view is on the screen. Without a reference, the object goes away, and the reports stop.
+This has an important result. The expected start value of the zoom factor is 1.0, the smallest value. If the app does nothing, a person then sees the ultra-wide picture of a triple camera when the app starts. People expect "1x" at the start. Thus the app sets the zoom factor to `1.0 / multiplier` each time it configures a camera. On the example camera, that is 2.0.
 
-An [`AVCaptureDeviceDirectionMap`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectionmap) is one report. It has two arrays: `forwardFacingDeviceDescriptors` and `backwardFacingDeviceDescriptors`. The SDK header says that each array can be empty. The coordinator also has a `deviceDirections` property with the current map. It is an empty map until the first call of the handler.
+### The zoom range, and what happens outside of it
 
-An [`AVCaptureDeviceDescriptor`](https://developer.apple.com/documentation/avkit/avcapturedevicedescriptor) is one element of an array. It identifies a camera with five properties: `deviceType`, `mediaTypes`, `position`, `uniqueID`, and `localizedName`. It is not the camera. It does not reserve the camera, and it gives you no control of the hardware. To get the camera, you create an `AVCaptureDevice` from the unique identifier. The result can be `nil`, because the set of cameras can change between the report and your code.
+You cannot set each number on `videoZoomFactor`. The device has a range:
 
-On an iPhone with one display, the coordinator also works. The Apple article says that front cameras are in the forward-facing array, back cameras are in the backward-facing array, cameras with an unspecified position are in no array, and the handler runs one time. Thus one code path is correct for each iPhone.
+- [`minAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor) is the lower limit. It is 1.0 for a camera with one lens. For a virtual device, it can become larger in some configurations.
+- [`maxAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/maxavailablevideozoomfactor) is the upper limit. For a camera with one lens, it is equal to [`videoMaxZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videomaxzoomfactor) of the active format.
 
-### Two actors
+The upper limit comes from the active format, so the range can change when the session preset changes.
 
-The coordinator must live on the main actor. The reason is its frame of reference: a view, and the state of a view belongs to the main actor. The SDK header says that you must create the coordinator on the main thread, and that the handler runs on the main queue.
+Outside of the range, the SDK describes two different reactions:
 
-The capture session lives in a different place. In this app, the `CaptureService` actor owns the session, and all camera code runs on its session queue. Apple gives a clear rule: do not call AVFoundation from the change handler. Give the report to the actor that owns the session, and create the device there.
+| Value that you assign | Result |
+|---|---|
+| Less than 1.0, or more than `videoMaxZoomFactor` of the active format | An `NSRangeException` |
+| 1.0 or more, but less than the smallest available value | The device uses the smallest available value |
+| Not more than `videoMaxZoomFactor`, but more than the largest available value | The device uses the largest available value |
 
-![The path of a direction report. The coordinator in the preview view makes a map on the main actor. The app keeps only the identifiers. The capture service creates the device on the capture actor.](../images/ch16-direction-flow.svg)
+An `NSRangeException` is an Objective-C exception. A Swift `do`-`catch` statement catches only Swift errors, so it cannot catch this exception. The app stops. The only protection is a check before the assignment.
 
-A value that goes from one actor to a second actor must be `Sendable`. The map and the descriptor are `Sendable`, so the app could send them. This app sends less: only the unique identifiers, in a small value type of its own.
+> [!NOTE]
+> This occurred during the work on this chapter. The simulated camera of SimCam reports a largest zoom factor of 0, a smallest zoom factor of 0, and a multiplier of 0. Each assignment to `videoZoomFactor` raises an exception there. The first version of the code set the 1x level at launch, and the app stopped immediately in the Simulator. The code now does two things: it does not zoom a camera whose largest zoom factor is less than 1, and it limits each value to the range before it assigns the value.
 
-```swift file=AVCam/Model/DataTypes.swift
-struct CameraDirections: Sendable, Equatable {
-    /// The unique identifiers of the cameras that face the person who looks at the preview.
-    let forwardFacing: [String]
-    /// The unique identifiers of the cameras that face the scene behind the preview.
-    let backwardFacing: [String]
-}
+```swift file=AVCam/CaptureService.swift
+        // A device that cannot zoom, such as a simulated camera, reports a largest zoom factor of less than 1.
+        guard device.maxAvailableVideoZoomFactor >= 1.0 else { return }
+        // Keep the value in the range that the device supports. A value outside of the range raises an exception.
+        let smallestFactor = max(device.minAvailableVideoZoomFactor, 1.0)
 ```
 
-The section [Why this app does it this way](#why-this-app-does-it-this-way) gives the reason.
+A second rule comes from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. Without the lock, the assignment also raises an exception.
 
-### What the app does with a new map
+### A ramp or a direct assignment
 
-The capture service keeps two things: the last map, and the direction that the person selected. The camera that the app starts with sets the selected direction, and each tap on the button that changes the camera sets it again.
+There are two methods to change the zoom factor:
 
-When a new map arrives, the service uses a rule from the Apple article: keep the selected camera if it still faces the selected direction. If it does not, select a replacement from the array of that direction.
+| | Direct assignment | Ramp |
+|---|---|---|
+| API | `device.videoZoomFactor = factor` | [`ramp(toVideoZoomFactor:withRate:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:)) |
+| The picture | Jumps to the new value | Moves smoothly to the new value |
+| Use | A gesture that sends many small changes | A tap on a zoom level |
 
-1. If the selected camera is in no array, do nothing. This is true for an external camera and for the virtual front camera.
-2. Get the array for the selected direction.
-3. If the selected camera is in that array, keep it, and only examine the mirroring.
-4. If it is not, look for the best camera in the array, and make it the input of the session. If the array is empty, keep the camera, and examine the mirroring.
+The rate of a ramp is not "zoom factor each second". The SDK defines it as the number of times that the zoom factor doubles in one second. With a rate of 1, the factor goes from 1 to 2 in one second, and from 2 to 4 in the next second. The reason is how people see zoom: a change from 1 to 2 looks as large as a change from 2 to 4. A ramp of this type looks constant to the eye.
 
-The replacement uses the method from chapter 2: remove one input, add one input, in one configuration. Apple recommends this, and not a multi-camera session, because it costs less.
+The app uses a rate of 8. A change from the display value 1x to 3x is approximately 1.6 doublings, so it takes approximately 0.2 seconds. The system limits the acceleration of a ramp, so the real time is a little longer.
 
-Apple also recommends that you cover the preview during the change, because frames of the old camera can still arrive. This app does not do that. Its blur effect runs only when the person taps the button.
+Two more facts:
 
-### Mirroring by direction
+- An assignment to `videoZoomFactor` during a ramp stops the ramp, and the picture jumps to the assigned value. Thus a pinch can always interrupt a ramp.
+- [`cancelVideoZoomRamp()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/cancelvideozoomramp()) stops a ramp smoothly, and [`isRampingVideoZoom`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isrampingvideozoom) tells you if a ramp is in progress. The app uses neither.
 
-A person expects a mirror image from a camera that looks at them. The preview connection supplies this by itself: with [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) set to `true`, it mirrors the preview of each camera with the front position. That rule uses the position. On iPhone Duo, it can give the wrong result.
+During a pinch, the gesture sends a new value many times each second. Each value is near the value before it, so the direct assignment already looks smooth. A ramp for each small change makes the picture come after the fingers.
 
-| Position | Direction | Automatic result | Correct result | The app |
-|---|---|---|---|---|
-| front | forward | mirrored | mirrored | leaves the automatic mirroring on |
-| back | backward | not mirrored | not mirrored | leaves the automatic mirroring on |
-| back | forward | not mirrored | mirrored | sets `isVideoMirrored` to `true` |
-| front | backward | mirrored | not mirrored | sets `isVideoMirrored` to `false` |
+### One source of truth: the device
 
-The app takes control only in the last two rows, where the position and the direction disagree. This is the rule of the Apple article. In the first two rows, the app sets `automaticallyAdjustsVideoMirroring` to `true`. Thus a connection that the app controlled earlier goes back to the system when the position and the direction agree again.
+More than one thing can change the zoom factor:
 
-Three details are easy to get wrong:
+- A tap on the zoom control starts a ramp.
+- A pinch assigns values.
+- The system zoom slider of the Camera Control, which you added in [chapter 14](ch14-concepts.md), sets `videoZoomFactor` itself. Your code is not part of that change.
 
-- Set `automaticallyAdjustsVideoMirroring` to `false` first, and then set [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored). The other order raises an exception.
-- Read `isVideoMirroringSupported` before the two assignments. A connection that does not support mirroring raises an exception too.
-- A new camera input makes a new preview connection, and the new connection knows nothing about your values. Set the mirroring again after each change of the camera.
+If the interface shows the value that the app sent last, the interface is wrong after the first slide on the Camera Control. It is also wrong during a ramp, and when the device limits a value.
 
-This chapter mirrors only the preview. It does not change the mirroring of photos and movies.
+The solution is to show only what the device reports. `videoZoomFactor` supports key-value observation. The capture service observes the property with an [`NSKeyValueObservation`](https://developer.apple.com/documentation/foundation/nskeyvalueobservation), changes each new value to a display value, and publishes it. The model and the views read the published value.
 
-### Rotation
+![A zoom command goes from the views through the model and the capture service to the capture device. The new zoom factor comes back from the device through an observation. The Camera Control slider changes the device directly.](../images/ch16-zoom-state.svg)
 
-In chapter 2, you created an [`AVCaptureDevice.RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator) for the selected camera and the preview layer. The Apple article says two things about it for iPhone Duo:
+With this design, the zoom control needs no special code for the Camera Control. The slider changes the device, the observation reports the change, and the control shows the new number.
 
-- The angles also change when the app moves from one display to the other display.
-- A rotation coordinator belongs to one camera. Create a new one after each change of the camera.
+> [!NOTE]
+> The SDK says that you can observe `videoZoomFactor`. It does not say how frequently the value changes during a ramp. The expectation is that the number in the zoom control counts up during a ramp. Nobody verified this on a real iPhone.
 
-The app already does the second point: `changeCaptureDevice(to:)` creates a rotation coordinator for each new camera. Thus this chapter adds no rotation code. A change of direction goes through the same method, so it gets a new rotation coordinator too. Nobody examined the angles on a device.
+### Digital zoom and quality
 
-### The Duo display and its safe area
+Between the full pictures of the lenses, each zoom factor is a crop. But a crop does not always decrease the quality. A sensor frequently has more pixels than the output format needs, so the camera scales the sensor picture down. While the crop still has sufficient pixels, the output is as sharp as before.
 
-The second problem of this chapter is a layout problem. It has no relation to the cameras.
+[`videoZoomFactorUpscaleThreshold`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videozoomfactorupscalethreshold) of the active format is the limit. At this zoom factor, the crop has exactly the pixels of the output. Above it, the camera must scale the crop up. That is digital zoom: the picture becomes larger, but it gets no new detail.
 
-The display of the Duo simulator is 466 by 678 points. With a hidden status bar, the app gets these safe area insets: top 0, leading 0, bottom 34, and trailing 84. So the layout area is 382 points wide, and it sits at the leading side.
+Some formats also have [`secondaryNativeResolutionZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/secondarynativeresolutionzoomfactors) (iOS 16). At these zoom factors, the sensor changes how it reads its pixels, and it supplies a picture that is not scaled up. This is the base of a "2x" level with the quality of a real lens on a camera that has no 2x lens.
 
-![The Duo display in the simulator. Before the change, the interface is in the safe area at the leading side, and a band of 84 points is empty. After the change, the interface is in the center, with 42 points at each side.](../images/ch16-duo-safe-area.svg)
-
-The trailing 84 points are the status area of this display. In Safari, the simulator draws the time and the Wi-Fi symbol there, one above the other. But this app hides the status bar. Thus the area was an empty band, and the viewfinder was not in the center of the display. For a camera, that looks like a defect.
-
-The solution has three parts:
-
-1. Measure the difference between the trailing inset and the leading inset: 84 points.
-2. Ignore the safe area at the two sides, so that the interface can use the full width.
-3. Add half of the difference as padding at each side: 42 points.
-
-The interface keeps its width of 382 points and moves to the center. On an iPhone with equal side insets, the difference is 0, and nothing changes.
-
-All these numbers come from the simulator. Nobody measured a real iPhone Duo.
-
-### Availability checks
-
-The app keeps its deployment target, iOS 26.0. The new classes and the two new device types need iOS 27.1. The compiler refuses a use of a newer API without a check, so each use is behind `#available(iOS 27.1, *)`.
-
-A check protects a block of code. It cannot protect a stored property, because a stored property has a type, and the type must exist on each system that the app supports. For this reason, the preview view holds the coordinator in a property with the type `AnyObject`:
-
-```swift file=AVCam/Views/CameraPreview.swift
-        // An object that reports the direction that each camera faces in relation to this view.
-        // The type of the property is `AnyObject`, because the coordinator class needs iOS 27.1.
-        private var directionCoordinator: AnyObject?
-```
-
-The property has one job: to keep the object alive. The app never reads it, so the general type costs nothing.
-
-On an earlier system, the method that creates the coordinator returns at once. The capture service then has no map, and each decision uses the position, as before. In the iPhone 18 Pro simulator with iOS 27.0, the check skipped the code, and the app behaved as in chapter 15.
+The app in this chapter does not read these two properties. It offers a 2x level on a camera with one lens, and it permits each value up to the display value 10x. Above the threshold, the quality goes down. This is a limit of the design, not of the camera.
 
 ## What the camera can do
 
-This app uses a small part of the new API. This is the map.
+The chapter uses a small part of the zoom API.
 
-| Capability | API | What you use it for |
+| Capability | What it does | In this tutorial |
 |---|---|---|
-| The direction of each camera | [`AVCaptureDeviceDirectionCoordinator`](https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator) | The change of camera and the mirroring of this chapter. |
-| The current map, with no handler | `deviceDirections` of the coordinator | A decision at a moment that you select, for example at the start of a capture. The map is empty until the first report. |
-| A coordinator for each preview | One coordinator for each view | An app that shows a preview on the two displays. The Apple article says that the same camera is then forward facing for one view and backward facing for the other view. |
-| The front camera that follows the app | The virtual front camera | A selfie camera with no code for the direction. |
-| The physical camera behind the virtual one | [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) | A label or a log line that tells which camera streams. |
-| The two physical front cameras | [`.builtInOuterUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera), [`.builtInInnerUltraWideCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera) | All capabilities of each camera, not only the common ones. The SDK header says that only a discovery session finds these types. Apple recommends them when capture is the main job of the app. |
-| Content from the app during capture | [`UISceneAccessory.cameraCapture(sceneConfiguration:)`](https://developer.apple.com/documentation/uikit/uisceneaccessory/cameracapture(sceneconfiguration:)) | See below. |
+| `videoZoomFactor` | The zoom factor of a device. You can observe it. | This chapter |
+| `ramp(toVideoZoomFactor:withRate:)` | A smooth change to a zoom factor. | This chapter |
+| `virtualDeviceSwitchOverVideoZoomFactors` | The zoom factors at which the cameras of a virtual device meet. | This chapter |
+| `displayVideoZoomFactorMultiplier` | The ratio between the device value and the display value. | This chapter |
+| `minAvailableVideoZoomFactor`, `maxAvailableVideoZoomFactor` | The range that the device permits now. You can observe the two properties. | This chapter (read only at configuration) |
+| [`AVCaptureSystemZoomSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider) | The zoom control of the Camera Control. | Chapter 14 |
+| `cancelVideoZoomRamp()`, `isRampingVideoZoom` | A smooth stop of a ramp, and its state. For a zoom button that a person holds down. | Not in the app |
+| `videoZoomFactorUpscaleThreshold` | The zoom factor above which the picture is scaled up. For a quality mark in the interface, or for an upper limit. | Not in the app |
+| `secondaryNativeResolutionZoomFactors` | Zoom factors with a picture that is not scaled up. For more zoom levels of full quality. | Not in the app |
+| [`systemRecommendedVideoZoomRange`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange) | The range that the system recommends for a zoom slider (iOS 18). The system zoom slider uses it. | Not in the app |
+| [`activePrimaryConstituent`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent) | The camera of a virtual device that supplies the picture now. You can observe it. | Not in the app |
+| [`setPrimaryConstituentDeviceSwitchingBehavior(_:restrictedSwitchingBehaviorConditions:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/setprimaryconstituentdeviceswitchingbehavior(_:restrictedswitchingbehaviorconditions:)) | Controls when a virtual device can change its camera, for example not during a recording. | Not in the app |
+| [`nominalFocalLengthIn35mmFilm`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/nominalfocallengthin35mmfilm) | The focal length of a camera (iOS 26), for labels such as "24 mm". The value is 0 for a virtual device, so read it from the constituent devices. | Not in the app |
 
-A [`UISceneAccessory`](https://developer.apple.com/documentation/uikit/uisceneaccessory) declares additional content that the system can present for your app. The camera capture accessory (iOS 27.1) is for the time while the app is in the foreground and its capture session is active. You register it on a view controller with [`registerSceneAccessory(_:)`](https://developer.apple.com/documentation/uikit/uiviewcontroller/registersceneaccessory(_:)). The documentation says that the system decides if it presents the content and where, and that the content can be interactive. The pages that this tutorial read do not say what the system shows, or on which display. This app does not use the accessory, and nobody tested it.
+Some features make the zoom range smaller. The SDK names depth data delivery and Center Stage. An app that uses them must observe the two range properties and must not keep old limits.
 
-The capability map of chapter 2 stays valid: an [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) can run more than one camera. Apple recommends that you do not use it only to follow the direction.
+## Why the app does it this way
 
-## Why this app does it this way
+The design is this tutorial's own. These are its decisions and the alternatives.
 
-**The coordinator is in `PreviewView`.** The coordinator needs a view as its frame of reference, and `PreviewView` is the view that shows the preview. It lives as long as the preview, so it is the natural owner of the strong reference. The view is a `UIView`, so its code runs on the main actor.
+**Virtual devices first.** The back discovery session of the sample lists `[.builtInDualCamera, .builtInWideAngleCamera]`. The chapter puts `.builtInTripleCamera` and `.builtInDualWideCamera` before them. A discovery session sorts its result in the order of the type list, so the first device is the one with the most cameras. The alternative is to use the physical cameras and to change the session input at each zoom level. That gives full manual control, but each change of the input probably interrupts the preview, and you must write the lens selection yourself.
 
-**Only identifiers leave the view.** The `Camera` protocol, the model, and the capture service use `CameraDirections`, not the AVKit classes. A type from iOS 27.1 in a protocol method needs an availability mark on the method, and then on each type that implements it. A plain value type with two string arrays needs no mark. It also keeps AVKit out of the capture service.
+**Zoom levels from the device, not from a table.** The code makes the levels from the smallest zoom factor and the switch-over zoom factors. It contains no list of iPhone models. A new iPhone with different lenses gets correct levels with no change of the code.
 
-**The device is created in the capture service.** `AVCaptureDevice(uniqueID:)` is a call into the capture system. It belongs to the actor that owns the session, as the Apple article says. The lookup method drops each identifier that has no device.
+**A zoom level has two numbers.** `ZoomLevel` keeps the device value and the display value. The capture service is the only place that knows the multiplier. The views show display values and send them back, and they never calculate with device values.
 
-**One list of device types.** `DeviceLookup.builtInCameraTypes` has two jobs. The coordinator gets it as its list of types. The lookup uses its order as the order of preference when it selects a replacement: a camera with more lenses comes first.
+**A 2x level for a camera with one lens.** A control with one button has no use. For a camera with one zoom level, such as a front camera, the code adds a second level at two times the first level, if the device permits that zoom factor.
 
-**The app follows only cameras that are in the map.** An external camera has no direction. The virtual front camera is in no array, because the system moves it. For these cameras, the service does nothing.
+**A ramp for a tap, an assignment for a pinch.** The reasons are in the section about ramps.
 
-**The direction of the selection is stored.** The service must know what the person wants: a camera that looks at them, or a camera that looks at the scene. With a map, the map answers this at the moment of the tap. With no map, the position answers it. The setup of the session stores the direction of the start camera in the same way. The start camera is the system-preferred camera, which can be a front camera. Without this, the first report replaces a front camera with a back camera at each launch.
+**The device is the source of truth.** The model never sets `displayZoomFactor` when it sends a command. It waits for the value from the observation. The alternative is the action of the system zoom slider, `init(device:action:)`. But that action reports only the changes that the slider makes. It does not report a ramp or a pinch.
 
-**The first report can arrive early.** In the simulator, the handler ran before the setup of the session was complete. At that time, the session has no camera. So `setCameraDirections(_:)` only stores the map before the setup, and `setUpSession()` applies it at its end.
+**The same visibility rules as the other controls.** The zoom control hides until the session runs, as you made the other controls do in chapter 12. It also hides during the fullscreen appearance of the Camera Control overlay from chapter 14. There the reason is strong: the [guidelines for the Camera Control](https://developer.apple.com/design/human-interface-guidelines/camera-control) tell you not to show the same control two times, and the overlay can show a zoom slider.
 
-**The layout change is in one place.** The three modifiers are on the `ZStack` in `CameraView`, so the preview and the controls move together.
+**An upper limit of 10x.** The largest zoom factor of a format can be very large, and the picture at that value has little detail. The app stops at the display value 10. The number is a decision of this tutorial, not a value from the SDK.
 
-Limits of this design:
+## Limits of this design
 
-- No cover hides the preview during a change that a new direction starts.
-- Photos and movies do not get the new mirroring.
-- The app does not use the two physical front cameras, and it does not use the scene accessory.
+The code is short so that you can read it in one chapter. It has limits that a camera app for the App Store must remove.
+
+- **Two pinch values can arrive in the wrong order.** Each change of the pinch gesture starts a new task, and each task calls the model and then the capture service. Swift does not promise that these tasks run in the order in which they start. An old value can arrive after a newer value, and the zoom can jump back for a moment. A solution is one stream of values that one task reads in order.
+- **The zoom returns to 1x.** The app configures the zoom again after a change of the camera and after a change of the capture mode. Each time, it sets the 1x level. A person who zooms in photo mode and changes to video mode starts again at 1x.
+- **The 2x level of a camera with one lens is a crop.** The code does not test `videoZoomFactorUpscaleThreshold` or `secondaryNativeResolutionZoomFactors`, so it does not know if 2x has full quality on that camera.
+- **The range is read only at configuration.** The code does not observe `minAvailableVideoZoomFactor` and `maxAvailableVideoZoomFactor`. This is correct for this app, which has no depth data and no Center Stage.
+- **The first camera after a launch is the system-preferred camera.** The capture service starts with [`systemPreferredCamera`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/systempreferredcamera), as in chapter 2. The new type list has an effect on the app's own list of cameras, which the button that changes the camera uses. Nobody verified which back camera the system prefers at the first launch on an iPhone with three back cameras.
+- **A virtual device has less manual control.** The SDK says that the multi-camera virtual devices do not lock the focus at a lens position that you select. The lens position slider of chapter 14 exists only when the device reports that it supports this lock. So it is possible that this slider is not available with a triple camera. This is a conclusion from the SDK text, and nobody verified it on a real iPhone.
 
 ## Common mistakes
 
-- **`position == .front` as "looks at the person".** On iPhone Duo, this is not always true. Ask the map.
-- **A device type list with no back cameras.** The coordinator reports only the types in your list. Without the back cameras, you never learn that a back camera now faces the person.
-- **The virtual front camera in the map.** It is never there. Code that waits for it in the forward-facing array waits forever.
-- **No strong reference to the coordinator.** A coordinator in a local variable goes away at the end of the method.
-- **AVFoundation calls in the change handler.** The handler runs on the main actor. Send the identifiers to the actor that owns the session.
-- **A descriptor that you use as a device.** A descriptor only identifies a camera. The device can be gone when you ask for it, so do not force-unwrap the result of `AVCaptureDevice(uniqueID:)`.
-- **`isVideoMirrored` before `automaticallyAdjustsVideoMirroring = false`.** The assignment raises an exception.
-- **Mirroring that you set one time.** A new input makes a new preview connection. Set the values again.
-- **One coordinator for two previews.** The direction is relative to one view. Create a coordinator for each view.
-- **A stored property with a new type.** With an older deployment target, the type of a stored property must exist on each system. Use a more general type, or an availability mark on the full type.
-- **A layout loop.** This one occurred during the work on this chapter. The first version of the layout code read the two insets in `onGeometryChange` and wrote the difference to a state value. In the Duo simulator it worked. In the iPhone 18 Pro simulator, the app did not respond after its launch. The cause: an inset can change by a very small amount between two layout passes. In the measurements, the leading inset was not 0 but approximately -0.00000000000003. Each new value wrote the state, each write started a new layout pass, and each pass gave a new value. The correction is one call: round the value before you compare it. When you write state from a geometry measurement, make sure that the value becomes stable.
-
-> [!NOTE]
-> The simulator shows that the code runs. It cannot show a change of direction, because nobody found a way to open or close the simulated device. Before you ship code like this, test it on a real iPhone Duo.
+- **You assign a value that is out of range.** The app stops with an exception that Swift cannot catch. Limit the value to the range first.
+- **You assume that each camera can zoom.** The simulated camera reports a largest zoom factor of 0. Read the range before you set a value.
+- **You forget `lockForConfiguration()`.** The assignment and the ramp raise an exception without the lock.
+- **You show the device value.** On a camera that starts with the ultra-wide lens, the label says "1x" for the picture that a person knows as "0.5x". Multiply by `displayVideoZoomFactorMultiplier`.
+- **You do not set a start level.** A virtual device with an ultra-wide camera then starts with the ultra-wide picture.
+- **You put `.builtInWideAngleCamera` first in the type list.** The first result is then always the wide camera, and the app never gets a virtual device.
+- **You write the zoom levels into the code.** The levels 0.5, 1, and 3 are correct for one iPhone model and wrong for the next one.
+- **You keep the zoom state in the interface.** The Camera Control changes the zoom without your code. Observe the device.
+- **You use a ramp for each change of a pinch.** The picture then comes after the fingers. Assign the value.
+- **You think of the ramp rate as a speed in "x each second".** The rate is the number of doublings each second.
+- **You keep the zoom levels of the old camera.** The levels and the multiplier belong to one device. Create them again when the camera changes.
+- **You test zoom in the Simulator.** The simulated camera cannot zoom. Use a real iPhone.
 
 ## Documentation
 
 ```links
-Choosing a camera by the direction it faces | https://developer.apple.com/documentation/avkit/choosing-a-camera-by-the-direction-it-faces | The Apple article that this chapter follows.
-AVCaptureDeviceDirectionCoordinator | https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator | The object that reports the direction of each camera in relation to a view.
-init(view:deviceTypes:changeHandler:) | https://developer.apple.com/documentation/avkit/avcapturedevicedirectioncoordinator/init(view:devicetypes:changehandler:) | The initializer, with the view, the device types, and the change handler.
-AVCaptureDeviceDirectionMap | https://developer.apple.com/documentation/avkit/avcapturedevicedirectionmap | One report: the forward-facing cameras and the backward-facing cameras.
-AVCaptureDeviceDescriptor | https://developer.apple.com/documentation/avkit/avcapturedevicedescriptor | A value that identifies a camera and is safe to send to a different actor.
-builtInOuterUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtinouterultrawidecamera | One of the two physical front camera types of iOS 27.1.
-builtInInnerUltraWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtininnerultrawidecamera | The other physical front camera type of iOS 27.1.
-AVCaptureDevice.Position | https://developer.apple.com/documentation/avfoundation/avcapturedevice/position-swift.enum | The position of a camera on the device. It is not the direction.
-isVideoMirrored | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored | The property that mirrors the video of a connection.
-automaticallyAdjustsVideoMirroring | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring | The property that lets the connection decide the mirroring from the position.
-AVCaptureDevice.RotationCoordinator | https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator | The object that calculates the preview angle and the capture angle for one camera.
-UISceneAccessory | https://developer.apple.com/documentation/uikit/uisceneaccessory | Additional content that the system can present for an app.
-cameraCapture(sceneConfiguration:) | https://developer.apple.com/documentation/uikit/uisceneaccessory/cameracapture(sceneconfiguration:) | The accessory for content during camera capture.
-registerSceneAccessory(_:) | https://developer.apple.com/documentation/uikit/uiviewcontroller/registersceneaccessory(_:) | The method that registers an accessory on a view controller.
-Concepts: cameras | ch02-concepts.md | Devices, positions, the camera change, and rotation.
-Concepts: layout | ch05-concepts.md | The viewfinder frame and the two layouts of the app.
-Build: iPhone Duo | ch16-build.md | The tutorial for this chapter.
+Choosing a capture device | https://developer.apple.com/documentation/avfoundation/choosing-a-capture-device | The Apple article about device types and discovery sessions.
+builtInTripleCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera | The virtual device with three cameras.
+builtInDualWideCamera | https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera | The virtual device with the ultra-wide and the wide camera.
+virtualDeviceSwitchOverVideoZoomFactors | https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors | The zoom factors at which the cameras of a virtual device meet.
+constituentDevices | https://developer.apple.com/documentation/avfoundation/avcapturedevice/constituentdevices | The physical cameras of a virtual device.
+videoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/videozoomfactor | The zoom factor of a device, with its range rules.
+ramp(toVideoZoomFactor:withRate:) | https://developer.apple.com/documentation/avfoundation/avcapturedevice/ramp(tovideozoomfactor:withrate:) | A smooth change of the zoom factor.
+cancelVideoZoomRamp() | https://developer.apple.com/documentation/avfoundation/avcapturedevice/cancelvideozoomramp() | A smooth stop of a ramp.
+minAvailableVideoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor | The lower limit of the zoom factor.
+maxAvailableVideoZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/maxavailablevideozoomfactor | The upper limit of the zoom factor.
+displayVideoZoomFactorMultiplier | https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier | The ratio between the device value and the number that the system shows.
+videoMaxZoomFactor | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videomaxzoomfactor | The largest zoom factor of a format.
+videoZoomFactorUpscaleThreshold | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videozoomfactorupscalethreshold | The zoom factor above which the picture is scaled up.
+secondaryNativeResolutionZoomFactors | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/secondarynativeresolutionzoomfactors | Zoom factors with a picture that is not scaled up.
+systemRecommendedVideoZoomRange | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/systemrecommendedvideozoomrange | The zoom range that the system recommends for a slider.
+activePrimaryConstituent | https://developer.apple.com/documentation/avfoundation/avcapturedevice/activeprimaryconstituent | The camera of a virtual device that supplies the picture now.
+AVCaptureSystemZoomSlider | https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider | The zoom control of the Camera Control.
+NSKeyValueObservation | https://developer.apple.com/documentation/foundation/nskeyvalueobservation | The object that keeps a key-value observation alive.
+HIG: Camera Control | https://developer.apple.com/design/human-interface-guidelines/camera-control | The design rules for an interface below the Camera Control overlay.
+WWDC19: Advances in Camera Capture & Photo Segmentation | https://developer.apple.com/videos/play/wwdc2019/225/ | The session that introduces the virtual devices of iOS 13.
+WWDC21: What's new in camera capture | https://developer.apple.com/videos/play/wwdc2021/10047/ | How a virtual device selects its camera, and how an app controls that.
+Build: zoom and lenses | ch16-build.md | The tutorial for this chapter.
 ```

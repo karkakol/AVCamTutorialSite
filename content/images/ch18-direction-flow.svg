@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
   <title>The path of a direction report: the coordinator in the preview view makes a map on the main actor, the app keeps only the identifiers, and the capture service creates the device on the capture actor</title>
   <defs>
-    <marker id="ch16-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="ch18-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
     </marker>
   </defs>
@@ -45,7 +45,7 @@
     <text x="598" y="242" fill="var(--muted)" font-size="13">of the preview</text>
   </g>
 
-  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch16-flow-arrow)">
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch18-flow-arrow)">
     <path d="M226 98 H248"/>
     <path d="M350 140 V163 H126 V184"/>
     <path d="M226 228 H248"/>

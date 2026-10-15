@@ -1,632 +1,1038 @@
 ---
 kind: tutorial
 chapter: 15
-title: Build: fix the sample
-abstract: Correct four defects of the sample: save a recording that ends by itself, keep the Live Photo badge on, give a new movie connection its rotation angle, and play the capture sound before the capture work.
-estimatedMinutes: 35
+title: Build: Lock Screen and Control Center
+abstract: Store the camera state in a capture intent, start the session from that state, and add a capture extension and a control extension to the project.
+estimatedMinutes: 60
 startBranch: chapter-14
 branch: chapter-15
+uncovered: AVCam.xcodeproj/project.pbxproj, AVCamCaptureExtension/Info.plist, AVCamControlCenterExtension/Info.plist, AVCamControlCenterExtension/Assets.xcassets/Contents.json, AVCamControlCenterExtension/Assets.xcassets/AccentColor.colorset/Contents.json, AVCamControlCenterExtension/Assets.xcassets/AppIcon.appiconset/Contents.json, AVCamControlCenterExtension/Assets.xcassets/WidgetBackground.colorset/Contents.json
 ---
 
-In this tutorial, you correct four defects that the earlier chapters found in the Apple sample. At the end, the app saves a movie when the recording ends by itself, the "LIVE" badge stays on while a Live Photo records, a movie gets the correct rotation after a change of mode, and a person with AirPods hears the capture sound at the click.
+In this tutorial, you make the app available from the Lock Screen, Control Center, and the Action button. At the end, the project has three targets: the app, a capture extension that shows the camera on a locked iPhone, and a control extension that supplies the "Open AVCam" button. The app and the capture extension share their state through a capture intent.
 
-This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. The defects come from a careful read of the code and of the SDK headers. Apple confirmed only the rotation defect, in the article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app).
+The work has two parts. In the first four sections, you write Swift code: a state structure, an intent, and the changes in the capture service, the model, and the app. In the last two sections, you work in the Xcode interface: you add two targets and change their settings.
 
-You add no new files. You add approximately 85 lines to five files, and you remove 13 lines. Most of the work is the first fix, the recording. It has three sections. The other three fixes are small, and each has one section.
+After this chapter, each Swift file of your project is the same as the file in the Apple sample, with the small differences that the [wrap-up](wrap-up.md) lists. Read [Concepts: Lock Screen and Control Center](ch15-concepts.md) first. It explains what a capture extension is and which limits it has.
 
-Only the first fix has a result that you can see in the Simulator. The other three fixes need a Live Photo, a rotation of the device, or AirPods. Nobody ran them for this tutorial. Each section tells you how to test its fix on a real iPhone. Read [Concepts: fix the sample](ch15-concepts.md) first if you want the reason for each defect.
+> [!IMPORTANT]
+> Nobody tested the result of this chapter on an iPhone. The project builds without warnings, the app contains the two extensions, and the app runs in the Simulator as before. The start from the Lock Screen, Control Center, and the Action button needs a real iPhone and a development team for code signing. Where a step tells you what occurs on an iPhone, the text comes from the Apple documentation, not from a test.
 
-## Make a stream for unexpected results
+## Persist the camera state
 
-A recording can end before the app stops it. The movie output reaches a limit, the disk is full, or the system interrupts the session. The output then calls the delegate, but in the sample nobody waits for this call. The result is lost, the timer continues, and a later call of `stopRecording()` never returns.
+The capture extension is a second program. It must start in the mode that the person used last in the app. In this section, you write the two types that make this possible: `CameraState`, a structure with the values to share, and `AVCamCaptureIntent`, the intent that stores the structure.
 
-The repair needs a second way for a result to leave `MovieCapture`. In this section, you make this way: an asynchronous stream. You also make an error for a stop request that comes too late.
-
-![The two paths of the finish callback: the app stops the recording and a continuation waits for the result, or the recording ends by itself and the result goes into a stream](../images/ch15-finish-paths.svg)
+The system keeps one value for the intent, the app context. Each program that contains the intent can read and replace this value.
 
 ### Step
-In `MovieCapture.swift`, add the `MovieCaptureError` enumeration above the `MovieCapture` class.
+In the `Model` group, create the file `CameraState.swift`, and replace its contents with the structure and its five properties.
 
-`stopRecording()` needs an error for the case in which there is no recording to stop. Write `enum MovieCaptureError: Error` with one case, `notRecording`. `PhotoCapture.swift` has an enumeration of the same form, `PhotoCaptureError`. Put the enumeration above the doc comment `/// An object that manages …`, so that the comment stays with the class.
+The structure is `Codable`, because the system stores the [app context](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.associatedtype) of an intent as encoded data. Each property has a `didSet` observer that calls `save()`. Thus a change of one value stores the full structure, and the code that changes a value cannot forget to save.
 
-```swift file=AVCam/Capture/MovieCapture.swift highlight=4-6
-import AVFoundation
+The file imports `os` and `Foundation`. The five properties are `var` with a start value, in this order: `isLivePhotoEnabled = true`, `qualityPrioritization = QualityPrioritization.quality`, `isVideoHDRSupported = true`, `isVideoHDREnabled = true`, and `captureMode = CaptureMode.photo`. Each observer is one line: `didSet { save() }`.
+
+```swift file=AVCam/Model/CameraState.swift highlight=1-32
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A structure that provides camera state to share between the app and the extension.
+*/
+
+import os
+import Foundation
+
+struct CameraState: Codable {
+    
+    var isLivePhotoEnabled = true {
+        didSet { save() }
+    }
+    
+    var qualityPrioritization = QualityPrioritization.quality {
+        didSet { save() }
+    }
+    
+    var isVideoHDRSupported = true {
+        didSet { save() }
+    }
+    
+    var isVideoHDREnabled = true {
+        didSet { save() }
+    }
+    
+    var captureMode = CaptureMode.photo {
+        didSet { save() }
+    }
+}
+```
+
+### Note
+The project does not compile at this time. The observers call `save()`, which you add in the next step, and `save()` uses the intent, which you create after that.
+
+### Step
+Below the properties, add the `save()` method, which sends the structure to the system.
+
+[`updateAppContext(_:)`](https://developer.apple.com/documentation/appintents/cameracaptureintent/updateappcontext(_:)) is an `async` method, and a `didSet` observer cannot wait. Thus the method starts a task. The task gets a copy of the structure with the values of that moment. An error goes only to the log, because the camera works without the stored state too.
+
+The method is `private func save()`. In the task, a `do` block calls `try await AVCamCaptureIntent.updateAppContext(self)`. The `catch` block writes `"Unable to update intent context: \(error.localizedDescription)"` with `os.Logger().debug(_:)`. The file does not use the global `logger` constant, because this file is later also a part of the control extension, which has no such constant.
+
+```swift file=AVCam/Model/CameraState.swift highlight=4-13
+    var captureMode = CaptureMode.photo {
+        didSet { save() }
+    }
+    
+    private func save() {
+        Task {
+            do {
+                try await AVCamCaptureIntent.updateAppContext(self)
+            } catch {
+                os.Logger().debug("Unable to update intent context: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+```
+
+### Step
+Below `save()`, add the static `current` property, which reads the stored state.
+
+[`appContext`](https://developer.apple.com/documentation/appintents/cameracaptureintent/appcontext-swift.type.property) returns `nil` when the system has no value yet, for example at the first launch. It throws when the read or the decoding fails. In the two situations, the property returns a new `CameraState` with the default values, so the caller always gets a state that it can use.
+
+The property is `static var current: CameraState` with a `get async` block. In it, a `do` block has `if let context = try await AVCamCaptureIntent.appContext { return context }`. The `catch` block logs `"Unable to fetch intent context: \(error.localizedDescription)"` in the same way as `save()`. After the `do` and `catch` blocks, the getter returns `CameraState()`.
+
+```swift file=AVCam/Model/CameraState.swift highlight=10-22
+    private func save() {
+        Task {
+            do {
+                try await AVCamCaptureIntent.updateAppContext(self)
+            } catch {
+                os.Logger().debug("Unable to update intent context: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    static var current: CameraState {
+        get async {
+            do {
+                if let context = try await AVCamCaptureIntent.appContext {
+                    return context
+                }
+            } catch {
+                os.Logger().debug("Unable to fetch intent context: \(error.localizedDescription)")
+            }
+            return CameraState()
+        }
+    }
+}
+```
+
+### Step
+In the `Model` group, create a group with the name `Intent`. In it, create the file `AVCamCaptureIntent.swift`, and replace its contents.
+
+[`CameraCaptureIntent`](https://developer.apple.com/documentation/appintents/cameracaptureintent) tells the system that this intent starts the camera experience of the app. The `AppContext` type alias selects `CameraState` as the type of the stored value. The title and the description are the texts with which the system presents the intent. The file imports LockedCameraCapture, but it uses no type of that framework.
+
+The file imports `LockedCameraCapture`, `AppIntents`, and `os`. The structure is `struct AVCamCaptureIntent: CameraCaptureIntent` with three members: `typealias AppContext = CameraState`, `static let title: LocalizedStringResource = "AVCamCaptureIntent"`, and `static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")`.
+
+```swift file=AVCam/Model/Intent/AVCamCaptureIntent.swift highlight=1-19
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A camera capture intent for AVCam.
+*/
+
+import LockedCameraCapture
+import AppIntents
+import os
+
+struct AVCamCaptureIntent: CameraCaptureIntent {
+
+    /// The context object for the capture intent.
+    typealias AppContext = CameraState
+    
+    static let title: LocalizedStringResource = "AVCamCaptureIntent"
+    static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")
+}
+```
+
+### Step
+Below the description, add the `perform()` method, which each app intent must have.
+
+The method only writes to the log. The system starts the app or the capture extension because the type conforms to `CameraCaptureIntent`, so `perform()` has nothing to open. AVCam has one screen. An app with more screens goes to its camera screen here.
+
+The declaration is `func perform() async throws -> some IntentResult`, with `@MainActor` on the line above it. The body logs `"AVCam capture intent performed successfully."` with `os.Logger().debug(_:)`, and then returns `.result()`.
+
+```swift file=AVCam/Model/Intent/AVCamCaptureIntent.swift highlight=4-9
+    static let title: LocalizedStringResource = "AVCamCaptureIntent"
+    static let description: IntentDescription = IntentDescription("Capture photos and videos with AVCam.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        os.Logger().debug("AVCam capture intent performed successfully.")
+        // The return type of this intent is None; the success status isn't user-visible.
+        return .result()
+    }
+}
+```
+
+### Tip
+Press Command-B. The project builds again. No code uses the two new types yet.
+
+## Start the session from the state
+
+Until now, the capture session always started in photo mode. If the stored mode is video, the app would start in photo mode and then change the mode, and the person would see a second configuration. In this section, the capture service gets the state before it configures the session, and it builds the correct session the first time.
+
+### Step
+In `CaptureService.swift`, give the `start()` method a `state` parameter.
+
+The parameter carries the stored values into the actor. `CameraState` is a structure of simple values, so it can go from the main actor to the capture service without a problem. The parameter has the label `with` and the name `state`. From this step until you change the call in `CameraModel` (section 3), the project does not compile.
+
+```swift file=AVCam/CaptureService.swift remove
+    func start() async throws {
+```
+
+```swift file=AVCam/CaptureService.swift highlight=2
+    // MARK: - Capture session life cycle
+    func start(with state: CameraState) async throws {
+        // Exit early if not authorized or the session is already running.
+        guard await isAuthorized, !captureSession.isRunning else { return }
+        // Configure the session and start it.
+        try setUpSession()
+        captureSession.startRunning()
+    }
+```
+
+### Step
+At the start of the method, copy the capture mode and the HDR setting from the state into the properties of the service.
+
+These two values decide how the session is built. The lines are above the `guard` statement, so the service has the values before `setUpSession()` runs. The two names for the HDR setting differ: the line is `isHDRVideoEnabled = state.isVideoHDREnabled`. The other values of the state, for example the Live Photo setting, belong to one capture and not to the session, so the service does not need them here.
+
+```swift file=AVCam/CaptureService.swift highlight=2-5
+    func start(with state: CameraState) async throws {
+        // Set initial operating state.
+        captureMode = state.captureMode
+        isHDRVideoEnabled = state.isVideoHDREnabled
+        
+        // Exit early if not authorized or the session is already running.
+        guard await isAuthorized, !captureSession.isRunning else { return }
+```
+
+### Step
+In `setUpSession()`, replace the fixed photo preset with a preset that depends on the capture mode.
+
+The `.photo` preset is correct for photo mode. For video mode, the code selects [`.high`](https://developer.apple.com/documentation/avfoundation/avcapturesession/preset/high), the same preset that `setCaptureMode(_:)` uses in chapter 10.
+
+```swift file=AVCam/CaptureService.swift remove
+            // Configure the session for photo capture.
+            captureSession.sessionPreset = .photo
+```
+
+```swift file=AVCam/CaptureService.swift highlight=5-6
+            // Add inputs for the default camera and microphone devices.
+            activeVideoInput = try addInput(for: defaultCamera)
+            try addInput(for: defaultMic)
+
+            // Configure the session preset based on the current capture mode.
+            captureSession.sessionPreset = captureMode == .photo ? .photo : .high
+
+            // Deferred start brings up the preview first, and prepares the capture outputs a moment
+```
+
+### Step
+Below the line that adds the photo output, add the movie output when the capture mode is video.
+
+The session always has the photo output. In video mode, it needs the movie output too. The movie output gets the deferred start setting from chapter 12, with the same reason as the photo output: the preview appears first, and the system prepares the output a moment later.
+
+```swift file=AVCam/CaptureService.swift highlight=4-9
+            // Add the photo capture output as the default output type.
+            photoCapture.output.isDeferredStartEnabled = photoCapture.output.isDeferredStartSupported
+            try addOutput(photoCapture.output)
+            // If the capture mode is set to `video`, add a movie capture output.
+            if captureMode == .video {
+                // Add the movie output as the default output type.
+                movieCapture.output.isDeferredStartEnabled = movieCapture.output.isDeferredStartSupported
+                try addOutput(movieCapture.output)
+            }
+            
+            // Configure controls to use with the Camera Control.
+            configureControls(for: defaultCamera)
+```
+
+### Step
+At the end of the `if` block, apply the stored HDR setting.
+
+`setHDRVideoEnabled(_:)` from chapter 11 selects a 10-bit format when the value is `true` and the camera has such a format. In all other situations, it sets the property to `false`. Thus, after this call, the value that the service publishes is the real state of the camera.
+
+```swift file=AVCam/CaptureService.swift highlight=6
+            // If the capture mode is set to `video`, add a movie capture output.
+            if captureMode == .video {
+                // Add the movie output as the default output type.
+                movieCapture.output.isDeferredStartEnabled = movieCapture.output.isDeferredStartSupported
+                try addOutput(movieCapture.output)
+                setHDRVideoEnabled(isHDRVideoEnabled)
+            }
+```
+
+### Note
+The project does not compile at this time. `CameraModel` still calls `start()` without an argument. You change that call in the next section.
+
+The Apple sample has one empty line less below `stopRecording()` than your file, and the empty line below the preset line has no spaces in the sample. Your file can have twelve spaces there. This has no effect. If you want a file that is fully the same, compare it with the branch: `git diff chapter-15 -- AVCam/CaptureService.swift`.
+
+## Read and write the state in the model
+
+`CameraModel` is the owner of the state in each program. In this section, the model reads the stored state before it starts the camera, and it writes each change back. The same model class runs in the app and, later, in the capture extension, so this code serves the two programs.
+
+### Step
+In `Camera.swift`, add the `syncState()` method at the end of the protocol.
+
+The app structure calls this method in a later section. The method is in the protocol, so each camera model must have it, also the preview model. The declaration is `func syncState() async`, with the documentation comment above it. Until the two models have the method (the next step and step 5 of this section), the project does not compile.
+
+The sample also has no spaces on the empty line below `func start() async` in this file. Your file can have four spaces there. This has no effect.
+
+```swift file=AVCam/Model/Camera.swift highlight=3-5
+    /// An error if the camera encountered a problem.
+    var error: Error? { get }
+    
+    /// Synchronize the state of the camera with the persisted values.
+    func syncState() async
+}
+```
+
+### Step
+In `PreviewCameraModel.swift`, add a `syncState()` method at the end of the class.
+
+The preview model has no stored state. It only writes a line to the log, the same as its other methods: `logger.debug("Syncing state isn't implemented in PreviewCamera.")`. Without this method, the class does not conform to the protocol.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-7
+    func focusAndExpose(at point: CGPoint) {
+        logger.debug("Focus and expose isn't implemented in PreviewCamera.")
+    }
+    
+    func syncState() async {
+        logger.debug("Syncing state isn't implemented in PreviewCamera.")
+    }
+}
+```
+
+### Step
+In `CameraModel.swift`, add an import of the Combine framework below the import of SwiftUI.
+
+The model reads the publishers of the capture service with `.values`, and publishers are a part of Combine. Until now, the file compiled without this line, because the Member Import Visibility setting from chapter 1 is off. The sample has the import, and it makes clear where the publisher types come from.
+
+```swift file=AVCam/CameraModel.swift highlight=2
+import SwiftUI
 import Combine
+```
 
-enum MovieCaptureError: Error {
-    case notRecording
+### Step
+Below the `captureService` property, add a property for the camera state.
+
+The model keeps one `CameraState` value: `private var cameraState = CameraState()`. It starts with the default values, and `syncState()` replaces it with the stored value. The property is a `var`, because each change of a setting changes one value of the structure.
+
+```swift file=AVCam/CameraModel.swift highlight=4-6
+    /// An object that manages the app's capture functionality.
+    private let captureService = CaptureService()
+    
+    /// Persistent state shared between the app and capture extension.
+    private var cameraState = CameraState()
+    
+    init() {
+```
+
+### Step
+Below the `start()` method, add the `syncState()` method. In this step, it only reads the stored state.
+
+`CameraState.current` asks the system for the app context. The `await` is necessary because the system keeps the value outside of your process.
+
+```swift file=AVCam/CameraModel.swift highlight=6-12
+            logger.error("Failed to start capture service. \(error)")
+            status = .failed
+        }
+    }
+    
+    /// Synchronizes the persistent camera state.
+    ///
+    /// `CameraState` represents the persistent state, such as the capture mode, that the app and extension share.
+    func syncState() async {
+        cameraState = await CameraState.current
+    }
+    
+    // MARK: - Changing modes and devices
+```
+
+### Step
+In `syncState()`, copy four values from the state into the properties of the model.
+
+The views read the properties of the model, not the state. The four lines, in this order, assign `captureMode`, `qualityPrioritization`, `isLivePhotoEnabled`, and `isHDRVideoEnabled` (from `isVideoHDREnabled` of the state). After these lines, the mode picker and the feature toolbar show the stored values. The fifth value, `isVideoHDRSupported`, is not copied: the model gets it from the capabilities of the camera.
+
+```swift file=AVCam/CameraModel.swift highlight=3-6
+    func syncState() async {
+        cameraState = await CameraState.current
+        captureMode = cameraState.captureMode
+        qualityPrioritization = cameraState.qualityPrioritization
+        isLivePhotoEnabled = cameraState.isLivePhotoEnabled
+        isHDRVideoEnabled = cameraState.isVideoHDREnabled
+    }
+```
+
+### Step
+In `start()`, call `syncState()` before the capture service starts, and give the state to the service.
+
+The order is the important part. The model has the stored mode before the session exists, and the service builds the session for that mode. At this time, the status is not `running`, so the `didSet` observer of `captureMode` does not ask the service for a mode change.
+
+```swift file=AVCam/CameraModel.swift remove
+            try await captureService.start()
+```
+
+```swift file=AVCam/CameraModel.swift highlight=2-3,5
+        do {
+            // Synchronize the state of the model with the persistent state.
+            await syncState()
+            // Start the capture service to start the flow of data.
+            try await captureService.start(with: cameraState)
+            observeState()
+            status = .running
+        } catch {
+```
+
+### Step
+In the `didSet` observer of `captureMode`, store the new mode in the state after the service changes the mode.
+
+The assignment starts the `didSet` observer of the property in `CameraState`, which calls `save()`. The line is inside the task and below the `await`, so the state gets the new mode only after the service finishes the change.
+
+```swift file=AVCam/CameraModel.swift highlight=9-10
+    var captureMode = CaptureMode.photo {
+        didSet {
+            guard status == .running else { return }
+            Task {
+                isSwitchingModes = true
+                defer { isSwitchingModes = false }
+                // Update the configuration of the capture service for the new mode.
+                try? await captureService.setCaptureMode(captureMode)
+                // Update the persistent state value.
+                cameraState.captureMode = captureMode
+            }
+        }
+    }
+```
+
+### Step
+Give the `isLivePhotoEnabled` property a `didSet` observer that stores the value in the state.
+
+Until now, this property needed no observer: the model reads the value when it creates the features of a capture. The observer is only for the stored state.
+
+```swift file=AVCam/CameraModel.swift remove
+    var isLivePhotoEnabled = true
+```
+
+```swift file=AVCam/CameraModel.swift highlight=2-7
+    /// A Boolean value that indicates whether to capture Live Photos when capturing stills.
+    var isLivePhotoEnabled = true {
+        didSet {
+            // Update the persistent state value.
+            cameraState.isLivePhotoEnabled = isLivePhotoEnabled
+        }
+    }
+```
+
+### Step
+Give the `qualityPrioritization` property the same type of `didSet` observer, which stores its value in the state.
+
+`QualityPrioritization` has `Int` raw values, and `CaptureMode` has `String` raw values. Swift thus makes the two types `Codable` without more code. The raw values are a part of the stored data now. If you change them in a later version of the app, the old stored state does not decode.
+
+```swift file=AVCam/CameraModel.swift remove
+    var qualityPrioritization = QualityPrioritization.quality
+```
+
+```swift file=AVCam/CameraModel.swift highlight=2-7
+    /// A value that indicates how to balance the photo capture quality versus speed.
+    var qualityPrioritization = QualityPrioritization.quality {
+        didSet {
+            // Update the persistent state value.
+            cameraState.qualityPrioritization = qualityPrioritization
+        }
+    }
+```
+
+### Step
+In the `didSet` observer of `isHDRVideoEnabled`, store the value in the state after the service applies it.
+
+The `guard` statement stays. The model stores the HDR value only when the camera runs in video mode, because only then does the service change the format.
+
+> [!NOTE]
+> In the sample, no empty line is between the `MARK` comment and the documentation comment of this property. Delete the empty line if you want a file that is fully the same.
+
+```swift file=AVCam/CameraModel.swift highlight=8-9
+    // MARK: - Video capture
+    /// A Boolean value that indicates whether the camera captures video in HDR format.
+    var isHDRVideoEnabled = false {
+        didSet {
+            guard status == .running, captureMode == .video else { return }
+            Task {
+                await captureService.setHDRVideoEnabled(isHDRVideoEnabled)
+                // Update the persistent state value.
+                cameraState.isVideoHDREnabled = isHDRVideoEnabled
+            }
+        }
+    }
+```
+
+### Step
+In `observeState()`, store the HDR capability in the state each time the capabilities change.
+
+The sample stores this value, but no code reads it from the state. A possible use is a control or a widget that wants to know the capability without a camera.
+
+```swift file=AVCam/CameraModel.swift highlight=5
+        Task {
+            // Await updates to the capabilities that the capture service advertises.
+            for await capabilities in await captureService.$captureCapabilities.values {
+                isHDRVideoSupported = capabilities.isHDRSupported
+                cameraState.isVideoHDRSupported = capabilities.isHDRSupported
+            }
+        }
+```
+
+### Tip
+Press Command-B. The project builds again.
+
+## Sync when the app becomes active
+
+The model reads the state one time, in `start()`. This is not sufficient for the app. A person can use the app, lock the iPhone, change to video mode in the capture extension, and then open the app again. The app is still in memory, so `start()` does not run a second time.
+
+In this section, the app reads the state again each time it becomes active. The section ends with four small changes that make your files the same as the files of the sample.
+
+### Step
+In `AVCamApp.swift`, add the scene phase from the environment below the `camera` property.
+
+[`ScenePhase`](https://developer.apple.com/documentation/swiftui/scenephase) tells you whether the scene of the app is active, inactive, or in the background. SwiftUI supplies the value through the environment and updates it when the state changes. The property is `@Environment(\.scenePhase) var scenePhase`, with the comment above it.
+
+```swift file=AVCam/AVCamApp.swift highlight=4-6
+    // Simulator doesn't support the AVFoundation capture APIs. Use the preview camera when running in Simulator.
+    @State private var camera = CameraModel()
+    
+    // An indication of the scene's operational state.
+    @Environment(\.scenePhase) var scenePhase
+    
+    var body: some Scene {
+```
+
+### Step
+Below the `task` modifier, add an `onChange` modifier that observes the scene phase and stops when there is nothing to do.
+
+[`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) calls its closure each time the value changes. The closure gets the old and the new value: `{ _, newPhase in`. The `guard` statement lets only one situation through: the scene becomes active, and the camera runs: `guard camera.status == .running, newPhase == .active else { return }`. At the launch, the camera does not run yet, and `start()` does the sync.
+
+```swift file=AVCam/AVCamApp.swift highlight=5-9
+                .task {
+                    // Start the capture pipeline.
+                    await camera.start()
+                }
+                // Monitor the scene phase. Synchronize the persistent state when
+                // the camera is running and the app becomes active.
+                .onChange(of: scenePhase) { _, newPhase in
+                    guard camera.status == .running, newPhase == .active else { return }
+                }
+        }
+    }
+```
+
+### Step
+Below the `guard` statement, start a task that calls `syncState()`.
+
+The closure of `onChange` is not `async`, so it needs a task for the `await`: `Task { @MainActor in await camera.syncState() }`, on three lines. `syncState()` reads the stored state and assigns the values. The status is `running` now, so the `didSet` observer of `captureMode` asks the service to change the mode.
+
+```swift file=AVCam/AVCamApp.swift highlight=3-5
+                .onChange(of: scenePhase) { _, newPhase in
+                    guard camera.status == .running, newPhase == .active else { return }
+                    Task { @MainActor in
+                        await camera.syncState()
+                    }
+                }
+```
+
+### Step
+In `DataTypes.swift`, add the `deviceChangeFailed` case at the end of the `CameraError` enumeration.
+
+The sample declares this case, but no code throws it. You add it so that the file is the same as the file of the sample.
+
+```swift file=AVCam/Model/DataTypes.swift highlight=7
+enum CameraError: Error {
+    case videoDeviceUnavailable
+    case audioDeviceUnavailable
+    case addInputFailed
+    case addOutputFailed
+    case setupFailed
+    case deviceChangeFailed
+}
+```
+
+### Step
+In `PreviewCameraModel.swift`, move the `toggleRecording()` method from the end of the class to the position above `focusAndExpose(at:)`.
+
+The order of the methods has no effect on the program. The sample has this order, and the next step adds code at the end of the class.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift remove
+    func toggleRecording() {
+        logger.debug("Moving capture isn't implemented in PreviewCamera.")
+    }
+```
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-8
+    func capturePhoto() {
+        logger.debug("Photo capture isn't implemented in PreviewCamera.")
+    }
+    
+    func toggleRecording() {
+        logger.debug("Moving capture isn't implemented in PreviewCamera.")
+    }
+    
+    func focusAndExpose(at point: CGPoint) {
+        logger.debug("Focus and expose isn't implemented in PreviewCamera.")
+    }
+```
+
+### Step
+Between `focusAndExpose(at:)` and `syncState()`, add the private `capabilities(for:)` method.
+
+The method returns the capabilities that a preview can pretend to have in each mode. No code of the sample calls it. It is a helper that stayed in the file.
+
+The declaration is `private func capabilities(for mode: CaptureMode) -> CaptureCapabilities`. A `switch` on the mode returns `CaptureCapabilities(isLivePhotoCaptureSupported: true)` for `.photo`, and `CaptureCapabilities(isLivePhotoCaptureSupported: false, isHDRSupported: true)` for `.video`. The sample breaks the second initializer call over two lines, after the comma.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-14
+    func focusAndExpose(at point: CGPoint) {
+        logger.debug("Focus and expose isn't implemented in PreviewCamera.")
+    }
+    
+    private func capabilities(for mode: CaptureMode) -> CaptureCapabilities {
+        switch mode {
+        case .photo:
+            return CaptureCapabilities(isLivePhotoCaptureSupported: true)
+        case .video:
+            return CaptureCapabilities(isLivePhotoCaptureSupported: false,
+                                       isHDRSupported: true)
+        }
+    }
+    
+    func syncState() async {
+```
+
+### Step
+In the list of properties, add `isVideoDeviceSwitchable` below `isSwitchingModes`.
+
+No code reads this property, and the `Camera` protocol does not have it. It is a second remainder of an older version of the sample. The line is `private(set) var isVideoDeviceSwitchable = true`.
+
+> [!NOTE]
+> In the sample, no empty line is between the `captureActivity` property and the `captureMode` property. Delete the empty line if you want a file that is fully the same.
+
+```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=2
+    private(set) var isSwitchingModes = false
+    private(set) var isVideoDeviceSwitchable = true
+    private(set) var isSwitchingVideoDevices = false
+```
+
+### Step
+Build and run the app in the Simulator, or on your iPhone.
+
+The app starts and works as before. The stored state has no visible effect in a first run: the default state is photo mode with Live Photo on and the quality prioritization "Quality", the same values that the model had before. One value is different: the default state has HDR video on. On an iPhone with a 10-bit format, the first change to video mode then probably turns HDR on.
+
+```settings title="Product › Run"
+Scheme: AVCam
+Result: The live preview and all controls, as at the end of chapter 14
+Console, if the read of the state fails: Unable to fetch intent context
+```
+
+### Experiment
+Select video mode, stop the app in Xcode, and run it again. If the system stored the app context, the app starts in video mode, and the session has the movie output from the start. Nobody verified this for the tutorial, in the Simulator or on an iPhone. If the app starts in photo mode, look for the two "Unable to" messages in the console.
+
+## Add the capture extension
+
+The capture extension is the program that the system starts from the Lock Screen. It is a new target in the project. In this section, you create the target from a template, replace the template code with one small file, and make the Swift files of the app a part of the extension too.
+
+![The three targets and their source files: 26 files are in the app and the capture extension, 3 files are in all targets, and each target has its own entry point](../images/ch15-targets.svg)
+
+Xcode writes the targets, the settings, and the file membership to `AVCam.xcodeproj/project.pbxproj`. You do not edit this file by hand, so no step shows it. The template also creates an `Info.plist` file for the extension. You do not change it, but one step tells you what it must contain.
+
+### Important
+The steps in the Xcode interface in this section and in the next section come from the templates of Xcode 27.1 and from the project file of the sample. Nobody did these steps in the Xcode interface for this tutorial: the project file on the `chapter-15` branch was written by hand. The names of a template, an option, or a setting can differ a little on your Mac. If your result is different, compare your project with the branch, or take the project file from it: `git checkout chapter-15 -- AVCam.xcodeproj/project.pbxproj`.
+
+### Step
+In Xcode, add a new target from the Capture Extension template with these options.
+
+The template is in the Application Extension group of the iOS templates. "Embed in Application" makes the app target copy the built extension into the app, and it makes the app target depend on the extension. If Xcode asks whether it must activate a scheme for the new target, keep the `AVCam` scheme. The Team field and the scheme dialog were not checked in the Xcode window.
+
+```settings title="File › New › Target › iOS › Capture Extension"
+Product Name: AVCamCaptureExtension
+Team: None
+Embed in Application: AVCam
+```
+
+### Step
+Look at what Xcode created, and open the `Info.plist` file of the new group.
+
+The group `AVCamCaptureExtension` is a synchronized folder: each file in it belongs to the extension target. The `Info.plist` file names the extension point. The value `com.apple.securecapture` is what makes this target a capture extension. The key starts with `EX`, because a capture extension uses ExtensionKit.
+
+```settings title="Project navigator › AVCamCaptureExtension"
+AVCamCaptureExtension.swift: The entry point of the extension
+AVCamCaptureExtensionViewFinder.swift: A viewfinder from the template
+Info.plist › EXAppExtensionAttributes › EXExtensionPointIdentifier: com.apple.securecapture
+Target AVCam › Build Phases: A new phase, Embed ExtensionKit Extensions
+```
+
+### Step
+In the project navigator, delete the viewfinder file of the template. Select Move to Trash.
+
+The viewfinder of the template uses `UIImagePickerController`, the simple camera interface of UIKit. Your extension shows `CameraView`, the same interface as the app. The text of the delete dialog was not checked in the Xcode window.
+
+```settings title="Project navigator › AVCamCaptureExtension"
+AVCamCaptureExtensionViewFinder.swift: Delete › Move to Trash
+```
+
+### Note
+From this step until the end of the section, the `AVCam` scheme does not build. The entry point of the template uses the viewfinder that you deleted, and the files that you write next use the model and the views, which are not members of the extension target yet. Use the build at the end of the section.
+
+### Step
+Open `AVCamCaptureExtension.swift`, and replace its contents with the header, the imports, and a structure that owns a camera model.
+
+[`LockedCameraCaptureExtension`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracaptureextension) is for the extension what the `App` protocol is for the app. The structure creates its own `CameraModel`. The extension is a separate process, so it has its own model, its own capture service, and its own capture session.
+
+The file imports `ExtensionKit`, `Foundation`, `LockedCameraCapture`, `SwiftUI`, and `os`, in this order. The structure is `struct AVCamCaptureExtension: LockedCameraCaptureExtension` with `@main` on the line above it. Its one property is `@State private var camera = CameraModel()`, the same line as in `AVCamApp.swift`.
+
+```swift file=AVCamCaptureExtension/AVCamCaptureExtension.swift highlight=1-18
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A Locked Camera Capture extension for AVCam.
+*/
+
+import ExtensionKit
+import Foundation
+import LockedCameraCapture
+import SwiftUI
+import os
+
+@main
+struct AVCamCaptureExtension: LockedCameraCaptureExtension {
+    
+    @State private var camera = CameraModel()
+}
+```
+
+### Step
+Add the `body` property with a scene that shows the camera view and starts the camera.
+
+The content is the same as in `AVCamApp`: the camera view, a hidden status bar, and a task that calls `start()`. `CameraView` contains the `onCameraCaptureEvent` modifier from chapter 13, which a capture extension must have. The closure gets a [`LockedCameraCaptureSession`](https://developer.apple.com/documentation/lockedcameracapture/lockedcameracapturesession) in the `session` parameter. AVCam does not use it.
+
+The property is `var body: some LockedCameraCaptureExtensionScene`. Its content is a `LockedCameraCaptureUIScene { session in … }` with `CameraView(camera: camera)`, the modifier `.statusBarHidden(true)`, and the `.task` modifier with the comment and `await camera.start()`, the same as in `AVCamApp.swift`.
+
+```swift file=AVCamCaptureExtension/AVCamCaptureExtension.swift highlight=5-15
+@main
+struct AVCamCaptureExtension: LockedCameraCaptureExtension {
+    
+    @State private var camera = CameraModel()
+    
+    var body: some LockedCameraCaptureExtensionScene {
+        LockedCameraCaptureUIScene { session in
+            CameraView(camera: camera)
+                .statusBarHidden(true)
+                .task {
+                    // Start the capture pipeline.
+                    await camera.start()
+                }
+        }
+    }
+}
+```
+
+### Step
+At the end of the file, add a global logger for the extension.
+
+The shared files use the global `logger` constant. In the app, `AVCamApp.swift` declares it. That file is not a part of the extension, so the extension must declare its own constant with the same name.
+
+```swift file=AVCamCaptureExtension/AVCamCaptureExtension.swift highlight=5-6
+        }
+    }
 }
 
-/// An object that manages a movie capture output to record videos.
-final class MovieCapture: OutputService {
+/// A global logger for the app.
+let logger = Logger()
 ```
 
 ### Step
-Below the `isHDRSupported` property, add the `unexpectedResults` stream and its continuation.
+In the project navigator, select all Swift files in the `AVCam` group except `AVCamApp.swift`. In the File inspector, under Target Membership, click the Add button (+). In the Choose Targets dialog, select `AVCamCaptureExtension`, and click Save.
 
-An [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) gives values to one reader during a period of time. Its continuation is the end into which you write. Each value is a `Result`, because a recording that ends by itself can also fail, and the model must know about the two cases.
+The extension uses the model, the capture service, and the views of the app, so the compiler must build these 29 files for the extension too. Each target compiles its own copy. `AVCamApp.swift` stays out: it has the `@main` type of the app, and a program can have only one entry point.
 
-Write two constants: `let unexpectedResults: AsyncStream<Result<Movie, Error>>` and `private let unexpectedResultsContinuation: AsyncStream<Result<Movie, Error>>.Continuation`. The stream is not private, because the capture service reads it in section 3. Only this class writes into the continuation.
+> [!TIP]
+> Open the File inspector with View › Inspectors › File. To select many files, open all groups, select the first file, and Shift-click the last file. Then Command-click `AVCamApp.swift` to remove it from the selection.
 
-Xcode shows an error now, because the two constants have no value. The next step corrects this.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=5-8
-    // A Boolean value that indicates whether the currently selected camera's
-    // active format supports HDR.
-    private var isHDRSupported = false
-    
-    /// A stream of the results of recordings that end without a request from the app,
-    /// for example because of an interruption or a full disk.
-    let unexpectedResults: AsyncStream<Result<Movie, Error>>
-    private let unexpectedResultsContinuation: AsyncStream<Result<Movie, Error>>.Continuation
-
-    // MARK: - Capturing a movie
+```settings title="File inspector › Target Membership"
+AVCamApp.swift: AVCam
+All other Swift files in the AVCam group (29 files): AVCam, AVCamCaptureExtension
+The asset catalog: AVCam
 ```
 
 ### Step
-Add an initializer that makes the stream and stores its two parts.
+Select the `AVCamCaptureExtension` target, and set its minimum iOS version to 26.0.
 
-[`makeStream(of:bufferingPolicy:)`](https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:)) returns the stream and the continuation together. The photo capture delegate from chapter 3 makes its activity stream in the same way. With the default buffering policy, the stream keeps each value until the reader takes it. Thus a result that arrives before the reader is ready is not lost.
+An extension cannot run on a system version that its code does not support. Use the same deployment target as the app, so that the shared code compiles for the same version in the two targets. The name of the section in the General tab was not checked in the Xcode window.
 
-Write `init()` with no parameters. Its first line takes the two parts into a tuple: `let (unexpectedResults, continuation) = AsyncStream.makeStream(of: Result<Movie, Error>.self)`. The next two lines store them in the two constants, with `self.` in front.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=4-8
-    let unexpectedResults: AsyncStream<Result<Movie, Error>>
-    private let unexpectedResultsContinuation: AsyncStream<Result<Movie, Error>>.Continuation
-    
-    init() {
-        let (unexpectedResults, continuation) = AsyncStream.makeStream(of: Result<Movie, Error>.self)
-        self.unexpectedResults = unexpectedResults
-        self.unexpectedResultsContinuation = continuation
-    }
-
-    // MARK: - Capturing a movie
+```settings title="Target AVCamCaptureExtension › General › Minimum Deployments"
+iOS: 26.0
 ```
 
 ### Step
-In the `MovieCaptureDelegate` class, add the `unexpectedFinishHandler` property below the `continuation` property.
+In the Build Settings tab of the extension target, give the four Swift settings the same values as in the app target.
 
-The delegate now has two ways to give its result away. The continuation is for a caller that waits in `stopRecording()`. The closure is for the case in which nobody waits. A closure keeps the delegate simple: the delegate does not know the `MovieCapture` object or the stream. Write `var unexpectedFinishHandler: ((Result<Movie, Error>) -> Void)?`. It is an optional variable, as `continuation` is, because the delegate gets it after its creation.
+The shared files were written for the settings of the app. For example, they use `logger` without an import of `os`, which needs Member Import Visibility set to No. With different settings in the extension, the same file can compile in one target and fail in the other.
 
-```swift file=AVCam/Capture/MovieCapture.swift highlight=7-8
-    // MARK: - Movie capture delegate
-    /// A delegate object that responds to the capture output finalizing movie recording.
-    private class MovieCaptureDelegate: NSObject, AVCaptureFileOutputRecordingDelegate {
-        
-        var continuation: CheckedContinuation<Movie, Error>?
-        
-        /// A closure to call when the recording ends before the app stops it.
-        var unexpectedFinishHandler: ((Result<Movie, Error>) -> Void)?
-        
+```settings title="Target AVCamCaptureExtension › Build Settings"
+Swift Language Version: Swift 5
+Default Actor Isolation: nonisolated
+Approachable Concurrency: No
+Member Import Visibility: No
 ```
 
 ### Step
-Build the project to make sure that the new declarations compile.
+In the Info.plist Values group of the build settings, add three usage descriptions to the extension target.
 
-No code uses the stream or the closure yet, so the app does not change.
+The extension uses the camera, the microphone, and the location, the same as the app, and the system reads the descriptions from the program that asks. The texts are the same as in the app target. The sample gives the extension no Photos description: the extension uses the Photos permission of the app.
 
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds with no errors.
-```
-
-## Send each result to the correct place
-
-The header of [`AVCaptureFileOutputRecordingDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate) makes one promise about [`fileOutput(_:didFinishRecordingTo:from:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didfinishrecordingto:from:error:)): the output calls the method one time for each recording request. The call comes after `stopRecording()`, and it also comes when an error or a limit ends the recording.
-
-In this section, you change the delegate so that it is correct for the two cases. Then you change `startRecording()` and `stopRecording()` so that the service is also correct for the two cases.
-
-### Step
-At the end of the `MovieCaptureDelegate` class, below the `fileOutput` method, add the `isMovieUsable(after:)` method.
-
-An error in the callback does not always mean a bad file. The `userInfo` dictionary of the error can contain [`AVErrorRecordingSuccessfullyFinishedKey`](https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey). The header says that its value is a Boolean number that tells you if the recording is playable. When the key is not there, the method returns `false`, which is the safe answer.
-
-The signature is `private func isMovieUsable(after error: Error) -> Bool`. A Swift `Error` has no `userInfo`, so the method casts the error first: `(error as NSError).userInfo`. Then it reads the key with `as? Bool ?? false`.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=1-8
-        /// Returns a Boolean value that indicates whether the output wrote a complete movie file although an error occurred.
-        ///
-        /// A recording can stop with an error, for example when it reaches a size limit or
-        /// when the disk is full, and still produce a file that plays.
-        private func isMovieUsable(after error: Error) -> Bool {
-            let userInfo = (error as NSError).userInfo
-            return userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
-        }
-    }
-    
-    // MARK: - Monitoring recorded duration
+```settings title="Target AVCamCaptureExtension › Build Settings › Info.plist Values"
+Privacy - Camera Usage Description: To capture photos and videos.
+Privacy - Microphone Usage Description: To record audio for Live Photos and videos.
+Privacy - Location When In Use Usage Description: AVCam uses your location to tag where photos and videos are taken.
 ```
 
 ### Step
-In the `fileOutput` method, replace the `if` statement with code that makes one `Result` value from the callback.
+Make sure that the bundle identifier of the extension starts with the bundle identifier of the app.
 
-The old code decided two things in one place: if the recording failed, and who gets the answer. The new code makes the first decision only. The result is a failure only when there is an error and the file is not usable. With no error, or with an error that leaves a usable file, the result is a movie.
+iOS accepts an extension only when its identifier is the identifier of the app, a period, and a name. Xcode writes this value when it creates the target.
 
-Declare the constant first, without a value: `let result: Result<Movie, Error>`. Swift permits this when each branch of the `if` statement gives it a value exactly one time. The condition is `if let error, !isMovieUsable(after: error)`. The two values are `.failure(error)` and `.success(Movie(url: outputFileURL))`.
-
-Xcode can show a warning that `result` is not used. The next step uses it.
-
-```swift file=AVCam/Capture/MovieCapture.swift remove
-            if let error {
-                // If an error occurs, throw it to the caller.
-                continuation?.resume(throwing: error)
-            } else {
-                // Return a new movie object.
-                continuation?.resume(returning: Movie(url: outputFileURL))
-            }
+```settings title="Target AVCamCaptureExtension › Signing & Capabilities"
+Bundle Identifier: com.karolkakol.AVCam.AVCamCaptureExtension
 ```
 
-```swift file=AVCam/Capture/MovieCapture.swift highlight=2-9
-        func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-            let result: Result<Movie, Error>
-            if let error, !isMovieUsable(after: error) {
-                // The movie file isn't usable. Report the error.
-                result = .failure(error)
-            } else {
-                // The movie file is complete. Report a new movie object.
-                result = .success(Movie(url: outputFileURL))
-            }
-        }
+### Tip
+Press Command-B with the `AVCam` scheme. Xcode builds the extension first and then the app. If the build of the extension fails with "cannot find type" errors, a shared file is not a member of the extension target.
+
+## Add the control extension
+
+The capture extension has no button that starts it. That button is a control, and a control is in a widget extension. In this section, you add the third target, write the control, and check the full project.
+
+The widget template creates an asset catalog, `Assets.xcassets`, with an accent color, a widget background color, and an app icon set. Each of these items is a folder with a `Contents.json` file. You keep the catalog as the template creates it. The template also creates an `Info.plist` file with the extension point `com.apple.widgetkit-extension`.
+
+### Step
+Add a new target from the Widget Extension template with these options.
+
+A control is a WidgetKit feature, so it uses the widget template. You need only the control. A Live Activity and a configuration intent are for widgets that AVCam does not have.
+
+The template of Xcode 27.1 adds the word `Extension` to the product name to make the name of the target. Thus the new target has the name `AVCamControlCenterExtensionExtension`. The group and the bundle identifier use the product name without this addition. The Apple sample and the `chapter-15` branch have the target name `AVCamControlCenterExtension`, so rename the target in the project editor. This tutorial did not verify the rename in the Xcode interface. If you keep the long name, read it in each later step that names the target, and expect `AVCamControlCenterExtensionExtension.appex` as the name of the built extension.
+
+```settings title="File › New › Target › iOS › Widget Extension"
+Product Name: AVCamControlCenterExtension
+Team: None
+Include Control: Yes
+Include Live Activity: No
+Include Configuration App Intent: No
+Embed in Application: AVCam
 ```
 
 ### Step
-Below the result, give the result to the continuation if there is one, and to the handler if there is none.
+Look at what Xcode created. Delete the example control file of the template, and keep only two Swift files with these names.
 
-Only `stopRecording()` sets the continuation. So a continuation means "the app asked to stop, and a caller waits". `resume(with:)` takes the `Result` and returns the movie or throws the error. No continuation means "the recording ended by itself". The old code used `continuation?`, which does nothing in this case, and the result went away.
+With these options, the template of Xcode 27.1 creates three Swift files: an example widget in `AVCamControlCenterExtension.swift`, an example control in `AVCamControlCenterExtensionControl.swift`, and the bundle. You replace the widget and the example control with one control.
 
-```swift file=AVCam/Capture/MovieCapture.swift highlight=11-17
-        func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-            let result: Result<Movie, Error>
-            if let error, !isMovieUsable(after: error) {
-                // The movie file isn't usable. Report the error.
-                result = .failure(error)
-            } else {
-                // The movie file is complete. Report a new movie object.
-                result = .success(Movie(url: outputFileURL))
-            }
-            
-            if let continuation {
-                // The app asked to stop the recording. Return the result to the caller.
-                continuation.resume(with: result)
-            } else {
-                // The recording ended by itself. Nobody waits for the result, so report it separately.
-                unexpectedFinishHandler?(result)
-            }
-        }
-```
-
-### Step
-In `startRecording()`, set the handler of the new delegate to a closure that captures `self` weakly.
-
-The service keeps the delegate, and the delegate keeps the closure. A strong reference from the closure to the service would make a cycle. Write `delegate.unexpectedFinishHandler = { [weak self] result in` and, as the only line of the body, `guard let self else { return }`. The closure has no other work yet. You add it in the next step. Until then, Xcode can show a warning that `self` is not used.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=10-13
-    /// Starts movie recording.
-    func startRecording() {
-        // Return early if already recording.
-        guard !movieOutput.isRecording else { return }
-
-        // Start a timer to update the recording time.
-        startMonitoringDuration()
-
-        let delegate = MovieCaptureDelegate()
-        // Handle a recording that ends before the app stops it.
-        delegate.unexpectedFinishHandler = { [weak self] result in
-            guard let self else { return }
-        }
-        self.delegate = delegate
-        movieOutput.startRecording(to: URL.movieFileURL, recordingDelegate: delegate)
-    }
-```
-
-### Step
-In the closure, stop the timer, release the delegate, and write the result into the stream.
-
-Each line repairs one part of the defect. `stopMonitoringDuration()` cancels the timer and sets the capture activity to `idle`, so the interface leaves its recording state. Without a delegate, a later call of `stopRecording()` knows that there is nothing to stop. And `yield(_:)` gives the result to the reader of the stream, so the movie is not lost.
-
-The three lines are `stopMonitoringDuration()`, `self.delegate = nil`, and `unexpectedResultsContinuation.yield(result)`, in this order. The second line needs `self.`, because the local constant `delegate` of the method hides the property with the same name, and a constant cannot be set to `nil`.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=5-7
-        let delegate = MovieCaptureDelegate()
-        // Handle a recording that ends before the app stops it.
-        delegate.unexpectedFinishHandler = { [weak self] result in
-            guard let self else { return }
-            stopMonitoringDuration()
-            self.delegate = nil
-            unexpectedResultsContinuation.yield(result)
-        }
-        self.delegate = delegate
-        movieOutput.startRecording(to: URL.movieFileURL, recordingDelegate: delegate)
-```
-
-### Step
-In `stopRecording()`, throw the `notRecording` error at once when there is no delegate or the output does not record.
-
-A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) must be resumed exactly one time. In the old code, the only place that resumed it was the delegate callback. If the callback came before, the caller waited without end. The guard asks first: can a callback still come? If not, the method resumes the continuation itself.
-
-The guard is `guard let delegate, movieOutput.isRecording else { … }`. In its `else` block, call `continuation.resume(throwing: MovieCaptureError.notRecording)` and then `return`. The guard also unwraps the delegate. Thus the line that stores the continuation needs no `?`: change `delegate?.continuation` to `delegate.continuation`.
-
-```swift file=AVCam/Capture/MovieCapture.swift remove
-            delegate?.continuation = continuation
-```
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=6-10,12
-    /// Stops movie recording.
-    /// - Returns: A `Movie` object that represents the captured movie.
-    func stopRecording() async throws -> Movie {
-        // Use a continuation to adapt the delegate-based capture API to an async interface.
-        return try await withCheckedThrowingContinuation { continuation in
-            guard let delegate, movieOutput.isRecording else {
-                // The output isn't recording, so the delegate receives no callback. Don't wait for one.
-                continuation.resume(throwing: MovieCaptureError.notRecording)
-                return
-            }
-            // Set the continuation on the delegate to handle the capture result.
-            delegate.continuation = continuation
-            
-            /// Stops recording, which causes the output to call the `MovieCaptureDelegate` object.
-            movieOutput.stopRecording()
-            stopMonitoringDuration()
-        }
-    }
-```
-
-### Step
-In the `else` block of the guard, stop the timer before the method throws.
-
-When the method comes here, the interface possibly still shows a recording that does not exist. The line `stopMonitoringDuration()`, above the `resume` call, makes sure that the timer stops and that the capture activity is `idle` again.
-
-```swift file=AVCam/Capture/MovieCapture.swift highlight=4
-        return try await withCheckedThrowingContinuation { continuation in
-            guard let delegate, movieOutput.isRecording else {
-                // The output isn't recording, so the delegate receives no callback. Don't wait for one.
-                stopMonitoringDuration()
-                continuation.resume(throwing: MovieCaptureError.notRecording)
-                return
-            }
-```
-
-### Step
-Build the project to make sure that the changed class compiles.
-
-A normal recording works as before. A recording that ends by itself now resets the timer, but nothing reads the stream yet, so its movie is not saved. You do that in the next section.
-
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds with no errors.
+```settings title="Project navigator › AVCamControlCenterExtension"
+AVCamControlCenterExtension.swift: Keep, you replace its contents
+AVCamControlCenterExtensionBundle.swift: Keep, you replace its contents
+AVCamControlCenterExtensionControl.swift: Delete › Move to Trash
+Assets.xcassets: Keep
+Info.plist › NSExtension › NSExtensionPointIdentifier: com.apple.widgetkit-extension
+Target AVCam › Build Phases: A new phase, Embed Foundation Extensions
 ```
 
 ### Note
-The header says that you must not expect the delegate callback on a specific thread. So the handler closure runs on a thread that the output selects, and it writes `captureActivity` and `delegate` from there. The timer of the sample also writes `captureActivity` from the main thread. This chapter does not correct these writes from more than one thread. [Concepts: fix the sample](ch15-concepts.md#what-this-chapter-does-not-fix) lists this point.
-
-## Save the unexpected movie
-
-The results now go into a stream in `MovieCapture`. But the object that saves movies is the model, two layers above. In this section, the capture service passes the stream on, and the model reads it and saves each movie.
+From this step until the target membership step of this section, the `AVCam` scheme does not build. The bundle of the template names the control that you deleted, and the control that you write next uses `AVCamCaptureIntent`, which is not a member of the new target yet.
 
 ### Step
-In `CaptureService.swift`, add the `unexpectedRecordingResults` property below the `previewSource` property.
+Open `AVCamControlCenterExtension.swift`, and replace its contents with the header, the imports, and a control structure with three static properties.
 
-The property is a constant, and it is `nonisolated`, as `previewSource` is: `nonisolated let unexpectedRecordingResults: AsyncStream<Result<Movie, Error>>`. Thus the model can read it with no `await`. Xcode shows an error until the initializer gives the property a value in the next step.
+[`ControlWidget`](https://developer.apple.com/documentation/swiftui/controlwidget) is the protocol of a control. The `kind` string identifies this control for the system. It looks like a bundle identifier, but it is only a name. Do not change it after people have the app: a control with a new `kind` is a new control for the system, and the old one probably disappears.
 
-```swift file=AVCam/CaptureService.swift highlight=4-5
-    /// A type that connects a preview destination with the capture session.
-    nonisolated let previewSource: PreviewSource
+The file imports `SwiftUI`, `WidgetKit`, and `AppIntents`. The structure is `struct AVCamControlCenterExtension: ControlWidget`, without `@main`. The three properties are `static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"`, `static var displayName: LocalizedStringResource = "Open AVCam"`, and `static var description: LocalizedStringResource = "Launch AVCam app."`.
+
+```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=1-17
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A Control Center extension for AVCam.
+*/
+
+import SwiftUI
+import WidgetKit
+import AppIntents
+
+struct AVCamControlCenterExtension: ControlWidget {
     
-    /// A stream of the results of recordings that end without a request from the app.
-    nonisolated let unexpectedRecordingResults: AsyncStream<Result<Movie, Error>>
-    
-    // The app's capture session.
-    private let captureSession = AVCaptureSession()
+    static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"
+    static var displayName: LocalizedStringResource = "Open AVCam"
+    static var description: LocalizedStringResource = "Launch AVCam app."
+}
 ```
 
 ### Step
-In the initializer, set the property to the stream of the movie capture service.
+Add the `body` property with a static configuration that contains one button.
 
-The capture service does not make a second stream. It gives the model the stream that `MovieCapture` made. The model does not know `MovieCapture`, so the service is the place that connects the two.
+[`StaticControlConfiguration`](https://developer.apple.com/documentation/widgetkit/staticcontrolconfiguration) is for a control without options. [`ControlWidgetButton`](https://developer.apple.com/documentation/widgetkit/controlwidgetbutton) performs an intent when the person presses the control. The intent is `AVCamCaptureIntent`, and this is the connection to the capture extension: only a capture intent lets the system start the camera on a locked device. The display name and the description appear in the list where the person selects a control.
 
-```swift file=AVCam/CaptureService.swift highlight=4-5
-    init() {
-        // Create a source object to connect the preview view with the capture session.
-        previewSource = DefaultPreviewSource(session: captureSession)
-        // Pass on the stream of the movie capture service.
-        unexpectedRecordingResults = movieCapture.unexpectedResults
+The property is `var body: some ControlWidgetConfiguration`. It returns `StaticControlConfiguration(kind: AVCamControlCenterExtension.kind)` with a closure that contains `ControlWidgetButton(action: AVCamCaptureIntent())`. The label of the button is `Label("Open AVCam", systemImage: "curlybraces")`. After the closing brace of the configuration, the two modifiers `.displayName(AVCamControlCenterExtension.displayName)` and `.description(AVCamControlCenterExtension.description)` follow.
+
+```swift file=AVCamControlCenterExtension/AVCamControlCenterExtension.swift highlight=7-15
+struct AVCamControlCenterExtension: ControlWidget {
+    
+    static var kind = "com.karolkakol.AVCam.AVCamControlCenterExtension.ControlButton"
+    static var displayName: LocalizedStringResource = "Open AVCam"
+    static var description: LocalizedStringResource = "Launch AVCam app."
+    
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: AVCamControlCenterExtension.kind) {
+            ControlWidgetButton(action: AVCamCaptureIntent()) {
+                Label("Open AVCam", systemImage: "curlybraces")
+            }
+        }
+        .displayName(AVCamControlCenterExtension.displayName)
+        .description(AVCamControlCenterExtension.description)
     }
+}
 ```
 
 ### Step
-In `observeState()` in `CameraModel.swift`, add a task that reads the stream, below the task for the Camera Control.
+Open `AVCamControlCenterExtensionBundle.swift`, and replace its contents with a widget bundle that contains the control.
 
-The task has the same form as the other tasks in this method, with one difference: the loop is `for await result in captureService.unexpectedRecordingResults`, with no `await` in front of `captureService`, because the property is `nonisolated`. The loop waits for a result, and it runs one time for each recording that ends by itself. The stream never ends, so the task lives as long as the app. Leave the loop body empty for now. Xcode can show a warning that `result` is not used.
+A [`WidgetBundle`](https://developer.apple.com/documentation/swiftui/widgetbundle) is the entry point of a widget extension. Its `body` lists what the extension supplies. Here, that is the one control.
 
-```swift file=AVCam/CameraModel.swift highlight=11-15
-        Task {
-            // Await updates to a person's interaction with the Camera Control HUD.
-            for await isShowingFullscreenControls in await captureService.$isShowingFullscreenControls.values {
-                withAnimation {
-                    // Prefer showing a minimized UI when capture controls enter a fullscreen appearance.
-                    prefersMinimizedUI = isShowingFullscreenControls
-                }
-            }
-        }
-        
-        Task {
-            // Await the results of recordings that end without a request from the app.
-            for await result in captureService.unexpectedRecordingResults {
-            }
-        }
-        
-        Task {
-            // Await new zoom levels from the capture service, for example after a camera switch.
+The file imports `WidgetKit` and `SwiftUI`. The structure is `struct AVCamControlCenterExtensionBundle: WidgetBundle` with `@main` above it, and `var body: some Widget` contains only `AVCamControlCenterExtension()`. The template file already has this form. Replace the header comment, and delete the line with the example control.
+
+```swift file=AVCamControlCenterExtension/AVCamControlCenterExtensionBundle.swift new
+/*
+See the LICENSE.txt file for this sample's licensing information.
+
+Abstract:
+A Control Center extension bundle for AVCam.
+*/
+
+import WidgetKit
+import SwiftUI
+
+@main
+struct AVCamControlCenterExtensionBundle: WidgetBundle {
+    var body: some Widget {
+        AVCamControlCenterExtension()
+    }
+}
 ```
 
 ### Step
-In the loop, save the movie of the result, and store an error if there is one.
+In the project navigator, select three files of the `Model` group. In the File inspector, under Target Membership, click the Add button (+). In the Choose Targets dialog, select `AVCamControlCenterExtension`, and click Save.
 
-`result.get()` returns the movie of a success and throws the error of a failure. So one `catch` block handles a recording that failed and a save that failed. Write `try await mediaLibrary.save(movie: result.get())` in the `do` block and `self.error = error` in the `catch` block. This is the same code that `toggleRecording()` has for a movie that the person stopped.
+The control creates an `AVCamCaptureIntent`, so the extension must compile the intent. The intent names `CameraState`, and `CameraState` uses two enumerations from `DataTypes.swift`. No other file of the app is necessary. After this step, the intent is a part of all three targets, which the system needs.
 
-```swift file=AVCam/CameraModel.swift highlight=4-9
-        Task {
-            // Await the results of recordings that end without a request from the app.
-            for await result in captureService.unexpectedRecordingResults {
-                do {
-                    // Save the movie, if the recording produced one.
-                    try await mediaLibrary.save(movie: result.get())
-                } catch {
-                    self.error = error
-                }
-            }
-        }
+```settings title="File inspector › Target Membership"
+Model/CameraState.swift: AVCam, AVCamCaptureExtension, AVCamControlCenterExtension
+Model/DataTypes.swift: AVCam, AVCamCaptureExtension, AVCamControlCenterExtension
+Model/Intent/AVCamCaptureIntent.swift: AVCam, AVCamCaptureExtension, AVCamControlCenterExtension
 ```
 
 ### Step
-Build and run the app. Select video mode, start a recording, and stop it after some seconds.
+Select the `AVCamControlCenterExtension` target. Set its minimum iOS version and its Swift settings to the values of the other targets.
 
-This is the path that the app had before. The continuation is set, so the delegate gives the movie to `toggleRecording()`, and the stream stays empty.
+The three shared files must compile with the same settings in each target. The control extension needs no usage descriptions, because it never opens the camera.
 
-```settings title="Checkpoint"
-Action: Product > Run (Command-R), select video mode, tap the record button, tap it again
-Result: The recording stops, and the thumbnail of the movie appears, as before.
-```
-
-### Experiment
-You can make a recording end by itself in the Simulator. In `startRecording()` in `MovieCapture.swift`, add this temporary line directly above the line that calls `movieOutput.startRecording(to:recordingDelegate:)`. [`maxRecordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedduration) is a hard time limit. The header says that the output stops the recording at the limit and calls the delegate with an error. This line is not part of the branch `chapter-15`. You remove it again in the last step of this section.
-
-```swift
-movieOutput.maxRecordedDuration = CMTime(seconds: 3, preferredTimescale: 600)
+```settings title="Target AVCamControlCenterExtension › General and Build Settings"
+Minimum Deployments › iOS: 26.0
+Swift Language Version: Swift 5
+Default Actor Isolation: nonisolated
+Approachable Concurrency: No
+Member Import Visibility: No
+Bundle Identifier: com.karolkakol.AVCam.AVCamControlCenterExtension
 ```
 
 ### Step
-Run the app, select video mode, tap the record button one time, and then wait and do not touch the screen.
+Select the `AVCam` target, and check its build phases.
 
-The author of the code made this test in the Simulator with SimCam. After 3 seconds, the output ends the recording. No continuation is set, so the result goes through the handler and the stream to the model. The movie arrives in the Photos library, so the delegate made a success from the callback.
+The app target must build the two extensions first and then copy them into the app. The two systems for extensions use different folders. An ExtensionKit extension goes into `Extensions`, and a widget extension goes into `PlugIns`.
 
-```settings title="Checkpoint"
-Action: Product > Run (Command-R), select video mode, tap the record button one time, wait 3 seconds
-Timer: The recording time returns to 00:00:00.
-Button: The record button returns to its idle form.
-Movie: The thumbnail appears, and the movie is in the Photos app of the simulator.
+```settings title="Target AVCam › Build Phases"
+Target Dependencies: AVCamCaptureExtension, AVCamControlCenterExtension
+Embed ExtensionKit Extensions: AVCamCaptureExtension.appex
+Embed Foundation Extensions: AVCamControlCenterExtension.appex
 ```
 
 ### Step
-Delete the temporary `maxRecordedDuration` line from `startRecording()`, and build the project again.
+Build and run the `AVCam` scheme in the Simulator. Then look into the built app.
 
-With the line, each movie of the app stops after 3 seconds. Your code must be equal to the branch `chapter-15` again before you continue.
+The app works as at the end of the fourth section. This is the result that was verified for this tutorial: the build has no errors and no warnings, and the app contains the two extensions. To see them, select Product › Show Build Folder in Finder, find `AVCam.app` in the `Products` folder, and select Show Package Contents.
 
-```settings title="Checkpoint"
-Action: Delete the temporary line, then Product > Build (Command-B)
-Result: The build succeeds, and startRecording() has no line that sets maxRecordedDuration.
-```
-
-### Note
-Only the time limit was tested. From the code, the same path is expected to handle a size limit, a full disk, and an interruption, for example a phone call during a recording. Nobody tested these cases for this tutorial. For an interruption, the result can be a movie or an error. That depends on the value that the system puts into the error for `AVErrorRecordingSuccessfullyFinishedKey`.
-
-## Keep the Live Photo badge on
-
-`PhotoCapture` counts the Live Photo captures that are in progress, so that the "LIVE" badge stays on while one of them records. But the sample tests the counter with `> 1`. When the first of two captures ends, the counter goes from 2 to 1, the test is `false`, and the badge goes off while the second capture still records. The section [Things to know about the sample](ch07-concepts.md#things-to-know-about-the-sample) of chapter 7 shows the full sequence.
-
-### Step
-In `monitorProgress(of:isolation:)` in `PhotoCapture.swift`, change the test to `> 0`, and change the comment to agree with it.
-
-The counter already contains the capture that reported the change. So after the end of one capture, a value above zero means "a different Live Photo still records". The badge must stay on in exactly this case. The old comment described two captures that run at the same time, which is the condition `> 1`.
-
-```swift file=AVCam/Capture/PhotoCapture.swift remove
-                    if livePhotoCount > 1 {
-                        /// Set `isLivePhoto` to `true` when there are concurrent Live Photos in progress.
-```
-
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-6
-                if activity.isLivePhoto != isLivePhoto {
-                    isLivePhoto = activity.isLivePhoto
-                    // Increment or decrement as appropriate.
-                    livePhotoCount += isLivePhoto ? 1 : -1
-                    if livePhotoCount > 0 {
-                        /// Set `isLivePhoto` to `true` while another Live Photo is still in progress.
-                        /// This prevents the "Live" badge in the UI from flickering.
-                        currentActivity = .photoCapture(willCapture: activity.willCapture, isLivePhoto: true)
-                    }
-                }
-                captureActivity = currentActivity
+```settings title="AVCam.app › Show Package Contents"
+Extensions: AVCamCaptureExtension.appex
+PlugIns: AVCamControlCenterExtension.appex
 ```
 
 ### Step
-Build the project to make sure that the change compiles.
+To try the feature on an iPhone, select your development team for each of the three targets, and run the app.
 
-Live Photo capture does not work in the Simulator, so you cannot see this fix there. Nobody ran it on an iPhone for this tutorial.
+All three targets must have the same team. Open the app one time, take a photo, and give the app access to the camera, the microphone, Photos, and the location. The app asks for Photos and the location only at the first save, and the capture extension uses the permissions of the app. Then add the control and use it. Nobody did this test for the tutorial, so the rows below tell you what the Apple documentation describes.
 
-```settings title="Checkpoint"
-Action: Product > Build (Command-B)
-Result: The build succeeds with no errors.
+```settings title="On an iPhone (not tested for this tutorial)"
+Signing & Capabilities › Team: The same team for AVCam and the two extensions
+Control Center: Press and hold an empty area, add a control, select Open AVCam
+Lock Screen: Customize the Lock Screen, and replace one of the two controls at the bottom
+Action button: Settings › Action Button, select a control
+Expected on a locked iPhone: The camera interface of AVCam appears without an unlock
 ```
-
-### Experiment
-On a real iPhone, select photo mode with Live Photo on, and tap the capture button two times quickly. The expected result is that the "LIVE" badge stays on, with no break, until the movie of the second photo stops. To see the defect, change the test back to `> 1` and do the same test: the badge is expected to go off for a moment after the first movie stops. Then restore `> 0`.
-
-## Give a new movie connection its rotation angle
-
-The capture service gives the capture rotation angle to the outputs at two moments: when it makes the rotation coordinator, and when the angle changes. But each change to video mode adds the movie output to the session again, and that makes a new connection. The new connection does not get the angle of the old connection. Until the next rotation of the device, a movie can have the wrong orientation.
-
-### Step
-In `setCaptureMode(_:)` in `CaptureService.swift`, apply the current capture angle directly after the line that adds the movie output.
-
-[`addOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:)) makes the connection, so the connection exists on the next line. `updateCaptureRotation(_:)` is the method from chapter 3 that sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) on the video connection of each output. The coordinator, the `rotationCoordinator` property of the service, always has the current value in [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), so the code can read it at any time. The new line is `updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)`.
-
-```swift file=AVCam/CaptureService.swift highlight=10-11
-        // Configure the capture session for the selected capture mode.
-        switch captureMode {
-        case .photo:
-            // The app needs to remove the movie capture output to perform Live Photo capture.
-            captureSession.sessionPreset = .photo
-            captureSession.removeOutput(movieCapture.output)
-        case .video:
-            captureSession.sessionPreset = .high
-            try addOutput(movieCapture.output)
-            // Adding the output creates a new connection. Give it the current capture rotation angle.
-            updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)
-            if isHDRVideoEnabled {
-                setHDRVideoEnabled(true)
-            }
-        }
-```
-
-### Step
-Build and run the app. Select video mode, record a short movie, and stop it.
-
-The Simulator does not show the orientation of a movie, so this checkpoint only makes sure that the change of mode and the recording still work. Nobody tested the orientation on an iPhone for this tutorial.
-
-```settings title="Checkpoint"
-Action: Product > Run (Command-R), select video mode, record a short movie, stop it
-Result: The mode changes, and the thumbnail of the movie appears, as before.
-```
-
-### Experiment
-On a real iPhone, start the app in photo mode and turn the iPhone to landscape. Then select video mode, record a short movie immediately, and do not turn the iPhone again. Open the movie in the Photos app. The expected result is a level landscape movie. To see the defect, put a comment in front of the new `updateCaptureRotation` line and do the same test. Remove the comment after the test.
-
-## Play the capture sound first
-
-For a click on an AirPods stem, the app must play the capture sound itself. The sample plays it after `await camera.capturePhoto()` returns. That method waits for the capture, for a location, and for the save to the Photos library. So the person hears the sound late. And [`play(_:)`](https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:)) does nothing when the event is older than 15 seconds.
-
-In this section, you divide the work of the closure into three parts, in this order: select the sound, play the sound, capture.
-
-### Step
-In the `onCameraCaptureEvent` closure in `CameraView.swift`, remove the two capture calls and their comments from the `switch` statement.
-
-The `switch` statement now has one job: it selects the sound. In video mode, it still reads `isRecording` before the recording state changes, which is necessary to select the correct one of the two video sounds. Until the next step, a hardware button captures nothing.
-
-```swift file=AVCam/CameraView.swift remove
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-```
-
-```swift file=AVCam/CameraView.swift remove
-                                // Toggle video recording when pressing a hardware button.
-                                await camera.toggleRecording()
-```
-
-```swift file=AVCam/CameraView.swift
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-                        if event.phase == .ended {
-                            let sound: AVCaptureEventSound
-                            switch camera.captureMode {
-                            case .photo:
-                                sound = .cameraShutter
-                            case .video:
-                                sound = camera.captureActivity.isRecording ?
-                                    .endVideoRecording : .beginVideoRecording
-                            }
-```
-
-### Step
-Below the `if` statement that plays the sound, add a second `switch` statement that does the capture work.
-
-The capture calls are the same as before. Only their position is new: they come after the sound. The `await` calls can now take as much time as they need, because nothing waits behind them.
-
-```swift file=AVCam/CameraView.swift highlight=14-21
-                    .onCameraCaptureEvent(defaultSoundDisabled: true) { event in
-                        if event.phase == .ended {
-                            let sound: AVCaptureEventSound
-                            switch camera.captureMode {
-                            case .photo:
-                                sound = .cameraShutter
-                            case .video:
-                                sound = camera.captureActivity.isRecording ?
-                                    .endVideoRecording : .beginVideoRecording
-                            }
-                            if event.shouldPlaySound {
-                                event.play(sound)
-                            }
-                            switch camera.captureMode {
-                            case .photo:
-                                // Capture a photo when pressing a hardware button.
-                                await camera.capturePhoto()
-                            case .video:
-                                // Toggle video recording when pressing a hardware button.
-                                await camera.toggleRecording()
-                            }
-                        }
-                    }
-```
-
-### Step
-Replace the comment above the `if` statement with a comment that gives the reason for the order.
-
-The order is the full fix, and nothing in the code makes it necessary. A comment tells the next developer not to move the lines back.
-
-```swift file=AVCam/CameraView.swift remove
-                            // Play a sound when capturing by clicking an AirPods stem.
-```
-
-```swift file=AVCam/CameraView.swift highlight=3-4
-                                    .endVideoRecording : .beginVideoRecording
-                            }
-                            // Play a sound when capturing by clicking an AirPods stem. Play it before
-                            // the capture, so that the person hears it at the moment of the click.
-                            if event.shouldPlaySound {
-                                event.play(sound)
-                            }
-                            switch camera.captureMode {
-```
-
-### Step
-Build and run the app, and make sure that the capture button on the screen works as before.
-
-The system sends no capture events in the Simulator, so the closure does not run there. Nobody tested the sound with AirPods for this tutorial.
-
-```settings title="Checkpoint"
-Action: Product > Run (Command-R), take a photo, then record a short movie
-Result: The app captures the photo and the movie as before.
-```
-
-### Experiment
-On a real iPhone with AirPods that support the camera remote, select photo mode and click the stem. The expected result is that you hear the shutter sound at the moment of the click, not after the save. Do the same in video mode: you are expected to hear the start sound at the first click and the stop sound at the second click. In the European Union, this test is not possible at this time.
 
 ### Text
-Your code is now equal to the branch `chapter-15`. Four defects are gone, and one of the fixes ran in the Simulator. The list of weak points that stay in the code is in [Concepts: fix the sample](ch15-concepts.md#what-this-chapter-does-not-fix). In chapter 16, you prepare the app for a new device: iPhone Duo.
+This is what the code does when the capture extension starts:
+
+1. The system starts the extension process and creates the scene. `CameraView` appears.
+2. The `task` modifier calls `camera.start()`. The model calls `syncState()`, which reads the app context that the app wrote.
+3. The model gives the state to the capture service. The service builds the session for the stored mode and starts it.
+4. The person takes a photo. `MediaLibrary` writes it to the Photos library, the same as in the app.
+5. The person changes the mode. The `didSet` observers write the new state to the system.
+6. Later, the person opens the app. The scene becomes active, and the `onChange` modifier calls `syncState()`. The app changes to the mode that the person selected in the extension.
+
+You have the full AVCam sample now. Go to the [wrap-up](wrap-up.md) for a summary of what you built, a list of the weak points of the sample, and ideas for your next steps.
 
 ## Check your understanding
 
-### A recording reaches a time limit. Nobody called `stopRecording()`. The delegate callback has an error, and the value for `AVErrorRecordingSuccessfullyFinishedKey` in the error is `true`. What does the new delegate do?
+### Why does AVCam store the shared state in the app context of the capture intent, and not in `UserDefaults` of an App Group?
 
-- [ ] It makes a failure, because the `error` parameter is not `nil`.
-  > That is what the old code did. The new code calls `isMovieUsable(after:)`, which reads the key. With the value `true`, the result is a success.
-- [ ] It makes a success and resumes the continuation with it.
-  > Only `stopRecording()` sets the continuation. Nobody called that method, so there is no continuation to resume.
-- [x] It makes a success and gives it to `unexpectedFinishHandler`, which writes it into the stream.
-  > Correct. The key tells the delegate that the file is usable, and the missing continuation tells it that nobody waits. So the result goes through the handler and the stream to the model, which saves the movie.
+- [ ] The app context is faster than `UserDefaults`.
+  > Speed is not the reason. A read of the app context is an `async` call to the system.
+- [x] A capture extension cannot read or write an App Group container. The app context is the supported way to share state with it.
+  > Correct. On a locked device, the extension has no access to shared containers. The system stores the app context and gives it to each program that contains the intent.
+- [ ] `UserDefaults` cannot store an enumeration.
+  > An enumeration with raw values is easy to store in `UserDefaults`. The problem is the access from the extension.
 
-### Why does `stopRecording()` test `movieOutput.isRecording` before it stores the continuation on the delegate?
+### At the first call of `start()`, `syncState()` runs this line while the status of the model is `unknown`. The stored mode is video. What occurs?
 
-- [x] When the output does not record, no callback comes, and a stored continuation is never resumed. The caller then waits without end.
-  > Correct. The output calls the delegate one time for each recording. If that call came before, the only safe thing is to resume the continuation immediately, here with the `notRecording` error.
-- [ ] The delegate cannot keep a continuation while the output records.
-  > It can, and the normal path does exactly that: the method stores the continuation while the output records, and the callback resumes it.
-- [ ] The test makes the method faster, because it does not wait for the file.
-  > In the normal path, the method must wait: the file is complete only when the delegate callback arrives. The test is there for the case in which no callback can come.
+```swift
+captureMode = cameraState.captureMode
+```
 
-### The new closure plays the capture sound before it calls `capturePhoto()`. What is a cost of this order?
+- [ ] The `didSet` observer calls `setCaptureMode(_:)`, and the service changes a session that does not exist yet.
+  > The observer starts with `guard status == .running`. The status is not `running` during the start, so the observer returns.
+- [x] The model only gets the value. The service gets the mode through `start(with:)` and builds the session for video mode directly.
+  > Correct. The `guard` statement in the observer stops the mode change. `setUpSession()` then selects the `.high` preset and adds the movie output.
+- [ ] Nothing. The model ignores the stored mode until the app becomes active.
+  > The assignment changes the property, so the mode picker shows video. The `onChange` modifier is for later activations.
 
-- [ ] The event is older than 15 seconds when the sound plays, so `play(_:)` does nothing.
-  > The opposite is true. The sound is now the first work after the click, so the age of the event is not a problem. The old order had this risk.
-- [x] The person hears the sound also when the capture or the save fails after it.
-  > Correct. The sound now confirms the click, not the result. That agrees with its job: feedback at the moment of the action for a person who does not look at the screen.
-- [ ] The closure can no longer select the correct sound in video mode.
-  > The first `switch` statement still reads `isRecording` before `toggleRecording()` changes the recording state. The selection of the sound did not change.
+### `AVCamCaptureExtension.swift` declares `let logger = Logger()`, although `AVCamApp.swift` has the same line. Why?
+
+- [ ] Each Swift file needs its own logger.
+  > A global constant is visible in all files of its target. Most files of the app use the logger of `AVCamApp.swift`.
+- [ ] The extension must write to a different log than the app.
+  > The two loggers are the same default logger. The system separates the messages by process.
+- [x] `AVCamApp.swift` is not a part of the extension target, because it contains the `@main` type of the app. The shared files still need a `logger` constant.
+  > Correct. A program can have only one entry point, so the app file stays out. The extension then supplies the global constant that the shared files use.

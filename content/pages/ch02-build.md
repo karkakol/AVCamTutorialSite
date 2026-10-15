@@ -25,7 +25,7 @@ The class uses [`AVCaptureDevice.DiscoverySession`](https://developer.apple.com/
 ### Step
 In the `AVCam` folder, create a folder with the name `Capture`. In it, create `DeviceLookup.swift`, and replace its contents with a `final class DeviceLookup` that has three private discovery session properties.
 
-The three properties are `frontCameraDiscoverySession`, `backCameraDiscoverySession`, and `externalCameraDiscoverSession`, all of type `AVCaptureDevice.DiscoverySession`. The file imports `Combine` as in Apple's sample; nothing in this chapter uses it. A discovery session filters by one position. So the class keeps one session for the back, one for the front, and one for external cameras, which have no position. The header comment also names microphones. You add the microphone lookup in chapter 8.
+The three properties are `frontCameraDiscoverySession`, `backCameraDiscoverySession`, and `externalCameraDiscoverSession`, all of type `AVCaptureDevice.DiscoverySession`. The file imports `Combine` as in Apple's sample; nothing in this chapter uses it. A discovery session filters by one position. So the class keeps one session for the back, one for the front, and one for external cameras, which have no position. The header comment also names microphones. You add the microphone lookup in chapter 10.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift highlight=1-18
 /*

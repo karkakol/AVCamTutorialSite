@@ -1,144 +1,309 @@
 ---
 kind: article
 chapter: 17
-title: Concepts: two cameras at once
-abstract: Why a plain session runs one camera, how a multi-camera session runs two, why you connect each camera to its preview by hand, and what the two costs of such a session mean.
-estimatedMinutes: 14
+title: Concepts: fix the sample
+abstract: How to find defects in sample code, and how this tutorial corrects four of them: a recording that ends by itself, the Live Photo badge, the rotation angle of a new movie connection, and a late capture sound.
+estimatedMinutes: 12
 branch: chapter-17
 ---
 
-Each earlier chapter used one camera at a time. A tap on the button removed the input of one camera and added the input of the other camera. In this chapter, the app shows the back camera and the front camera at the same time: one camera fills the screen, and the other camera is a small picture in a corner. A tap exchanges the two pictures.
-
-You learn why an [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession) cannot do this, and what its subclass [`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) does differently. You learn how to connect a camera to a preview layer by hand, why such a connection has no mirroring and no rotation, and how the session reports the cost of two cameras. Then you write the code in [Build: two cameras at once](ch17-build.md).
-
-This chapter is a part of "Beyond the sample". The code is not in the Apple sample. The connection code follows a different Apple sample, [AVMultiCamPiP: Capturing from multiple cameras](https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras), changed to fit the structure of this app.
-
 > [!IMPORTANT]
-> Read this before you rely on the chapter. **Verified:** the app builds with no warnings, and it ran in the iPhone 18 Pro simulator (iOS 27.0) with a simulated camera from SimCam. There, the two cameras ran at the same time, a tap exchanged the pictures, the front picture was mirrored, and a change back to the photo mode took a photo. **Not verified:** all behavior on a real iPhone, the format selection, the two costs, the sets of cameras that can run together, an interruption in the dual mode, and iPhone Duo. The simulator reports a cost of 0 for each camera, so the facts about costs come from the Apple documentation and from the Apple sample.
+> This chapter changes code that came from Apple. The fixes are the design of this tutorial. They are not in the Apple sample. The defects come from a careful read of the code and of the SDK headers. Apple confirmed only the third one: the article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) says that this occurs in AVCam at a change between photo and video capture.
+
+In chapters 7, 10, and 13, a section with the title "Things to know about the sample" listed weak points of AVCam. Until now, you kept the code as Apple wrote it. In this chapter, you correct four of these points.
+
+The four fixes are small. Together they are approximately 85 new lines. The more important subject of this article is the method: how do you find such defects in code that looks correct and that works each time you try it? In [Build: fix the sample](ch17-build.md), you write the fixes.
+
+## Why sample code has defects
+
+A sample has one job: it shows you how to use an API, on the shortest path. That job explains most of its weak points. The reasons below are probable reasons. Apple does not publish them.
+
+- **A sample follows the normal path.** The person starts a recording and stops it. The person takes one photo and waits. Code for the other paths makes a sample longer and harder to read.
+- **The other paths are hard to produce.** A full disk, a phone call during a recording, two Live Photos that overlap, AirPods: you cannot make these events at a desk in one minute. Code that nobody runs keeps its defects.
+- **A sample grows each year.** AVCam got new features after each WWDC. New code goes around old code, and nobody examines again the old assumptions.
+
+So do not copy a sample into a product without a review. The review has three questions.
+
+1. **What does the contract say?** For each delegate method and each property that the code uses, read the comment in the SDK header. Look for the words "always", "never", "can", and "must". Then compare: does the code handle each case that the contract permits?
+2. **What if this callback arrives at a different time, or never?** Code with callbacks usually assumes one order of events. Go through the other orders. For each continuation, find the code that resumes it on each path. A continuation that nobody resumes blocks its caller without end.
+3. **Where does each state end?** List each thing that the code starts: a timer, a counter, a continuation, a temporary file, a "recording" state in the interface. For each one, find the line that ends it. Then ask if all paths go through that line. For a counter, write down a sequence of events with small numbers.
+
+Each of the four defects in this chapter is the answer to one of these questions.
+
+| Defect | The question that finds it |
+|---|---|
+| A recording that ends by itself is lost | 1 and 2: the header says that the callback also comes after an error. The code expects it only after a stop request. |
+| The Live Photo badge goes off too early | 3: follow the counter through two captures that overlap. |
+| A new movie connection has no rotation angle | 3: the angle is a state of the connection, and the connection ends when the output leaves the session. |
+| The capture sound comes late | 2: what happens between the click and the sound? A capture, a location request, and a save. |
 
 ## How it works
 
-### One session, one camera
+### Defect 1: a recording that ends by itself
 
-A plain `AVCaptureSession` runs one camera at a time. It does not accept a second camera input. The SDK header gives the reason for the subclass: more than one camera needs enough hardware bandwidth, system memory, and thermal performance. A plain session probably uses the full budget for its one camera.
+**The contract.** The movie output writes the file in the background. It tells the app that the file is complete with one delegate method, [`fileOutput(_:didFinishRecordingTo:from:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didfinishrecordingto:from:error:)). The header of [`AVCaptureFileOutput`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput) says these things about it:
 
-In the earlier chapters, this rule was no problem. The app showed one camera, and a change of the camera was a change of the input. For two cameras at the same time, you need a different session.
+- The output calls the method when the recording was stopped by [`stopRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/stoprecording()), or because an error occurred.
+- The output always calls the method one time for each recording request, also when it wrote no data.
+- Do not expect the call on a specific thread.
+- A limit, such as [`maxRecordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedduration), stops the recording, and the method then gets an error.
 
-### The multi-camera session
+A second header, `AVError.h`, has the key [`AVErrorRecordingSuccessfullyFinishedKey`](https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey). Its value in the `userInfo` dictionary of the error is a Boolean number that tells you if the recording is playable. So an error in the callback has two possible meanings: "the file is bad", or "the recording stopped early, and the file is good".
 
-[`AVCaptureMultiCamSession`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) is a subclass of `AVCaptureSession`. It accepts more than one input of the same media type: two cameras, or two microphones. All methods of the plain session also work on it, because it is a subclass. Three things are different:
+**The cause.** This is the delegate of the sample, as you wrote it in chapter 10:
 
-- The class property [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported) tells you if the device can run it. The SDK header says that only devices with enough hardware bandwidth, system memory, and thermal performance support it. The app reads this value one time and hides the dual mode when the value is `false`.
-- Session presets do not apply. A multi-camera session always uses the `inputPriority` preset, so each camera keeps the format that you give it. In chapter 3, the preset selected a format for you. Here, you select it.
-- Not every format works. A format of a camera has the property [`isMultiCamSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported). The session accepts the input only when the active format of the camera has this property set to `true`. So the app sets the format before it adds the input.
+```swift
+func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+    if let error {
+        // If an error occurs, throw it to the caller.
+        continuation?.resume(throwing: error)
+    } else {
+        // Return a new movie object.
+        continuation?.resume(returning: Movie(url: outputFileURL))
+    }
+}
+```
 
-The Apple documentation also gives [`supportedMultiCamDeviceSets`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession/supportedmulticamdevicesets) on a discovery session. It lists the sets of cameras that can run together. Not every pair works. This app does not read the list: it takes the first back camera and the first front camera from the device lookup. The Apple sample uses the same pair. Nobody checked the list for this chapter, because the simulator was the only test device.
+The delegate gets its continuation only inside `stopRecording()`. The code assumes one order of events: the app asks to stop, and then the callback comes. Now go through the other order. The output ends the recording first. The callback comes, `continuation` is `nil`, and the two lines with `continuation?` do nothing.
 
-### Connections by hand
+**The symptom.** Three things go wrong, and the person sees two of them.
 
-In the earlier chapters, you called `addInput(_:)`, and the session did the rest. It made a connection from the camera to each output that accepts video, and to the preview layer. This behavior is good for one camera. For two cameras, it is wrong: each camera would connect to each output, and the session would not know which camera belongs to which preview.
+- The movie is lost. Nobody gets the URL, and the file stays in the temporary directory.
+- The timer continues, because only `stopRecording()` stops it. The interface shows a recording that does not exist.
+- The person taps the button to stop. `stopRecording()` stores a continuation and waits for a callback that came before. The method never returns.
 
-So the app makes each connection itself. The diagram shows the result.
+A second defect is in the same lines. Each error is a failure for this code, also an error that leaves a good file.
 
-![A multi-camera session with connections made by hand. Each camera input has a video port, and one connection links each port to its own preview layer. There are no links between a camera and the preview layer of the other camera.](../images/ch17-connections.svg)
+**The fix.** The new delegate divides the two decisions. First, it makes one `Result` value from the callback. Then it asks who waits for the result.
 
-The steps for one camera are these:
+```swift file=AVCam/Capture/MovieCapture.swift
+            if let continuation {
+                // The app asked to stop the recording. Return the result to the caller.
+                continuation.resume(with: result)
+            } else {
+                // The recording ended by itself. Nobody waits for the result, so report it separately.
+                unexpectedFinishHandler?(result)
+            }
+```
 
-1. Call [`addInputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addinputwithnoconnections(_:)). The input joins the session, but nothing receives its frames yet.
-2. Get the video port of the input. An input has one port for each stream that it supplies. The method `ports(for:sourceDeviceType:sourceDevicePosition:)` returns the ports for one media type, one device type, and one position. A camera input has one video port.
-3. Call [`setSessionWithNoConnection(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/setsessionwithnoconnection(_:)) on the preview layer. The layer knows its session, but the session does not connect it.
-4. Create an `AVCaptureConnection` with [`init(inputPort:videoPreviewLayer:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputport:videopreviewlayer:)). The connection links the port to the layer.
-5. Ask [`canAddConnection(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddconnection(_:)), and then call [`addConnection(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addconnection(_:)).
+![The two paths of the finish callback: the app stops the recording and a continuation waits for the result, or the recording ends by itself and the result goes into a stream](../images/ch17-finish-paths.svg)
 
-For an output, the method is the same. You add the output with [`addOutputWithNoConnections(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutputwithnoconnections(_:)), and you create the connection with [`init(inputPorts:output:)`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:)). This chapter adds no output. The next chapter does.
+The left path is the path of the sample. The right path is new. It has four parts:
 
-### No mirroring and no rotation
+- **A handler on the delegate.** `startRecording()` gives each new delegate a closure. The closure stops the timer, releases the delegate, and writes the result into a stream.
+- **A stream.** `MovieCapture` has an [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) with the name `unexpectedResults`. The capture service passes it on as `unexpectedRecordingResults`.
+- **A reader.** A task in the model reads the stream. It saves each movie, or it stores the error.
+- **A guard in `stopRecording()`.** When the output does not record, no callback can come. The method then throws the new `notRecording` error immediately, and it does not store a continuation that nobody can resume.
 
-A connection that the session makes mirrors the preview of a camera with the front position. The SDK header says that the automatic adjustment is on by default. But in the first test of this chapter, the connections that the app made did not do this: the front preview was not mirrored, and the back preview was mirrored, because its layer kept an old setting. The rotation angle is never automatic. In chapter 2, the app set the angle of the single preview itself.
+This method decides if an error leaves a usable file:
 
-So the app sets both values on each connection:
+```swift file=AVCam/Capture/MovieCapture.swift
+        private func isMovieUsable(after error: Error) -> Bool {
+            let userInfo = (error as NSError).userInfo
+            return userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
+        }
+```
 
-- It sets [`automaticallyAdjustsVideoMirroring`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring) to `false`, and then [`isVideoMirrored`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored) to `true` for the front camera only. The order matters: the second assignment raises an exception while the first value is `true`. Chapter 16 gave you this rule. Here, the rule uses the position of the camera, because the dual mode has no direction coordinator.
-- It creates an [`AVCaptureDevice.RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator) for the camera and the layer, and gives the connection the preview angle, as chapter 2 did for the single preview. The app sets the angle one time. It does not observe later changes of the angle in the dual mode.
+**How to test.** A time limit is the easiest way to make a recording end by itself. One temporary line, `movieOutput.maxRecordedDuration = CMTime(seconds: 3, preferredTimescale: 600)`, ends each recording after 3 seconds. The tutorial page has this experiment.
 
-### Two costs
+**What was verified.** The author of the code ran this test in the Simulator with SimCam. After 3 seconds, the recording ended, the timer went back to 00:00:00, the button returned to its idle form, the thumbnail appeared, and the movie was in the Photos library. A normal start and stop still saved the movie. A size limit, a full disk, and an interruption use the same path in the code, but nobody tested them.
 
-Two cameras use more of the hardware than one camera. The session tells you how much, with two numbers:
+### Defect 2: the Live Photo badge
 
-- [`hardwareCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost) is the part of the hardware budget that the configuration uses. Above 1.0, the session cannot run.
-- [`systemPressureCost`](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost) is the system pressure load. Above 1.0, the session cannot run for a long time, and the system stops it when the pressure becomes critical.
+**The symptom.** With responsive capture, a person can take a second Live Photo while the movie of the first one still records. The "LIVE" badge then goes off when the first movie stops, although the second movie still records. [Chapter 7](ch07-concepts.md#things-to-know-about-the-sample) described this.
 
-The formats of the two cameras set the costs. The SDK header names the contributors: a format that uses the full sensor, a high maximum frame rate, and a format that is not binned. The Apple sample also counts the video ports. This app keeps the costs low with its format selection: the largest multi-camera format up to 1920 pixels wide, with the highest frame rate at that width. Then it writes the two costs to the log and does nothing else with them.
+**The cause.** `PhotoCapture` has a counter, `livePhotoCount`, of the Live Photo captures that are in progress. When a capture reports a change, the code adds 1 or subtracts 1. Then it forces the badge on if other captures are in progress. The sample tests this with `livePhotoCount > 1`. Follow the counter through two captures, A and B:
 
-The Apple sample does more. After the configuration, it reads the two costs. When a cost is above 1.0, it reduces the resolution of a format, the number of video ports, or the frame rate, one step at a time, until each cost fits. It also observes the system pressure state while the session runs, and lowers the frame rate under pressure. This is the correct behavior for a shipping app.
+| Event | Counter | Badge with `> 1` | Badge with `> 0` |
+|---|---|---|---|
+| A begins | 1 | on | on |
+| B begins | 2 | on | on |
+| The movie of A stops | 1 | **off** | on |
+| The movie of B stops | 0 | off | off |
 
-### The start blocks
+In the third row, the counter is 1 after the subtraction. That 1 is capture B. The test `1 > 1` is `false`, so the code publishes the value of capture A, which says "not live".
 
-[`startRunning()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning()) is a blocking call on each session. On a multi-camera session, it can block for a longer time, because two cameras must start. The Apple sample tells you never to call it on the main queue. This app calls it on the `CaptureService` actor, which is the rule of chapter 1 for all session calls. In the simulator, the second preview showed its first frame up to 20 seconds after the first preview.
+**The fix.** The counter already contains the change of the capture that reported it. So "a different capture is in progress" is `> 0`:
+
+```swift file=AVCam/Capture/PhotoCapture.swift
+                    if livePhotoCount > 0 {
+                        /// Set `isLivePhoto` to `true` while another Live Photo is still in progress.
+                        /// This prevents the "Live" badge in the UI from flickering.
+                        currentActivity = .photoCapture(willCapture: activity.willCapture, isLivePhoto: true)
+                    }
+```
+
+Apple's article [Capturing and saving Live Photos](https://developer.apple.com/documentation/avfoundation/capturing-and-saving-live-photos) gives the same rule: hide the indicator only when the number of captures in progress is zero.
+
+**How to test.** On a real iPhone, take two Live Photos quickly, one after the other, and look at the badge.
+
+**What was verified.** Nothing at run time. Live Photo capture does not work in the Simulator. The fix follows from the table above.
+
+### Defect 3: the rotation angle of a new connection
+
+**The symptom.** Turn the iPhone to landscape in photo mode, change to video mode, and record immediately. The movie can have the wrong orientation. [Chapter 10](ch10-concepts.md#things-to-know-about-the-sample) described this.
+
+**The cause.** The rotation angle of a capture is a property of a connection: [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle). The capture service sets it at two moments: when it makes the [`RotationCoordinator`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator), and when the coordinator reports a new angle. But a connection lives only while its output is in the session. In photo mode, the movie output is not in the session. Each change to video mode calls [`addOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:)), and that makes a new connection. The new connection has a default angle, not the current angle. It gets the correct angle only at the next rotation of the device or at the next change of camera.
+
+**The fix.** Apply the current angle immediately after the output is in the session:
+
+```swift file=AVCam/CaptureService.swift
+            try addOutput(movieCapture.output)
+            // Adding the output creates a new connection. Give it the current capture rotation angle.
+            updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)
+```
+
+The coordinator always has the current value in [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture). You do not need to wait for a change.
+
+**How to test.** On a real iPhone: landscape, change to video mode, record, and open the movie in the Photos app.
+
+**What was verified.** Nothing at run time. The Simulator does not show the orientation of a capture. In the Simulator, the change of mode and a recording still work with the new line. Apple's article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) confirms the cause: an output that the app adds starts at a default angle, not at the current angle, and this occurs in AVCam at a change between photo and video capture. This tutorial did not measure the default angle, so it does not say how the movie looks without the fix.
+
+### Defect 4: the late capture sound
+
+**The symptom.** A person with AirPods clicks the stem to take a photo. The shutter sound comes late, after the app saved the photo. In an unusual case, it does not come. [Chapter 13](ch13-concepts.md#things-to-know-about-the-sample) described this, with a diagram.
+
+**The cause.** The app disabled the default sound, so it must play a sound itself with [`play(_:)`](https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:)). In the sample, this call is the last statement of the closure. Before it, the closure waits for `camera.capturePhoto()`. That method waits for the capture, for a location, and for the save to the Photos library. The header of the event says that `play(_:)` does nothing when the event is older than 15 seconds.
+
+**The fix.** The new closure has three parts in a new order: select the sound, play the sound, capture.
+
+```swift file=AVCam/CameraView.swift
+                            // Play a sound when capturing by clicking an AirPods stem. Play it before
+                            // the capture, so that the person hears it at the moment of the click.
+                            if event.shouldPlaySound {
+                                event.play(sound)
+                            }
+                            switch camera.captureMode {
+                            case .photo:
+                                // Capture a photo when pressing a hardware button.
+                                await camera.capturePhoto()
+                            case .video:
+                                // Toggle video recording when pressing a hardware button.
+                                await camera.toggleRecording()
+                            }
+```
+
+The first `switch` statement of the closure stays. It selects the sound, and in video mode it reads `isRecording` before the recording state changes.
+
+**How to test.** On a real iPhone with AirPods that support the camera remote: click the stem and listen for the moment of the sound.
+
+**What was verified.** Nothing at run time. The Simulator sends no capture events, and nobody tested with AirPods.
 
 ## What the camera can do
 
-The multi-camera API offers more than this chapter uses:
+The first fix uses a small part of what the movie output offers for the end of a recording.
 
-- **Device sets.** `supportedMultiCamDeviceSets` tells you which cameras can run together. On some devices, two back cameras can probably run at the same time. The app uses the back camera and the front camera only.
-- **Data outputs.** An [`AVCaptureVideoDataOutput`](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput) for each camera gives your code the frames. The Apple sample connects one to each camera, and a Metal shader draws the small picture into the large picture. This app has no data output. It shows the cameras, and it captures nothing in the dual mode.
-- **A movie from two cameras.** The Apple sample writes the mixed frames and the audio with an [`AVAssetWriter`](https://developer.apple.com/documentation/avfoundation/avassetwriter), not with a movie file output, because the mixed frames exist in no connection.
-- **Two microphones.** A multi-camera session accepts the microphone one time, with two [`AVCaptureAudioDataOutput`](https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput) objects. The SDK header says that the microphone input has hidden ports, one for each direction, which `ports(for:sourceDeviceType:sourceDevicePosition:)` finds. The Apple sample connects the back port and the front port to one audio data output each. It records one audio track: the sound from the side of the camera in the small picture.
-- **Cost control.** The two cost properties, and the system pressure state of a camera, give an app the data to reduce the load before the system stops the session.
+| Capability | What it does | In this tutorial |
+|---|---|---|
+| The finish callback | The output calls it one time for each recording, after a stop request, an error, or a limit. | This chapter handles the two paths. |
+| `AVErrorRecordingSuccessfullyFinishedKey` | A Boolean value in the error of the finish callback: is the file playable? | This chapter |
+| `maxRecordedDuration` | A hard time limit. The default value is "no limit". | The experiment only |
+| [`maxRecordedFileSize`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedfilesize) | A hard size limit in bytes. The default value 0 means "no limit". | Not in AVCam |
+| [`minFreeDiskSpaceLimit`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/minfreediskspacelimit) | The recording stops when the free space on the disk falls below this number of bytes. A recording can then end in a controlled way before the disk is full. | Not in AVCam |
+| Pause and resume | [`pauseRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/pauserecording()) and [`resumeRecording()`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/resumerecording()) put more than one segment into one file (iOS 18). A change of format or device stops the recording, also during a pause. | Not in AVCam |
+| The start callback | [`fileOutput(_:didStartRecordingTo:from:)`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didstartrecordingto:from:)) tells you when the output really writes. An app can show its recording state at that moment. The header says that this call possibly does not come when an error prevents all writing. | Not in AVCam |
+| [`recordedDuration`](https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/recordedduration) | The duration of the file until now. The output also has `recordedFileSize`. | The timer from chapter 10 |
+| [`movieFragmentInterval`](https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/moviefragmentinterval) | The output writes the movie in fragments, by default each 10 seconds. With fragments, a file stays readable when the recording ends in a crash. | Default value |
+| One recording at a time | On iOS, the movie output makes one recording at a time. A second start request during a recording fails. | The guard in `startRecording()` |
 
-Chapter 18 adds the data outputs, the Metal mixer, the asset writer, and the microphone to this app.
+**Errors that can leave a usable movie.** The research for this tutorial names these causes: a time limit ([`maximumDurationReached`](https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/maximumdurationreached)), a size limit (`maximumFileSizeReached`), a full disk (`diskFull`), and an interruption of the session. The header does not say which error code comes with a usable file. So do not decide by the code. Read the key.
 
-## Why this app does it this way
+Capabilities that are related to the other three fixes:
 
-**A second session, not a replacement.** The app could replace its `AVCaptureSession` with an `AVCaptureMultiCamSession` and run one session in all modes. It does not. The photo mode and the video mode keep their session, their presets, their deferred start, and their outputs, which chapters 3 to 15 built. The `MultiCamCapture` object owns a second session. Two sessions probably cannot use the cameras at the same time, so the capture service stops one session before it starts the other. The cost is a short black screen at each change of the mode.
+| Capability | What it does | In this tutorial |
+|---|---|---|
+| An angle for each new output | Apple's article [Supporting device rotation in your camera app](https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app) describes a newer design. There, the method that adds an output applies the stored capture angle to each new output. | This chapter does it for the movie output only. |
+| The default sound | Without `defaultSoundDisabled: true`, the system plays one default tone for a stem click, and the app plays nothing. | Not in AVCam |
+| A custom sound | [`AVCaptureEventSound`](https://developer.apple.com/documentation/avkit/avcaptureeventsound) can also play a sound file from the app bundle. | Not in AVCam |
+| [`shouldPlaySound`](https://developer.apple.com/documentation/avkit/avcaptureevent/shouldplaysound) | `true` only for a stem click when the app disabled the default sound. For a volume button, it is `false`. | Chapter 13 |
 
-**The single preview stays in place.** `CaptureService` connects the preview layer of `CameraPreview` during the setup, and later code reads this connection. So the view stays in the view tree in each mode. In the dual mode, `DualCameraPreview` covers it as an overlay.
+## Why this design
 
-**The preview views come first.** The two preview layers belong to UIKit views, and the views exist only when SwiftUI shows them. So the service cannot configure the multi-camera session during its setup. It waits for the views: `DualPreviewSource.connect(back:front:)` gives the two layers to the service, and the service configures the session then. A launch directly in the dual mode and a change to the dual mode both go through this method.
+**A second path, not a new design.** The fix keeps the path of the sample: `toggleRecording()` calls `stopRecording()`, waits, and saves the movie. It adds one path for the results that nobody waits for. The change is small, and you can see what is from Apple and what is new. The cost is two places that save a movie: `toggleRecording()` and the new task.
 
-**Position, not direction.** Chapter 16 mirrored the preview by the direction of the camera. The dual mode has two previews and no direction coordinator. It mirrors the front position, as the automatic setting does. On iPhone Duo, this can be wrong after a person closes the device. A direction coordinator for each preview view is a task for later.
+**Why a stream.** An unexpected result is an event that the model did not ask for. It can come at any time, and more than one can come while the app runs. The model reads all other events of the capture service with `for await` loops in `observeState()`. A stream has the same form. With the default buffering policy of [`makeStream(of:bufferingPolicy:)`](https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:)), the stream also keeps each result until the reader takes it.
 
-**A fallback at the start.** The app stores the last mode. A person can select the dual mode on one device, and the state can go to a device without support. So `start(with:)` changes a stored dual mode to the photo mode when `isMultiCamSupported` is `false`.
+The alternatives:
 
-**One file for the session, one file for the views.** `MultiCamCapture` has the AVFoundation code. `DualCameraPreview` has the SwiftUI view, a `UIViewRepresentable`, and a container view that lays out the two preview views. The container does the layout in UIKit, with a frame for each preview, because the preview views are UIKit views and an animation of two frames is simple there.
+| Design | How it works | Why not here |
+|---|---|---|
+| One stream for all finished recordings | `stopRecording()` only asks the output to stop. Each result, expected or not, comes through the stream. | This is the cleaner design: one path, no continuation that can stay open. But it changes `toggleRecording()` and removes the `async` form of the sample. For new code, it is a good choice. |
+| Keep the result on the delegate | The delegate stores an early result. A later call of `stopRecording()` returns it. | The movie waits until the person taps the button. Until then, the interface shows a recording, or the app needs a separate signal to reset it. |
+| A `@Published` property | `MovieCapture` publishes the last unexpected result. | A published property keeps one value and gives it to each new subscriber. A result is an event, not a state: the model must get each one exactly one time. |
+| Observe the session | Interruption notifications, or key-value observation of `isRecording`, tell the app that a recording ended. | They do not give you the file and the error. Only the delegate callback does, and only that call says that the file is complete. |
+
+**Why `Result`.** A recording that ends by itself can also fail. An `AsyncStream` cannot throw, so the error goes through the stream as a value. In the model, `result.get()` changes it back into a thrown error, and one `catch` block handles a bad recording and a bad save.
+
+**Why a closure on the delegate.** The delegate does not know `MovieCapture`. It only knows "nobody waits, so call this". The closure captures `self` weakly, because the service keeps the delegate and the delegate keeps the closure.
+
+**Why `notRecording` is an error.** `stopRecording()` must return a movie or throw. When there is no recording, it has no movie. The model stores the error, as it does for each capture error.
+
+**Why the fix for the angle is one line.** After the setup, `setCaptureMode(_:)` is the only place that adds an output. A more general fix is in `addOutput(_:)`, as in Apple's newer article. In this app, the two do the same thing.
+
+**Why the sound comes first.** The sound is feedback for a person who does not look at the screen. Its job is to confirm the click, not the result. The cost: the person hears the sound also when the capture fails after it.
+
+## What this chapter does not fix
+
+The four fixes do not make the sample free of defects. These points stay. They are ideas for your own work.
+
+- **The capture activity never returns to idle after a photo.** The last value of the progress stream stays in `captureActivity`. See [chapter 3](ch03-concepts.md#things-to-know-about-the-sample).
+- **A photo processing error can get lost.** The photo delegate writes the error to the log. The caller then gets the general error "no photo data", not the cause.
+- **`MovieCapture` writes state from more than one thread.** The timer writes `captureActivity` on the main thread. The new handler writes `captureActivity` and `delegate` on the thread of the delegate callback. The capture service calls the object from the session queue. This compiles in the Swift 5 language mode. It is not correct for strict concurrency.
+- **`CameraState` has HDR on by default.** See [chapter 15](ch15-concepts.md#things-to-know-about-the-sample).
+- **A failed save leaves a file.** When the Photos library refuses a movie or a photo, nobody deletes the file in the temporary directory. This is also true for a movie from the new path.
+- **The badge has one more gap.** The code forces the badge on only when a capture changes its "live" value. From a read of the code, a photo without Live Photo that begins while a Live Photo still records publishes "not live", and the badge goes off. Nobody tested this.
+- **A late tap can store an error.** From a read of the code: if the person taps the button in the moment after the recording ended by itself, the model can still call `stopRecording()`. The method then throws `notRecording`, and the model stores this error. The movie is still saved through the stream.
+
+The sections "Things to know about the sample" of the earlier chapters have more points.
 
 ## Common mistakes
 
-- **`addInput(_:)` on a multi-camera session.** The session connects the camera to each output and to the preview layer. The second camera then has no place to go, or both cameras go to the same output. Use `addInputWithNoConnections(_:)` and make the connections.
-- **A format that is not a multi-camera format.** The SDK header says that the active format must be one with `isMultiCamSupported`. Set such a format before you add the input.
-- **A session preset on a multi-camera session.** The session ignores it. Select the format of each camera yourself.
-- **A preview layer with `session` set.** The property makes a connection. Use `setSessionWithNoConnection(_:)`, and then add your own connection.
-- **No mirroring and no rotation.** In the test, a connection that the app made did not mirror the front camera, and no connection gets a rotation angle by itself. Set `automaticallyAdjustsVideoMirroring` to `false` first, then `isVideoMirrored`, and give the connection a rotation angle.
-- **Two sessions that run at the same time.** The second session probably cannot get the camera. Stop one session before you start the other.
-- **`startRunning()` on the main actor.** The call blocks, and the interface stops. Call it on the actor that owns the session.
-- **A cost above 1.0 that nobody reads.** On a real device, two large formats can exceed the budget, and the session does not run. Read the two costs after the configuration, and reduce the formats when a cost is too high.
-- **A test in the simulator only.** The simulator reported a cost of 0 for the configuration of this app, and it ran the two simulated cameras together. Test the dual mode on a real iPhone before you ship it.
+- **You set a continuation only in the "stop" method and expect that the callback comes after it.** Each path to the callback must resume the continuation, or must have a different place for the result.
+- **You store a continuation when no callback can come.** Test first if the operation still runs. If it does not, resume the continuation immediately.
+- **You resume a continuation two times.** A checked continuation stops the app in this case. In the new delegate, the `if` statement makes sure that each result goes to one place only.
+- **You make a failure from each error of the finish callback.** Read `AVErrorRecordingSuccessfullyFinishedKey` first. A recording that reached a limit can be a good movie.
+- **You use the movie file before the finish callback.** The output writes the last data in the background. The file is complete only when the callback arrives.
+- **You stop the timer only in the "stop" method.** Each path that ends the recording must also end the recording state of the interface.
+- **You count from 1 when the counter already contains the current item.** Write down the sequence with small numbers before you select `> 0` or `> 1`.
+- **You set a property of a connection one time and expect that it stays.** A connection ends when its output or its input leaves the session. Apply the settings again after each `addOutput(_:)`.
+- **You put feedback behind an `await`.** Sounds and visual feedback come first. Slow work comes after them.
+- **You leave a test line in the code.** A line such as the 3-second limit of the experiment changes each recording. Remove it before you continue.
+- **You call a defect "confirmed" after a read of the code.** A read gives you a hypothesis. Only a test on a device confirms it. Three of the four fixes in this chapter are not tested.
+
+> [!NOTE]
+> The Simulator with SimCam shows the result of the first fix only. The Live Photo badge, the orientation of a movie, and the AirPods sound need a real iPhone. The tutorial page tells you how to test them.
 
 ## Documentation
 
 ```links
-AVCaptureMultiCamSession | https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession | The session subclass that runs more than one camera.
-isMultiCamSupported | https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/ismulticamsupported | The class property that tells you if the device can run a multi-camera session.
-Format.isMultiCamSupported | https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported | The property that tells you if a format works in a multi-camera session.
-supportedMultiCamDeviceSets | https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession/supportedmulticamdevicesets | The sets of cameras that can run together.
-addInputWithNoConnections(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/addinputwithnoconnections(_:) | Adds an input and makes no connection.
-addOutputWithNoConnections(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutputwithnoconnections(_:) | Adds an output and makes no connection.
-setSessionWithNoConnection(_:) | https://developer.apple.com/documentation/avfoundation/avcapturevideopreviewlayer/setsessionwithnoconnection(_:) | Gives a preview layer its session and makes no connection.
-AVCaptureConnection(inputPort:videoPreviewLayer:) | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputport:videopreviewlayer:) | A connection from one port to a preview layer.
-AVCaptureConnection(inputPorts:output:) | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/init(inputports:output:) | A connection from ports to an output.
-canAddConnection(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddconnection(_:) | Tells you if the session accepts a connection.
-addConnection(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/addconnection(_:) | Adds a connection that you made.
-automaticallyAdjustsVideoMirroring | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/automaticallyadjustsvideomirroring | The property that lets a connection decide the mirroring from the position.
-isVideoMirrored | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/isvideomirrored | The property that mirrors the video of a connection.
-hardwareCost | https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/hardwarecost | The part of the hardware budget that the configuration uses.
-systemPressureCost | https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession/systempressurecost | The thermal and power load of the configuration.
-startRunning() | https://developer.apple.com/documentation/avfoundation/avcapturesession/startrunning() | The blocking call that starts a session.
-AVCaptureVideoDataOutput | https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput | The output that gives your code the frames of a camera.
-AVCaptureAudioDataOutput | https://developer.apple.com/documentation/avfoundation/avcaptureaudiodataoutput | The output that gives your code the samples of a microphone.
-AVAssetWriter | https://developer.apple.com/documentation/avfoundation/avassetwriter | The object that writes frames and samples to a movie file.
-AVMultiCamPiP sample | https://developer.apple.com/documentation/avfoundation/avmulticampip-capturing-from-multiple-cameras | The Apple sample that this chapter borrows the connection code from.
-WWDC19 session 225 | https://developer.apple.com/videos/play/wwdc2019/225/ | Introducing Multi-Camera Capture for iOS.
-Concepts: iPhone Duo | ch16-concepts.md | The mirroring rule and the direction of a camera.
-Concepts: the session | ch01-concepts.md | The session, the inputs, the outputs, and the capture actor.
-Build: two cameras at once | ch17-build.md | The tutorial for this chapter.
+AVCaptureFileOutput | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput | The superclass of the movie output, with start, stop, pause, and the limits.
+AVCaptureFileOutputRecordingDelegate | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate | The callbacks for one recording.
+fileOutput(_:didFinishRecordingTo:from:error:) | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didfinishrecordingto:from:error:) | The finish callback, which the output always calls.
+AVErrorRecordingSuccessfullyFinishedKey | https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey | The key that tells you if a recording with an error is playable.
+AVError.Code.maximumDurationReached | https://developer.apple.com/documentation/avfoundation/averror-swift.struct/code/maximumdurationreached | The error code for a recording that reached its time limit.
+maxRecordedDuration | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedduration | The time limit of a recording.
+maxRecordedFileSize | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/maxrecordedfilesize | The size limit of a recording.
+minFreeDiskSpaceLimit | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/minfreediskspacelimit | The free disk space below which a recording stops.
+stopRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/stoprecording() | The stop request. The file is complete only after the finish callback.
+pauseRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/pauserecording() | Pause a recording (iOS 18).
+resumeRecording() | https://developer.apple.com/documentation/avfoundation/avcapturefileoutput/resumerecording() | Continue a paused recording (iOS 18).
+fileOutput(_:didStartRecordingTo:from:) | https://developer.apple.com/documentation/avfoundation/avcapturefileoutputrecordingdelegate/fileoutput(_:didstartrecordingto:from:) | The callback for the moment when the output starts to write.
+movieFragmentInterval | https://developer.apple.com/documentation/avfoundation/avcapturemoviefileoutput/moviefragmentinterval | The fragment interval, and why fragments exist.
+AsyncStream | https://developer.apple.com/documentation/swift/asyncstream | The stream type for the unexpected results.
+makeStream(of:bufferingPolicy:) | https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:) | The method that makes a stream and its continuation together.
+CheckedContinuation | https://developer.apple.com/documentation/swift/checkedcontinuation | The continuation type, which must be resumed exactly one time.
+withCheckedThrowingContinuation(isolation:function:_:) | https://developer.apple.com/documentation/swift/withcheckedthrowingcontinuation(isolation:function:_:) | The function that connects a callback to `async` code.
+Capturing and saving Live Photos | https://developer.apple.com/documentation/avfoundation/capturing-and-saving-live-photos | The Apple article with the rule for the Live Photo indicator.
+Supporting device rotation in your camera app | https://developer.apple.com/documentation/avfoundation/supporting-device-rotation-in-your-camera-app | The Apple article with a newer rotation design, which applies the angle to each new output.
+AVCaptureDevice.RotationCoordinator | https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator | The object that supplies the preview angle and the capture angle.
+videoRotationAngle | https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle | The rotation angle of one connection.
+addOutput(_:) | https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:) | The method that adds an output and makes its connections.
+AVCaptureEvent | https://developer.apple.com/documentation/avkit/avcaptureevent | The event of a hardware button or an AirPods stem.
+play(_:) | https://developer.apple.com/documentation/avkit/avcaptureevent/play(_:) | The method that plays a capture sound through AirPods.
+AVCaptureEventSound | https://developer.apple.com/documentation/avkit/avcaptureeventsound | The system sounds and custom sounds for capture events.
+WWDC25: Enhancing your camera experience with capture controls | https://developer.apple.com/videos/play/wwdc2025/253/ | The session about capture events and the AirPods remote.
+Concepts: photo features | ch07-concepts.md | The chapter that introduced the Live Photo badge and its counter.
+Concepts: record video | ch10-concepts.md | The chapter that introduced the movie output and the recording delegate.
+Concepts: hardware buttons and AirPods | ch13-concepts.md | The chapter that introduced capture events and their sounds.
+Build: fix the sample | ch17-build.md | The tutorial for this chapter.
 ```
