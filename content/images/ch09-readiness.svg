@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 470">
+  <title>Top: the three stages of one photo capture on a time line, and the five readiness values that the photo output can report during it. Filled bars are the states in which the capture button is dim and disabled. Bottom: the way a readiness value goes from the photo output through the coordinator, the observer, the capture service, and the model to the button.</title>
+
+  <text x="16" y="24" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">One capture and its readiness values (a typical order)</text>
+
+  <!-- Time axis: stages -->
+  <text x="16" y="66" font-family="inherit" font-size="13" fill="var(--muted)">Stage</text>
+  <text x="330" y="46" font-family="inherit" font-size="13" text-anchor="middle" fill="var(--muted)">Tap</text>
+  <rect x="330" y="50" width="70" height="28" rx="5" fill="var(--accent)"/>
+  <rect x="400" y="50" width="140" height="28" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <rect x="540" y="50" width="80" height="28" rx="5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <g font-family="inherit" font-size="13" text-anchor="middle">
+    <text x="365" y="69" fill="var(--surface)">capture</text>
+    <text x="470" y="69" fill="currentColor">process</text>
+    <text x="580" y="69" fill="currentColor">encode</text>
+  </g>
+
+  <!-- Guides -->
+  <g stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none">
+    <path d="M330 80 V268"/>
+    <path d="M620 80 V268"/>
+  </g>
+
+  <!-- State rows -->
+  <g font-family="inherit" font-size="13" fill="currentColor">
+    <text x="16" y="108">sessionNotRunning</text>
+    <text x="16" y="146">ready</text>
+    <text x="16" y="184">notReadyMomentarily</text>
+    <text x="16" y="222">notReadyWaitingForCapture</text>
+    <text x="16" y="260">notReadyWaitingForProcessing</text>
+  </g>
+  <g stroke="var(--line)" stroke-width="1" fill="none">
+    <path d="M16 118 H704"/>
+    <path d="M16 156 H704"/>
+    <path d="M16 194 H704"/>
+    <path d="M16 232 H704"/>
+  </g>
+  <!-- Outlined: the button stays as it is -->
+  <rect x="250" y="94" width="50" height="20" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="300" y="132" width="30" height="20" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="620" y="132" width="84" height="20" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="330" y="170" width="24" height="20" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <!-- Filled: the button is dim and disabled -->
+  <rect x="354" y="208" width="46" height="20" rx="4" fill="var(--accent)"/>
+  <rect x="400" y="246" width="220" height="20" rx="4" fill="var(--accent)"/>
+
+  <!-- Legend -->
+  <rect x="16" y="286" width="28" height="14" rx="3" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="52" y="298" font-family="inherit" font-size="13" fill="currentColor">The button stays as it is.</text>
+  <rect x="270" y="286" width="28" height="14" rx="3" fill="var(--accent)"/>
+  <text x="306" y="298" font-family="inherit" font-size="13" fill="currentColor">The button is dim and disabled.</text>
+
+  <path d="M16 322 H704" stroke="var(--line)" stroke-width="1.5" fill="none"/>
+
+  <!-- Data path -->
+  <text x="16" y="352" font-family="inherit" font-size="15" font-weight="600" fill="currentColor">The way one value reaches the button</text>
+  <defs>
+    <marker id="ch09-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+  <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+    <rect x="16" y="372" width="140" height="48" rx="6"/>
+    <rect x="196" y="372" width="140" height="48" rx="6"/>
+    <rect x="376" y="372" width="140" height="48" rx="6"/>
+    <rect x="556" y="372" width="140" height="48" rx="6"/>
+  </g>
+  <g font-family="inherit" font-size="13" text-anchor="middle" fill="currentColor">
+    <text x="86" y="392">Photo output</text>
+    <text x="86" y="410">and coordinator</text>
+    <text x="266" y="392">ReadinessObserver</text>
+    <text x="266" y="410">AsyncStream</text>
+    <text x="446" y="392">PhotoCapture and</text>
+    <text x="446" y="410">CaptureService</text>
+    <text x="626" y="392">CameraModel</text>
+    <text x="626" y="410">and the button</text>
+  </g>
+  <g stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#ch09-arrow)">
+    <path d="M158 396 H192"/>
+    <path d="M338 396 H372"/>
+    <path d="M518 396 H552"/>
+  </g>
+  <g font-family="inherit" font-size="13" text-anchor="middle" fill="var(--muted)">
+    <text x="176" y="442">main queue</text>
+    <text x="446" y="442">actor</text>
+    <text x="626" y="442">main actor</text>
+  </g>
+  <text x="16" y="462" font-family="inherit" font-size="13" fill="var(--muted)">The coordinator calls its delegate on the main queue. The stream carries the value to the actor.</text>
+</svg>

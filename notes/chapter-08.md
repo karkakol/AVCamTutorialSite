@@ -1,6 +1,6 @@
 # Chapter 8 hand-off notes: RAW and Apple ProRAW (code by a Sonnet agent)
 
-Branch `chapter-08-raw`, start `chapter-07`. One commit `c16d761`. Full change: `git -C ../AVCamTutorialApp diff chapter-07 chapter-08-raw` (7 files, 143 added, 8 removed lines). No new files, so the project file does not change. Decisions from `docs/PLAN-raw-and-fast-capture.md` and `research/08-raw.md`.
+Branch `chapter-08`, start `chapter-07`. One commit `c16d761`. Full change: `git -C ../AVCamTutorialApp diff chapter-07 chapter-08` (7 files, 143 added, 8 removed lines). No new files, so the project file does not change. Decisions from `docs/PLAN-raw-and-fast-capture.md` and `research/08-raw.md`.
 
 ## Result and verification
 - Build for the iPhone 18 Pro simulator (iOS 27.1 SDK): `BUILD SUCCEEDED`, no warnings (checked with a full, non-quiet build and a filter for `warning:` and `error:`).

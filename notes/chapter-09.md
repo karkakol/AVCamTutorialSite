@@ -1,6 +1,6 @@
 # Chapter 9 hand-off notes: fast capture and the readiness coordinator (code by a Sonnet agent)
 
-Branch `chapter-09-fast`, start `chapter-08-raw`. Full change: `git -C ../AVCamTutorialApp diff chapter-08-raw chapter-09-fast` (about 140 added lines, 7 files, one commit). Source: WWDC23 session 10105 and `research/09-fast-capture.md`. Do not copy Apple's text.
+Branch `chapter-09`, start `chapter-08`. Full change: `git -C ../AVCamTutorialApp diff chapter-08 chapter-09` (about 140 added lines, 7 files, one commit). Source: WWDC23 session 10105 and `research/09-fast-capture.md`. Do not copy Apple's text.
 
 Note: this file replaces the old `notes/chapter-09.md` (the HDR video chapter, now chapter 11 in the new numbering). The old text is in git history (commit 5447dd1).
 
