@@ -27,7 +27,7 @@ The repair needs a second way for a result to leave `MovieCapture`. In this sect
 ### Step
 In `MovieCapture.swift`, add the `MovieCaptureError` enumeration above the `MovieCapture` class.
 
-`stopRecording()` needs an error for the case in which there is no recording to stop. `PhotoCapture.swift` has an enumeration of the same form, `PhotoCaptureError`.
+`stopRecording()` needs an error for the case in which there is no recording to stop. Write `enum MovieCaptureError: Error` with one case, `notRecording`. `PhotoCapture.swift` has an enumeration of the same form, `PhotoCaptureError`. Put the enumeration above the doc comment `/// An object that manages …`, so that the comment stays with the class.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=4-6
 import AVFoundation
@@ -45,6 +45,8 @@ final class MovieCapture: OutputService {
 Below the `isHDRSupported` property, add the `unexpectedResults` stream and its continuation.
 
 An [`AsyncStream`](https://developer.apple.com/documentation/swift/asyncstream) gives values to one reader during a period of time. Its continuation is the end into which you write. Each value is a `Result`, because a recording that ends by itself can also fail, and the model must know about the two cases.
+
+Write two constants: `let unexpectedResults: AsyncStream<Result<Movie, Error>>` and `private let unexpectedResultsContinuation: AsyncStream<Result<Movie, Error>>.Continuation`. The stream is not private, because the capture service reads it in section 3. Only this class writes into the continuation.
 
 Xcode shows an error now, because the two constants have no value. The next step corrects this.
 
@@ -66,6 +68,8 @@ Add an initializer that makes the stream and stores its two parts.
 
 [`makeStream(of:bufferingPolicy:)`](https://developer.apple.com/documentation/swift/asyncstream/makestream(of:bufferingpolicy:)) returns the stream and the continuation together. The photo capture delegate from chapter 3 makes its activity stream in the same way. With the default buffering policy, the stream keeps each value until the reader takes it. Thus a result that arrives before the reader is ready is not lost.
 
+Write `init()` with no parameters. Its first line takes the two parts into a tuple: `let (unexpectedResults, continuation) = AsyncStream.makeStream(of: Result<Movie, Error>.self)`. The next two lines store them in the two constants, with `self.` in front.
+
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=4-8
     let unexpectedResults: AsyncStream<Result<Movie, Error>>
     private let unexpectedResultsContinuation: AsyncStream<Result<Movie, Error>>.Continuation
@@ -82,7 +86,7 @@ Add an initializer that makes the stream and stores its two parts.
 ### Step
 In the `MovieCaptureDelegate` class, add the `unexpectedFinishHandler` property below the `continuation` property.
 
-The delegate now has two ways to give its result away. The continuation is for a caller that waits in `stopRecording()`. The closure is for the case in which nobody waits. A closure keeps the delegate simple: the delegate does not know the `MovieCapture` object or the stream.
+The delegate now has two ways to give its result away. The continuation is for a caller that waits in `stopRecording()`. The closure is for the case in which nobody waits. A closure keeps the delegate simple: the delegate does not know the `MovieCapture` object or the stream. Write `var unexpectedFinishHandler: ((Result<Movie, Error>) -> Void)?`. It is an optional variable, as `continuation` is, because the delegate gets it after its creation.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=7-8
     // MARK: - Movie capture delegate
@@ -117,6 +121,8 @@ At the end of the `MovieCaptureDelegate` class, below the `fileOutput` method, a
 
 An error in the callback does not always mean a bad file. The `userInfo` dictionary of the error can contain [`AVErrorRecordingSuccessfullyFinishedKey`](https://developer.apple.com/documentation/avfoundation/averrorrecordingsuccessfullyfinishedkey). The header says that its value is a Boolean number that tells you if the recording is playable. When the key is not there, the method returns `false`, which is the safe answer.
 
+The signature is `private func isMovieUsable(after error: Error) -> Bool`. A Swift `Error` has no `userInfo`, so the method casts the error first: `(error as NSError).userInfo`. Then it reads the key with `as? Bool ?? false`.
+
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=1-8
         /// Returns a Boolean value that indicates whether the output wrote a complete movie file although an error occurred.
         ///
@@ -135,6 +141,8 @@ An error in the callback does not always mean a bad file. The `userInfo` diction
 In the `fileOutput` method, replace the `if` statement with code that makes one `Result` value from the callback.
 
 The old code decided two things in one place: if the recording failed, and who gets the answer. The new code makes the first decision only. The result is a failure only when there is an error and the file is not usable. With no error, or with an error that leaves a usable file, the result is a movie.
+
+Declare the constant first, without a value: `let result: Result<Movie, Error>`. Swift permits this when each branch of the `if` statement gives it a value exactly one time. The condition is `if let error, !isMovieUsable(after: error)`. The two values are `.failure(error)` and `.success(Movie(url: outputFileURL))`.
 
 Xcode can show a warning that `result` is not used. The next step uses it.
 
@@ -190,7 +198,7 @@ Only `stopRecording()` sets the continuation. So a continuation means "the app a
 ### Step
 In `startRecording()`, set the handler of the new delegate to a closure that captures `self` weakly.
 
-The service keeps the delegate, and the delegate keeps the closure. A strong reference from the closure to the service would make a cycle. The closure has no work yet. You add it in the next step.
+The service keeps the delegate, and the delegate keeps the closure. A strong reference from the closure to the service would make a cycle. Write `delegate.unexpectedFinishHandler = { [weak self] result in` and, as the only line of the body, `guard let self else { return }`. The closure has no other work yet. You add it in the next step. Until then, Xcode can show a warning that `self` is not used.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=10-13
     /// Starts movie recording.
@@ -216,6 +224,8 @@ In the closure, stop the timer, release the delegate, and write the result into 
 
 Each line repairs one part of the defect. `stopMonitoringDuration()` cancels the timer and sets the capture activity to `idle`, so the interface leaves its recording state. Without a delegate, a later call of `stopRecording()` knows that there is nothing to stop. And `yield(_:)` gives the result to the reader of the stream, so the movie is not lost.
 
+The three lines are `stopMonitoringDuration()`, `self.delegate = nil`, and `unexpectedResultsContinuation.yield(result)`, in this order. The second line needs `self.`, because the local constant `delegate` of the method hides the property with the same name, and a constant cannot be set to `nil`.
+
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=5-7
         let delegate = MovieCaptureDelegate()
         // Handle a recording that ends before the app stops it.
@@ -234,7 +244,7 @@ In `stopRecording()`, throw the `notRecording` error at once when there is no de
 
 A [`CheckedContinuation`](https://developer.apple.com/documentation/swift/checkedcontinuation) must be resumed exactly one time. In the old code, the only place that resumed it was the delegate callback. If the callback came before, the caller waited without end. The guard asks first: can a callback still come? If not, the method resumes the continuation itself.
 
-The guard also unwraps the delegate. Thus the line that stores the continuation needs no `?`.
+The guard is `guard let delegate, movieOutput.isRecording else { … }`. In its `else` block, call `continuation.resume(throwing: MovieCaptureError.notRecording)` and then `return`. The guard also unwraps the delegate. Thus the line that stores the continuation needs no `?`: change `delegate?.continuation` to `delegate.continuation`.
 
 ```swift file=AVCam/Capture/MovieCapture.swift remove
             delegate?.continuation = continuation
@@ -264,7 +274,7 @@ The guard also unwraps the delegate. Thus the line that stores the continuation 
 ### Step
 In the `else` block of the guard, stop the timer before the method throws.
 
-When the method comes here, the interface possibly still shows a recording that does not exist. This line makes sure that the timer stops and that the capture activity is `idle` again.
+When the method comes here, the interface possibly still shows a recording that does not exist. The line `stopMonitoringDuration()`, above the `resume` call, makes sure that the timer stops and that the capture activity is `idle` again.
 
 ```swift file=AVCam/Capture/MovieCapture.swift highlight=4
         return try await withCheckedThrowingContinuation { continuation in
@@ -296,7 +306,7 @@ The results now go into a stream in `MovieCapture`. But the object that saves mo
 ### Step
 In `CaptureService.swift`, add the `unexpectedRecordingResults` property below the `previewSource` property.
 
-The property is a constant, and it is `nonisolated`, as `previewSource` is. Thus the model can read it with no `await`. Xcode shows an error until the initializer gives the property a value in the next step.
+The property is a constant, and it is `nonisolated`, as `previewSource` is: `nonisolated let unexpectedRecordingResults: AsyncStream<Result<Movie, Error>>`. Thus the model can read it with no `await`. Xcode shows an error until the initializer gives the property a value in the next step.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5
     /// A type that connects a preview destination with the capture session.
@@ -326,7 +336,7 @@ The capture service does not make a second stream. It gives the model the stream
 ### Step
 In `observeState()` in `CameraModel.swift`, add a task that reads the stream, below the task for the Camera Control.
 
-The task has the same form as the other tasks in this method. The loop waits for a result, and it runs one time for each recording that ends by itself. The stream never ends, so the task lives as long as the app. Xcode can show a warning that `result` is not used.
+The task has the same form as the other tasks in this method, with one difference: the loop is `for await result in captureService.unexpectedRecordingResults`, with no `await` in front of `captureService`, because the property is `nonisolated`. The loop waits for a result, and it runs one time for each recording that ends by itself. The stream never ends, so the task lives as long as the app. Leave the loop body empty for now. Xcode can show a warning that `result` is not used.
 
 ```swift file=AVCam/CameraModel.swift highlight=11-15
         Task {
@@ -352,7 +362,7 @@ The task has the same form as the other tasks in this method. The loop waits for
 ### Step
 In the loop, save the movie of the result, and store an error if there is one.
 
-`result.get()` returns the movie of a success and throws the error of a failure. So one `catch` block handles a recording that failed and a save that failed. This is the same code that `toggleRecording()` has for a movie that the person stopped.
+`result.get()` returns the movie of a success and throws the error of a failure. So one `catch` block handles a recording that failed and a save that failed. Write `try await mediaLibrary.save(movie: result.get())` in the `do` block and `self.error = error` in the `catch` block. This is the same code that `toggleRecording()` has for a movie that the person stopped.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-9
         Task {
@@ -458,7 +468,7 @@ The capture service gives the capture rotation angle to the outputs at two momen
 ### Step
 In `setCaptureMode(_:)` in `CaptureService.swift`, apply the current capture angle directly after the line that adds the movie output.
 
-[`addOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:)) makes the connection, so the connection exists on the next line. `updateCaptureRotation(_:)` is the method from chapter 3 that sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) on the video connection of each output. The coordinator always has the current value in [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), so the code can read it at any time.
+[`addOutput(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addoutput(_:)) makes the connection, so the connection exists on the next line. `updateCaptureRotation(_:)` is the method from chapter 3 that sets [`videoRotationAngle`](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/videorotationangle) on the video connection of each output. The coordinator, the `rotationCoordinator` property of the service, always has the current value in [`videoRotationAngleForHorizonLevelCapture`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/rotationcoordinator/videorotationangleforhorizonlevelcapture), so the code can read it at any time. The new line is `updateCaptureRotation(rotationCoordinator.videoRotationAngleForHorizonLevelCapture)`.
 
 ```swift file=AVCam/CaptureService.swift highlight=10-11
         // Configure the capture session for the selected capture mode.
