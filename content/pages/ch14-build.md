@@ -25,7 +25,7 @@ Then you write a small type that describes one zoom level. A zoom level has two 
 ### Step
 In `DeviceLookup.swift`, replace the first line of the back discovery session with a comment and a list of four device types.
 
-A [discovery session](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession) sorts its [`devices`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession/devices) in the order of your type list, and the app uses the first device. The [triple camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) and the [dual wide camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) contain the ultra-wide camera, so they come first. An iPhone that has neither of them gets the dual camera or the wide camera, as before.
+A [discovery session](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession) sorts its [`devices`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/discoverysession/devices) in the order of your type list, and the app uses the first device. The [triple camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtintriplecamera) and the [dual wide camera](https://developer.apple.com/documentation/avfoundation/avcapturedevice/devicetype-swift.struct/builtindualwidecamera) contain the ultra-wide camera, so they come first. An iPhone that has neither of them gets the dual camera or the wide camera, as before. Write the list on two lines, as the solution shows, so that your file equals the branch.
 
 ```swift file=AVCam/Capture/DeviceLookup.swift remove
         backCameraDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInDualCamera, .builtInWideAngleCamera],
@@ -44,7 +44,7 @@ A [discovery session](https://developer.apple.com/documentation/avfoundation/avc
 ### Step
 In `DataTypes.swift`, add the `ZoomLevel` structure with its two values below the `CaptureCapabilities` structure.
 
-`videoZoomFactor` is the value for the capture device. `displayFactor` is the value for the interface. On a camera that starts with the ultra-wide lens, the two values are different: the device value 1.0 is the display value 0.5. The structure is `Identifiable`, so that a SwiftUI `ForEach` can use it, and `Hashable`, so that a view can compare two levels.
+`videoZoomFactor` is the value for the capture device. `displayFactor` is the value for the interface. On a camera that starts with the ultra-wide lens, the two values are different: the device value 1.0 is the display value 0.5. The structure is `Identifiable`, so that a SwiftUI `ForEach` can use it, and `Hashable`, so that a view can compare two levels. Write `let videoZoomFactor: CGFloat` and `let displayFactor: CGFloat`. `Identifiable` needs an `id`: write `var id: CGFloat { videoZoomFactor }`, so that the device value identifies a level.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=4-9,11-12
     static let unknown = CaptureCapabilities()
@@ -66,7 +66,7 @@ enum QualityPrioritization: Int, Identifiable, CaseIterable, CustomStringConvert
 ### Step
 Add the static `label(for:)` method, which makes a short text from a display value.
 
-The format permits zero digits or one digit after the decimal separator: 0.5 becomes "0.5", 2.0 becomes "2", and 1.26 becomes "1.3". The separator follows the locale of the person. The method is static, because the zoom control also needs a text for a value between two levels.
+The format permits zero digits or one digit after the decimal separator: 0.5 becomes "0.5", 2.0 becomes "2", and 1.26 becomes "1.3". The separator follows the locale of the person. The method is static, because the zoom control also needs a text for a value between two levels. Write `static func label(for displayFactor: CGFloat) -> String`. The body is one line: `Double(displayFactor).formatted(.number.precision(.fractionLength(0...1)))`.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=10-13
 /// A zoom level that the camera interface offers, such as 0.5x, 1x, or 2x.
@@ -88,7 +88,7 @@ struct ZoomLevel: Identifiable, Hashable {
 ### Step
 Above the static method, add the `label` property, which returns the text for the display value of the level.
 
-A button of the zoom control shows this text. The property and the static method use the same format, so a level and a value between two levels look the same.
+A button of the zoom control shows this text. The property and the static method use the same format, so a level and a value between two levels look the same. Write `var label: String` with the body `ZoomLevel.label(for: displayFactor)`. The type name is necessary: an instance cannot call a static method by its name alone.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=3-6
     var id: CGFloat { videoZoomFactor }
@@ -123,7 +123,7 @@ The levels come from two properties of the device: its smallest zoom factor, and
 ### Step
 In `CaptureService.swift`, add the published `zoomLevels` and `displayZoomFactor` properties below the `isHDRVideoEnabled` property.
 
-The model cannot read the capture device, which is a private part of the actor. The actor publishes the two values, as it does for `captureActivity` and `isInterrupted`. The setters are private, because only the actor knows the state of the device.
+The model cannot read the capture device, which is a private part of the actor. The actor publishes the two values, as it does for `captureActivity` and `isInterrupted`. The setters are private, because only the actor knows the state of the device. Write `@Published private(set) var zoomLevels = [ZoomLevel]()` and `@Published private(set) var displayZoomFactor: CGFloat = 1.0`.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-6
     /// A Boolean value that indicates whether the user enables HDR video capture.
@@ -139,7 +139,7 @@ The model cannot read the capture device, which is a private part of the actor. 
 ### Step
 Below `createControls(for:)`, add a mark and the `displayMultiplier(for:)` method.
 
-[`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) is the ratio between the device value and the number that the system shows. The simulated camera reports 0. A multiplier of 0 makes each display value 0, and a division by it has no useful result. Thus the method returns 1 for each value that is not positive.
+[`displayVideoZoomFactorMultiplier`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/displayvideozoomfactormultiplier) is the ratio between the device value and the number that the system shows. The simulated camera reports 0. A multiplier of 0 makes each display value 0, and a division by it has no useful result. Thus the method returns 1 for each value that is not positive. The method is private: `private func displayMultiplier(for device: AVCaptureDevice) -> CGFloat`. It stores the multiplier in a constant, and returns it or 1.0 with the conditional operator.
 
 ```swift file=AVCam/CaptureService.swift highlight=5,7-12
         // Return the previously created controls.
@@ -162,6 +162,8 @@ Below `createControls(for:)`, add a mark and the `displayMultiplier(for:)` metho
 Above `displayMultiplier(for:)`, add the `configureZoom(for:)` method, which collects the zoom factors of the levels.
 
 The first level is [`minAvailableVideoZoomFactor`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/minavailablevideozoomfactor), the widest picture of the device. The `max` call protects against the simulated camera, which reports 0: a zoom factor less than 1 is not legal. The other levels are the [`virtualDeviceSwitchOverVideoZoomFactors`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/virtualdeviceswitchovervideozoomfactors). At each of these values, the next camera of a virtual device can supply its full picture. For a camera with one lens, the array is empty.
+
+The method is private and returns nothing: `private func configureZoom(for device: AVCaptureDevice)`. Store the multiplier in a constant `multiplier`, and the zoom factors in a variable `factors`, because the next step appends to it. The switch-over factors are `NSNumber` values, so the code maps them with `CGFloat(truncating: $0)`. Until the next step, Xcode warns that the two values are never used.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-6,8-12
     // MARK: - Zoom
@@ -264,7 +266,7 @@ Safety is the important part. A zoom factor outside of the range of the device r
 ### Step
 In `CaptureService.swift`, add the `zoomObserver` and `maxDisplayZoomFactor` properties below the rotation properties.
 
-The device can permit a very large zoom factor, and the picture at that value has little detail. The app stops at the display value 10. This number is a decision of this tutorial. The observation is for the next section.
+The device can permit a very large zoom factor, and the picture at that value has little detail. The app stops at the display value 10. This number is a decision of this tutorial. The observation is for the next section. Write `private var zoomObserver: NSKeyValueObservation?` and `private let maxDisplayZoomFactor: CGFloat = 10.0`.
 
 ```swift file=AVCam/CaptureService.swift highlight=5-6,8-9
     // An object that monitors video device rotations.
@@ -287,6 +289,8 @@ Below `displayMultiplier(for:)`, add the `setVideoZoomFactor(_:on:animated:)` me
 The `guard` statement is the result of a crash. The simulated camera reports a largest zoom factor of 0, and each assignment to its zoom factor raises an exception. The first version of this chapter stopped at launch in the Simulator.
 
 The three constants keep the value in the range. The lower limit is the smallest zoom factor of the device, but not less than 1. The upper limit is the smaller of two values: the largest zoom factor of the device, and the display value 10 as a device value. The outer `max` call makes sure that the upper limit is never less than the lower limit.
+
+The method is private: `private func setVideoZoomFactor(_ factor: CGFloat, on device: AVCaptureDevice, animated: Bool)`. Name the constants `smallestFactor`, `largestFactor`, and `factor`. The last name is the name of the parameter. Swift permits this: the new constant hides the parameter, and the next steps use the limited value. Until the next step, Xcode warns that `factor` is never used.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-15
     /// Returns the ratio between the zoom factor of the device and the value to show to a person.
@@ -311,7 +315,7 @@ The three constants keep the value in the range. The lower limit is the smallest
 ### Step
 Lock the device for configuration, and unlock it again.
 
-This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. The lock can fail with a Swift error, so the `do`-`catch` statement has a use here. It does not catch the range exception.
+This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it. The lock can fail with a Swift error, so the `do`-`catch` statement has a use here. It does not catch the range exception. The log text is `"Unable to change the zoom factor: \(error)"`.
 
 ```swift file=AVCam/CaptureService.swift highlight=2-7
         let factor = min(max(factor, smallestFactor), largestFactor)
@@ -345,7 +349,7 @@ Between the lock and the unlock, start a ramp when the change is animated, and a
 ### Step
 Above `setVideoZoomFactor(_:on:animated:)`, add the two `setZoom` methods that the model calls.
 
-`setZoom(to:)` is for a tap on a zoom level. A level already has its device value, and the change is a ramp. `setZoom(displayFactor:)` is for the pinch gesture. The interface knows only display values, so the method divides by the multiplier. A pinch sends many small changes each second, and each change is a direct assignment.
+`setZoom(to:)` is for a tap on a zoom level. A level already has its device value, and the change is a ramp. `setZoom(displayFactor:)` is for the pinch gesture. The interface knows only display values, so the method divides by the multiplier. A pinch sends many small changes each second, and each change is a direct assignment. Write `func setZoom(to level: ZoomLevel)` and `func setZoom(displayFactor: CGFloat)`. Both methods are not private and not `async`. The model calls them with `await`, because they are methods of an actor. The second method stores `currentDevice` in a constant `device` and uses it two times.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7,9-15
         return multiplier > 0 ? multiplier : 1.0
@@ -405,7 +409,7 @@ In this section, the capture service observes the zoom factor of the device and 
 ### Step
 In `CaptureService.swift`, add the `updateDisplayZoomFactor(for:of:)` method below the `configureZoom(for:)` method.
 
-The method changes a device value to a display value and publishes it. It takes the device as a parameter, because the multiplier must come from the device that sent the value.
+The method changes a device value to a display value and publishes it. It takes the device as a parameter, because the multiplier must come from the device that sent the value. The method is private: `private func updateDisplayZoomFactor(for zoomFactor: CGFloat, of device: AVCaptureDevice)`. Its one line multiplies `zoomFactor` by `displayMultiplier(for: device)` and stores the result in `displayZoomFactor`.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-6
         setVideoZoomFactor(1.0 / multiplier, on: device, animated: false)
@@ -421,7 +425,7 @@ The method changes a device value to a display value and publishes it. It takes 
 ### Step
 At the end of `configureZoom(for:)`, observe the `videoZoomFactor` property of the device, and send each value to the new method.
 
-The `observe` method returns an [`NSKeyValueObservation`](https://developer.apple.com/documentation/foundation/nskeyvalueobservation). The observation lives as long as this object. When the camera changes, the assignment replaces the object, and the observation of the old camera ends. The `.initial` option sends the current value immediately, so the model gets the start value. The closure does not run on the actor. Thus it reads the value first, and then starts a task that calls the actor.
+The `observe` method returns an [`NSKeyValueObservation`](https://developer.apple.com/documentation/foundation/nskeyvalueobservation). The observation lives as long as this object. When the camera changes, the assignment replaces the object, and the observation of the old camera ends. The `.initial` option sends the current value immediately, so the model gets the start value. Write `zoomObserver = device.observe(\.videoZoomFactor, options: [.initial, .new]) { [weak self] device, _ in … }`. The closure gets the device and a change object. It ignores the change object. The closure does not run on the actor. Thus it reads `device.videoZoomFactor` into a constant `zoomFactor` first, and then starts `Task { await self?.updateDisplayZoomFactor(for: zoomFactor, of: device) }`. `[weak self]` prevents a reference cycle between the actor and its observation.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-7
         setVideoZoomFactor(1.0 / multiplier, on: device, animated: false)
@@ -437,7 +441,7 @@ The `observe` method returns an [`NSKeyValueObservation`](https://developer.appl
 ### Step
 In `Camera.swift`, add two properties and two methods for the zoom to the `Camera` protocol.
 
-The views use the protocol, not the `CameraModel` class. The protocol has no device value: a view shows display values and sends a level or a display value back.
+The views use the protocol, not the `CameraModel` class. The protocol has no device value: a view shows display values and sends a level or a display value back. Write `var zoomLevels: [ZoomLevel] { get }`, `var displayZoomFactor: CGFloat { get }`, `func setZoom(to level: ZoomLevel) async`, and `func setZoom(displayFactor: CGFloat) async`. The methods are `async`, because the model must await the actor. From this step, the project does not compile until both models have the four members. The checkpoint at the end of this section builds again.
 
 ```swift file=AVCam/Model/Camera.swift highlight=4-5,7-8,10-11,13-14
     /// A Boolean value that indicates whether the camera is currently switching video devices.
@@ -462,7 +466,7 @@ The views use the protocol, not the `CameraModel` class. The protocol has no dev
 ### Step
 In `CameraModel.swift`, add the `zoomLevels` and `displayZoomFactor` properties below the `isSwitchingModes` property.
 
-The setters are private. Only the observation tasks of the model change these values.
+The setters are private. Only the observation tasks of the model change these values. Write the same two declarations as in the capture service, without `@Published`: the class is `@Observable`.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-5,7-8
     /// A Boolean value that indicates whether the app is currently switching capture modes.
@@ -481,7 +485,7 @@ The setters are private. Only the observation tasks of the model change these va
 ### Step
 Below `switchVideoDevices()`, add a mark and the two `setZoom` methods, which call the capture service.
 
-The methods do not change `displayZoomFactor`. The model waits for the value that the device reports. Thus the interface cannot show a value that the device did not accept.
+The methods do not change `displayZoomFactor`. The model waits for the value that the device reports. Thus the interface cannot show a value that the device did not accept. Both methods are `async`. Each has one line that awaits the method of the same name on `captureService`.
 
 ```swift file=AVCam/CameraModel.swift highlight=8,10-13,15-18
     /// Selects the next available video device for capture.
@@ -543,7 +547,7 @@ This is the pattern of the other states: the `values` property turns a publisher
 ### Step
 In `PreviewCameraModel.swift`, add three example zoom levels and the `displayZoomFactor` property.
 
-A preview in the Xcode canvas has no camera. The example values are those of a triple camera with the levels 0.5, 1, and 3, so that the canvas can show a zoom control with three buttons.
+A preview in the Xcode canvas has no camera. The example values are those of a triple camera with the levels 0.5, 1, and 3, so that the canvas can show a zoom control with three buttons. Write `let zoomLevels` with the device values 1.0, 2.0, and 6.0 and the display values 0.5, 1.0, and 3.0, in this order. A constant satisfies the `{ get }` requirement of the protocol. Then write `private(set) var displayZoomFactor: CGFloat = 1.0`.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=11-15
 @Observable
@@ -568,7 +572,7 @@ class PreviewCameraModel: Camera {
 ### Step
 At the end of the class, add the two `setZoom` methods, which set the property directly.
 
-The preview model has no device that reports a value. It writes the new value itself, so that a tap in the canvas changes the selected level.
+The preview model has no device that reports a value. It writes the new value itself, so that a tap in the canvas changes the selected level. Write the two methods without `async`. A synchronous method can satisfy an `async` requirement of a protocol, and the preview model has nothing to await.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=5-7,9-11
     func syncState() async {
@@ -604,7 +608,7 @@ The new file needs one change in the Xcode interface. The capture extension from
 ### Step
 In the `Controls` group, create the Swift file `ZoomControl.swift`, and replace its contents with a view that has one button for each zoom level.
 
-The view is generic over the `Camera` protocol, as the other controls are. The action of a button starts a task, because `setZoom(to:)` is an asynchronous method. The label of a button comes from a method that you write in the next steps.
+The view is generic over the `Camera` protocol, as the other controls are: `struct ZoomControl<CameraModel: Camera>: View` with `@State var camera: CameraModel`. The file starts with the license comment and the abstract "A view that shows the zoom levels of the camera and changes the zoom.", and it imports SwiftUI. The body is an `HStack(spacing: 8)` with a `ForEach(camera.zoomLevels)`. `ZoomLevel` is `Identifiable`, so the `ForEach` needs no `id:` argument. Each level gets a `Button`. The action of the button starts a task, because `setZoom(to:)` is an asynchronous method: `Task { await camera.setZoom(to: level) }`. The label of the button is `label(for: level)`, a method that you write in the next steps.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift new
 /*
@@ -643,7 +647,7 @@ The project does not compile at this time, because the `label(for:)` method does
 ### Step
 Below the `body` property, add the `selectedLevel` property, which finds the level of the current zoom factor.
 
-The selected level is the last level whose display value is not more than the current zoom factor. At 2.4x, with the levels 0.5, 1, and 3, the selected level is 1. The zoom factor is a floating-point number, and a calculation can make it a little smaller than the value of a level. The tolerance of 0.01 prevents that the control then selects the level before.
+The selected level is the last level whose display value is not more than the current zoom factor. At 2.4x, with the levels 0.5, 1, and 3, the selected level is 1. The zoom factor is a floating-point number, and a calculation can make it a little smaller than the value of a level. The tolerance of 0.01 prevents that the control then selects the level before. Write `private var selectedLevel: ZoomLevel?`. The body is one expression: `camera.zoomLevels.last { … } ?? camera.zoomLevels.first`. The `last` method with a closure returns the last level that meets the condition, and the `??` operator falls back to the first level.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=19-23
 struct ZoomControl<CameraModel: Camera>: View {
@@ -675,7 +679,7 @@ struct ZoomControl<CameraModel: Camera>: View {
 ### Step
 Below `selectedLevel`, add the `label(for:)` method, which makes the text of one button.
 
-The selected button shows the current zoom factor and a multiplication sign, for example "2.4×". Each other button shows the value of its level. So one row of buttons shows the levels and the exact zoom at the same time.
+The selected button shows the current zoom factor and a multiplication sign, for example "2.4×". Each other button shows the value of its level. So one row of buttons shows the levels and the exact zoom at the same time. Write `@ViewBuilder private func label(for level: ZoomLevel) -> some View`. The attribute is necessary, because the method starts with the constant `let isSelected = level == selectedLevel` before the `Text`. The sign is the multiplication sign × (Unicode U+00D7), not the letter x. The text of the selected button is `"\(ZoomLevel.label(for: camera.displayZoomFactor))×"`. The text of each other button is `level.label`.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=7-12
     /// The level that contains the current zoom factor.
@@ -696,7 +700,7 @@ The selected button shows the current zoom factor and a multiplication sign, for
 ### Step
 Give the text its font, its color, and a round background.
 
-The selected button is larger and yellow, so a person finds it immediately. `monospacedDigit()` gives all digits the same width. Without it, the text moves a little to the left and to the right while the number changes during a ramp or a pinch.
+The selected button is larger and yellow, so a person finds it immediately. `monospacedDigit()` gives all digits the same width. Without it, the text moves a little to the left and to the right while the number changes during a ramp or a pinch. The five modifiers, in this order: `.font(.system(size: isSelected ? 13 : 11, weight: .semibold))`, `.monospacedDigit()`, `.foregroundStyle(isSelected ? .yellow : .white)`, `.frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)`, and `.background(.black.opacity(0.5), in: Circle())`.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=2-6
         Text(isSelected ? "\(ZoomLevel.label(for: camera.displayZoomFactor))×" : level.label)
@@ -712,7 +716,7 @@ The selected button is larger and yellow, so a person finds it immediately. `mon
 ### Step
 In the `body` property, give the row of buttons a padding, a background in the shape of a capsule, and an animation.
 
-The dark background keeps the buttons readable above a bright preview. The animation runs only when `selectedLevel` changes. So the buttons change their size smoothly, but a change of the number in the selected button has no animation.
+The dark background keeps the buttons readable above a bright preview. The animation runs only when `selectedLevel` changes. So the buttons change their size smoothly, but a change of the number in the selected button has no animation. Write `.padding(4)`, `.background(.black.opacity(0.25), in: Capsule())`, and `.animation(.easeInOut(duration: 0.2), value: selectedLevel)` after the closing brace of the `HStack`.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=12-14
         HStack(spacing: 8) {
@@ -735,7 +739,7 @@ The dark background keeps the buttons readable above a bright preview. The anima
 ### Step
 Below the animation, add three modifiers that hide the control when it has no use.
 
-Each modifier has its own reason. A camera with one level cannot zoom, so it gets no control. During the fullscreen appearance of the Camera Control overlay, the system can show its own zoom slider, and an app must not show the same control two times. And as each other control since chapter 10, the zoom control stays hidden until the session runs. The view stays in the layout in all three cases, so no other view moves.
+Each modifier has its own reason. A camera with one level cannot zoom, so it gets no control. During the fullscreen appearance of the Camera Control overlay, the system can show its own zoom slider, and an app must not show the same control two times. And as each other control since chapter 10, the zoom control stays hidden until the session runs. The view stays in the layout in all three cases, so no other view moves. The first two are opacity modifiers: `.opacity(camera.zoomLevels.count > 1 ? 1 : 0)` and `.opacity(camera.prefersMinimizedUI ? 0 : 1)`. The third is the custom modifier from chapter 10: `.hidden(until: camera.status == .running)`.
 
 ```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=4-9
         .padding(4)
@@ -753,9 +757,9 @@ Each modifier has its own reason. A camera with one level cannot zoom, so it get
 ### Step
 At the end of the file, add a preview that uses the preview model in the running state.
 
-The status must be `.running`. With the default status of the preview model, the `hidden(until:)` modifier keeps the control hidden, and the canvas shows only the gray background.
+The status must be `.running`. With the default status of the preview model, the `hidden(until:)` modifier keeps the control hidden, and the canvas shows only the gray background. Write `ZoomControl(camera: PreviewCameraModel(status: .running))` with `.padding()` and `.background(.gray)`.
 
-```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=6-10
+```swift file=AVCam/Views/Controls/ZoomControl.swift highlight=6-10 result="../images/ch14-s5-7.jpg|The zoom control in the Xcode preview canvas: three levels in a capsule, the current level in yellow with a multiplication sign."
             .frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)
             .background(.black.opacity(0.5), in: Circle())
     }
@@ -833,7 +837,7 @@ A pinch gesture reports a magnification: a factor relative to the distance of th
 ### Step
 In `CameraView.swift`, add the `pinchStartFactor` state below the `swipeDirection` state.
 
-The value is `nil` when no pinch is in progress.
+The value is `nil` when no pinch is in progress. Write `@State private var pinchStartFactor: CGFloat?`.
 
 ```swift file=AVCam/CameraView.swift highlight=4-5
     // The direction a person swipes on the camera preview or mode selector.
@@ -849,6 +853,8 @@ The value is `nil` when no pinch is in progress.
 Above the `swipeGesture` property, add the `pinchGesture` property with a `MagnifyGesture` that sets the zoom on each change.
 
 At the first change of a gesture, `pinchStartFactor` is `nil`, and the code stores the current zoom factor of the camera. At each later change, it uses the stored value. The new zoom is the start value multiplied by the magnification. Each change starts a task of its own, which is simple but has a limit: two values can arrive at the capture service in the wrong order.
+
+Write `var pinchGesture: some Gesture`, as `swipeGesture`. [`MagnifyGesture`](https://developer.apple.com/documentation/swiftui/magnifygesture) reports its value in the `onChanged` closure, and `value.magnification` is the factor. Store the start value in a constant `startFactor`, write it back to `pinchStartFactor`, and start the task with `camera.setZoom(displayFactor: startFactor * value.magnification)`.
 
 ```swift file=AVCam/CameraView.swift highlight=6-14
             // The main camera user interface.
@@ -872,7 +878,7 @@ At the first change of a gesture, `pinchStartFactor` is `nil`, and the code stor
 ### Step
 Clear the stored zoom factor when the gesture ends.
 
-The next pinch then starts from the zoom factor that the camera has at that time. That value can be different from the end of this gesture, for example after a tap on a zoom level or a slide on the Camera Control.
+The next pinch then starts from the zoom factor that the camera has at that time. That value can be different from the end of this gesture, for example after a tap on a zoom level or a slide on the Camera Control. Add `.onEnded { _ in pinchStartFactor = nil }` after the `onChanged` closure.
 
 ```swift file=AVCam/CameraView.swift highlight=7-9
             .onChanged { value in
