@@ -175,6 +175,9 @@ These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the
 - **Chapter 17 — Two cameras at once (`chapter-17`)**: `AVCaptureMultiCamSession` as a second session, a dual capture mode, connections made by hand, two preview views with a tap to swap, multi-camera formats, hardware and system pressure costs. Research: `research/07-multicam.md`. Based on Apple's AVMultiCamPiP sample (`~/tutorials/AVMultiCamPiPCapturingFromMultipleCameras`).
 - **Chapter 18 — Record picture in picture (`chapter-18`)**: video and audio data outputs on the multi-camera session, a Metal mixer that draws the small picture into the full frame, `AVAssetWriter` recording, save to the library.
 
+- **Chapter 19 — Fast capture (planned)**: responsive capture, fast capture prioritization, zero shutter lag, the readiness coordinator on the capture button. Source: WWDC23 session 10105.
+- **Chapter 20 — RAW and Apple ProRAW (planned)**: RAW setting in the features toolbar, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, DNG saved next to the processed photo, constant color. Source: Apple's article "Capturing photos in RAW and Apple ProRAW formats". Needs a real iPhone for verification.
+
 `main` equals `chapter-18`.
 
 ## Hand-off notes (`notes/chapter-NN.md`)
