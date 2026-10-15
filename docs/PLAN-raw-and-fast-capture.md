@@ -1,0 +1,42 @@
+# Plan: chapters "RAW and Apple ProRAW" and "Fast capture", inserted after chapter 7
+
+Written 15 Oct 2026. Goal: two new chapters that sit after chapter 7 ("Photo features") as chapters 8 and 9, with the old chapters 8 to 18 renumbered to 10 to 20. The work is split so that cheaper models (Sonnet) do the mechanical and the writing parts, and the Fable coordinator only plans, decides, and checks.
+
+## Order of the new chapters
+
+1. **Chapter 8, Fast capture** (first, because every later photo goes through its changes): responsive capture, fast capture prioritization, zero shutter lag, the readiness coordinator on the capture button, deferred photo delivery that chapter 7 already started. Source: WWDC23 session 10105 "Create a more responsive camera experience"; Apple documentation of `AVCapturePhotoOutput` (`isResponsiveCaptureEnabled`, `isFastCapturePrioritizationEnabled`, `isZeroShutterLagEnabled`, `isAutoDeferredPhotoDeliveryEnabled`) and `AVCapturePhotoOutputReadinessCoordinator`.
+2. **Chapter 9, RAW and Apple ProRAW**: a RAW button in the features toolbar, `isAppleProRAWEnabled` and `isAppleProRAWSupported`, the choice of a RAW pixel format (`availableRawPhotoPixelFormatTypes`, Bayer RAW against ProRAW), `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the two delegate callbacks (one for the RAW photo, one for the processed photo), saving the DNG next to the HEIF with `PHAssetCreationRequest` (`.photo` plus `.alternatePhoto`), constant color as an option. Source: Apple's article "Capturing photos in RAW and Apple ProRAW formats"; WWDC21 session 10047.
+
+Both chapters follow the part 2 rules: our own code, a stated deviation from the sample, verified in the Simulator as far as possible, and a checkpoint that says what a real iPhone shows.
+
+## Phases, and which model does each
+
+| Phase | What | Who | Checks |
+|---|---|---|---|
+| 0 | Research dossiers `research/08-fast-capture.md` and `research/09-raw.md`: verified links (JSON endpoint 200), API facts from the SDK headers, what the Simulator supports | Sonnet | Coordinator reads the dossiers (10 minutes) |
+| 1 | Code for chapter 8 on a worktree branch `chapter-08-fast` from `chapter-07`: output switches in `PhotoCapture.updateConfiguration(for:)`, a readiness coordinator owned by `PhotoCapture`, a `captureReadiness` value through `Camera` to the model, the capture button that dims or disables while not ready, a fast tap sequence test | Sonnet (code agent), builds and runs in the Simulator with SimCam stills, writes `notes/chapter-08.md` | Coordinator: build, run, screenshot, read the diff |
+| 2 | Code for chapter 9 on `chapter-09-raw` from the chapter 8 branch: `isRAWEnabled` in `PhotoFeatures`, RAW button with a `camera.raw` symbol, support check, settings object with RAW plus processed format, delegate callbacks, DNG save with the alternate resource, constant color behind `isConstantColorSupported`, fallback when unsupported (the Simulator path) | Sonnet (code agent), writes `notes/chapter-09.md` | Coordinator: same; the Simulator takes the fallback path |
+| 3 | Renumber: rename branches (`chapter-08` to `chapter-20` shift by two, new ones become `chapter-08` and `chapter-09`), rebase the old chapters 8 to 18 onto the new chapter 9 (conflicts expected in `PhotoCapture.swift`, `FeatureToolbar.swift`, `PhotoFeatures`, `PreviewCameraModel.swift`), rename page files and images, update `collection.json`, every `startBranch`/`branch`/`chapter:` front matter, every cross-reference "chapter N" in prose, `docs/PLAN.md`, the notes. Replay all 20 chapters | Sonnet (one careful agent with a script), the coordinator wrote a similar branch rewrite on 14 Oct (`scratchpad/tools/previews.py`) | Coordinator: replay results, `git log --graph` of the branches, `main` moved to chapter-20 |
+| 4 | Pages: concepts and build pages for both chapters (format `docs/AUTHORING.md`; the two learner personas from the start: name every identifier, type, access level, API; `copy` marks for boilerplate; pictures with `tools/capture.py` for the button states and the readiness states) | Sonnet (writer agent per chapter) | validate 0/0, replay, pictures viewed |
+| 5 | Reviews: technical review against headers and documentation (as `docs/review/chapters-16-18.md`), then the two-persona learner review, two rounds | Sonnet (reviewers) | Coordinator reads the reports, applies generator fixes |
+| 6 | Device check by the user on a real iPhone: a RAW capture produces a DNG in Photos; zero shutter lag and the fast sequence; the console lines named in the checkpoints | User | The coordinator adjusts the pages from the user's notes |
+
+Fable (coordinator) work: phases 0 and 1 to 5 review points only, about 10 short turns. Sonnet does the research, code, rewrite, pages, and reviews.
+
+## Decisions to make before phase 1
+
+- Zero shutter lag and responsive capture are **on by default** on devices that support them when the app links the iOS 17 SDK or later. The chapter therefore shows the switches, explains the defaults, and adds the readiness coordinator as the visible feature. Confirm in phase 0 from the headers.
+- The RAW format choice: ProRAW when `isAppleProRAWSupported`, else the first Bayer RAW format, else no RAW (button hidden). Decide whether the button offers both or only ProRAW.
+- Where the DNG goes: as an alternate resource of the same asset (Photos shows one photo with a RAW badge), which is what the system camera does.
+- `main` after the rewrite equals the new chapter 20 (the old 18).
+- The user's branch `following-tutorial` stays untouched; the user is in chapter 2, before the insertion point, so the renumbering does not affect their work. The site serves the renumbered pages after a rebuild.
+
+## Risks
+
+- The rebase of eleven chapters over two new ones touches `PhotoCapture.swift` and `FeatureToolbar.swift`, which chapters 8 (video), 9 (HDR), 10 (robust session), 12 (Camera Control), and 15 (fixes) also change. Expect a few conflicts; the replay catches a wrong resolution.
+- Prose references to chapter numbers ("chapter 8 adds the movie service") are in many pages; a script finds them, a reviewer checks them.
+- Nothing RAW-related can be verified in the Simulator; the pages must say so clearly, as chapters 9 and 11 do.
+
+## Budget
+
+Sonnet: about 8 agents (research, 2 code, rewrite, 2 writers, 2 reviewers plus second rounds). Fable: review points only, well under one 5-hour window. The user keeps 10 percent of each window free.
