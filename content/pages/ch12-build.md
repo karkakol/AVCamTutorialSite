@@ -43,6 +43,8 @@ Below the `currentDevice` property, add a mark and the `createControls(for:)` me
 
 When the dictionary has an entry for this camera, the method returns the same objects again. A person can change the camera many times, and each control object keeps its state.
 
+Write `func createControls(for device: AVCaptureDevice) -> [AVCaptureControl]` without `private`. The method binds the entry with `guard let controls = controlsMap[device.uniqueID] else { }` and returns `controls` after the `else` block. Write the three comment lines of the solution too.
+
 ```swift file=AVCam/CaptureService.swift highlight=9,11-14,16-18
     // The device for the active video input.
     private var currentDevice: AVCaptureDevice {
@@ -74,6 +76,8 @@ In the `else` block, create the two system controls for the device, and return t
 
 An [`AVCaptureSystemZoomSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemzoomslider) changes the zoom factor of its device, and an [`AVCaptureSystemExposureBiasSlider`](https://developer.apple.com/documentation/avfoundation/avcapturesystemexposurebiasslider) changes the exposure bias. Each control takes its range from the active format of the device and sets the device property itself. Thus you write no action for them.
 
+Write `var controls = [` with `AVCaptureSystemZoomSlider(device: device)` and `AVCaptureSystemExposureBiasSlider(device: device)` on two lines, then `]`. Use `var`, because a later step appends a third control. Until then, Xcode shows a warning that `controls` is never changed. The variable in the `else` block does not clash with the `guard` binding, which exists only after the block.
+
 ```swift file=AVCam/CaptureService.swift highlight=4-9
     func createControls(for device: AVCaptureDevice) -> [AVCaptureControl] {
         // Retrieve the capture controls for this device, if they exist.
@@ -96,6 +100,8 @@ Below the array, test if the device supports a custom lens position, and create 
 
 An [`AVCaptureSlider`](https://developer.apple.com/documentation/avfoundation/avcaptureslider) is a control for a setting of your own. The symbol name must be a name from SF Symbols. The range `0...1` is the range of the lens position of a camera. Not each camera can move its lens, so the code asks [`isLockingFocusWithCustomLensPositionSupported`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/islockingfocuswithcustomlenspositionsupported) first.
 
+Inside the `if` block, write `let lensSlider = AVCaptureSlider("Lens Position", symbolName: "circle.dotted.circle", in: 0...1)`. Xcode shows a warning that `lensSlider` is not used until the next step.
+
 ```swift file=AVCam/CaptureService.swift highlight=6-10
             // Define the default controls.
             var controls = [
@@ -116,6 +122,8 @@ Give the slider an action with an empty body, and tell it to run the action on t
 
 [`setActionQueue(_:action:)`](https://developer.apple.com/documentation/avfoundation/avcaptureslider/setactionqueue(_:action:)) takes a queue and a closure. The system calls the closure with the new value each time the person moves the slider. The session queue is the executor of this actor, so the closure and the methods of the actor never run at the same time. A custom control must have an action before you add it to a session.
 
+Write `lensSlider.setActionQueue(sessionQueue) { lensPosition in` and the closing brace. The closure parameter `lensPosition` is a `Float`.
+
 ```swift file=AVCam/CaptureService.swift highlight=5-7
             // Create a lens position control if the device supports setting a custom position.
             if device.isLockingFocusWithCustomLensPositionSupported {
@@ -131,6 +139,8 @@ Give the slider an action with an empty body, and tell it to run the action on t
 In the action, lock the device for configuration, lock the focus at the new lens position, and unlock the device.
 
 This is the pattern from chapter 6: each change of a device needs [`lockForConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/lockforconfiguration()) before it and `unlockForConfiguration()` after it. [`setFocusModeLocked(lensPosition:completionHandler:)`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/setfocusmodelocked(lensposition:completionhandler:)) stops automatic focus and moves the lens to the position. The closure captures `device`, so this slider always changes the camera that it was made for.
+
+Call `device.setFocusModeLocked(lensPosition: lensPosition)` without the completion handler. In the `catch` block, write `logger.info("Unable to change the lens position: \(error)")`.
 
 ```swift file=AVCam/CaptureService.swift highlight=3-9
                 // Perform the slider's action on the session queue.
@@ -208,6 +218,8 @@ At the end of `CaptureService.swift`, below the actor, add the `CaptureControlsD
 
 [`AVCaptureSessionControlsDelegate`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate) is an Objective-C protocol, so the class inherits from `NSObject`. `@Published` gives the class a publisher, `$isShowingFullscreenControls`. The actor reads this publisher later, as it reads the activity publisher of the photo service.
 
+Write `class CaptureControlsDelegate: NSObject, AVCaptureSessionControlsDelegate` and, after an empty line, `@Published private(set) var isShowingFullscreenControls = false`.
+
 ```swift file=AVCam/CaptureService.swift highlight=6,8-9
             }
         }
@@ -228,6 +240,8 @@ Add the two methods that the session calls when the controls become active and w
 
 "Active" means that a person can interact with the controls. The app has nothing to do at these two moments, so the methods only write a log line. On an iPhone with a Camera Control, the log lines show you when each callback arrives.
 
+The methods are `sessionControlsDidBecomeActive(_ session: AVCaptureSession)` and `sessionControlsDidBecomeInactive(_ session: AVCaptureSession)`. Each one calls `logger.debug` with the text "Capture controls active." or "Capture controls inactive.". The project does not compile until the next step adds the other two methods.
+
 ```swift file=AVCam/CaptureService.swift highlight=5-10
 class CaptureControlsDelegate: NSObject, AVCaptureSessionControlsDelegate {
     
@@ -246,6 +260,8 @@ class CaptureControlsDelegate: NSObject, AVCaptureSessionControlsDelegate {
 Between these two methods, add the two methods for the fullscreen appearance, which set the published property.
 
 [`sessionControlsWillEnterFullscreenAppearance(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesessioncontrolsdelegate/sessioncontrolswillenterfullscreenappearance(_:)) is the signal to hide parts of the interface. The "will exit" method is the signal to show them again. The names say "will": each callback tells you about a change that is about to start.
+
+The second method is `sessionControlsWillExitFullscreenAppearance(_ session: AVCaptureSession)`. Each method first sets `isShowingFullscreenControls` to `true` or `false`, then calls `logger.debug` with "Capture controls will enter fullscreen appearance." or "Capture controls will exit fullscreen appearance.". Put an empty line between the methods.
 
 ```swift file=AVCam/CaptureService.swift highlight=9-12,14-17
 class CaptureControlsDelegate: NSObject, AVCaptureSessionControlsDelegate {
@@ -275,7 +291,7 @@ class CaptureControlsDelegate: NSObject, AVCaptureSessionControlsDelegate {
 ### Step
 In the `CaptureService` actor, add the `controlsDelegate` property above the `controlsMap` property.
 
-The actor creates one delegate object and keeps it for its full life. You give this object to the session in the next section.
+The actor creates one delegate object and keeps it for its full life. You give this object to the session in the next section. Write `private var controlsDelegate = CaptureControlsDelegate()` with `var`, as the Apple sample does.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-5
     // A Boolean value that indicates whether the actor finished its required configuration.
@@ -310,6 +326,8 @@ Above `createControls(for:)`, add the `configureControls(for:)` method, which re
 
 [`supportsControls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/supportscontrols) is `true` only on a device that has a Camera Control. On an iPad, on an older iPhone, and in the Simulator, the method stops here, and the rest of this chapter has no effect.
 
+Write `private func configureControls(for device: AVCaptureDevice)`. The Apple sample has an empty line after the opening brace. The `guard` statement has `else { return }` on the same line.
+
 ```swift file=AVCam/CaptureService.swift highlight=3-7
     // MARK: - Capture controls
     
@@ -343,7 +361,7 @@ All changes between [`beginConfiguration()`](https://developer.apple.com/documen
 ### Step
 After the configuration begins, remove each control that is on the session.
 
-The [`controls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/controls) property is the list of controls that the session has now. The old controls change the old camera, so they must go before the controls of the new camera come. The first time, the list is empty and the loop does nothing.
+The [`controls`](https://developer.apple.com/documentation/avfoundation/avcapturesession/controls) property is the list of controls that the session has now. The old controls change the old camera, so they must go before the controls of the new camera come. The first time, the list is empty and the loop does nothing. Call `removeControl(_:)` on the session for each control.
 
 ```swift file=AVCam/CaptureService.swift highlight=4-7
         // Begin configuring the capture session.
@@ -360,7 +378,7 @@ The [`controls`](https://developer.apple.com/documentation/avfoundation/avcaptur
 ### Step
 Create the controls for the device, and add each control that the session accepts.
 
-[`addControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addcontrol(_:)) raises an exception when the session cannot accept the control, and Swift cannot catch it. Thus the code asks [`canAddControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddcontrol(_:)) first. The answer is `false`, for example, when the session already has its largest number of controls. Then the code writes a log line and continues.
+[`addControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/addcontrol(_:)) raises an exception when the session cannot accept the control, and Swift cannot catch it. Thus the code asks [`canAddControl(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturesession/canaddcontrol(_:)) first. The answer is `false`, for example, when the session already has its largest number of controls. Then the code writes a log line and continues: `logger.info("Unable to add control \(control).")`.
 
 ```swift file=AVCam/CaptureService.swift highlight=6-13
         // Remove previously configured controls, if any.
@@ -479,7 +497,7 @@ The delegate knows when the overlay is in its fullscreen appearance. The views n
 ### Step
 In `CaptureService.swift`, add the published `isShowingFullscreenControls` property below the `isHDRVideoEnabled` property.
 
-The model cannot read the delegate, which is a private part of the actor. The actor publishes the value again, as it does for `captureActivity` and `isInterrupted`.
+The model cannot read the delegate, which is a private part of the actor. The actor publishes the value again, as it does for `captureActivity` and `isInterrupted`. Write `@Published var isShowingFullscreenControls = false` without `private(set)`, as the Apple sample does.
 
 ```swift file=AVCam/CaptureService.swift highlight=11-12
 actor CaptureService {
@@ -502,7 +520,7 @@ actor CaptureService {
 ### Step
 Below `observeOutputServices()`, add the `observeCaptureControlsState()` method, which assigns each value of the delegate to the property of the actor.
 
-`assign(to:)` connects the publisher of the delegate to the published property of the actor. The subscription lives as long as the property, so there is no cancellable object to store.
+`assign(to:)` connects the publisher of the delegate to the published property of the actor. The subscription lives as long as the property, so there is no cancellable object to store. The method is `private`. Its body is `controlsDelegate.$isShowingFullscreenControls` and, on the next line, `.assign(to: &$isShowingFullscreenControls)`.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-12
     /// Merge the `captureActivity` values of the photo and movie capture services,
@@ -541,6 +559,8 @@ In `setUpSession()`, call `observeCaptureControlsState()` together with the othe
 In `Camera.swift`, add the `prefersMinimizedUI` property to the `Camera` protocol.
 
 The views use the protocol, not the `CameraModel` class. The name describes what the views must do, not why. A view does not need to know that the reason is the Camera Control.
+
+Write `var prefersMinimizedUI: Bool { get }`: the views only read it. After this step, the project does not compile until both models have the property, two steps later.
 
 ```swift file=AVCam/Model/Camera.swift highlight=7-8
     /// The capture mode, which can be photo or video.
@@ -593,6 +613,8 @@ The setter is private, because only the model changes this state.
 In `observeState()`, add a task that reads the `isShowingFullscreenControls` values of the capture service, above the task for the interruption state.
 
 The `values` property turns the publisher into an asynchronous sequence, as for the other states of the capture service. The task runs on the main actor, because `CameraModel` is a main actor type. "HUD" in the comment of the sample means the system overlay.
+
+Write `for await isShowingFullscreenControls in await captureService.$isShowingFullscreenControls.values` with an empty body. Xcode shows a warning that the value is not used until the next step.
 
 ```swift file=AVCam/CameraModel.swift highlight=8-12
         Task {
@@ -654,7 +676,7 @@ You use `opacity`, and you do not remove the views. A transparent view keeps its
 ### Step
 In `MainToolbar.swift`, add an import of the PhotosUI framework below the SwiftUI import.
 
-The file compiles without this line. The Apple sample has the line, and you add it so that your file stays equal to the sample.
+The file compiles without this line. The Apple sample has the line, and you add it so that your file stays equal to the sample. The sample also puts four spaces on the empty line above `@State var camera`. `git diff chapter-12` can show this line; ignore it.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift highlight=2
 import SwiftUI
