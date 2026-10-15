@@ -72,6 +72,8 @@ export const SWIFT_NOTES = [
     text: 'A value that is either .success with a value or .failure with an error. get() returns the value or throws the error, and a continuation can resume with a Result.' },
   { id: 'metatype', common: true, test: /\b[A-Z]\w*(<[^>]*>)?\.self\b/, title: 'Type.self (metatype)', link: `${S}types#Metatype-Type`,
     text: 'The type itself as a value. An API that needs to know a type, for example makeStream(of:), takes it this way.' },
+  { id: 'assume-isolated', test: /MainActor\.assumeIsolated\b/, title: 'MainActor.assumeIsolated', link: 'https://developer.apple.com/documentation/swift/mainactor/assumeisolated(_:file:line:)',
+    text: 'Tells the compiler that the current code already runs on the main actor, for example in a callback that the system delivers on the main queue. The closure can then touch main-actor state without await; a call from another thread stops the app.' },
   { id: 'task', common: true, test: /\bTask(\.detached)?\s*(\(|\{)/, title: 'Task', link: `${S}concurrency#Tasks-and-Task-Groups`,
     text: 'A task is a unit of asynchronous work. Task { } starts async code from a place that is not async, for example a button action. The task inherits the actor of the place where it starts.' },
   { id: 'async-let', test: /\basync\s+let\b/, title: 'async let', link: `${S}concurrency#Calling-Asynchronous-Functions-in-Parallel`,
