@@ -416,7 +416,9 @@ function solutionPlace(step, env) {
           const strings = [];
           for (const l of fence.lines.slice(i - run + 1, i + 1)) {
             if (isComment(fence.lines.indexOf(l) + 1)) continue;
-            for (const m of l.matchAll(/"((?:[^"\\]|\\.)*)"/g)) if (m[1] && !strings.includes(m[1])) strings.push(m[1]);
+            // An interpolation \( … ) can hold its own string literals; show it as an ellipsis.
+            const flat = l.replace(/\\\((?:[^()]|\([^()]*\))*\)/g, '…');
+            for (const m of flat.matchAll(/"((?:[^"\\]|\\.)*)"/g)) if (m[1] && !strings.includes(m[1])) strings.push(m[1]);
           }
           if (strings.length) body += `<span class="ln ph"><span class="no" data-n=""></span><span class="tx">${e(indent)}// texts in this code: ${e(strings.map((t) => `"${t}"`).join(', '))}\n</span></span>`;
           run = 0;

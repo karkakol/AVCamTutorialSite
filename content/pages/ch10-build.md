@@ -62,7 +62,7 @@ The method has no parameters and returns nothing. Its documentation comment is "
 ### Step
 In the task, read each interruption notification, get its reason, and set `isInterrupted` for two reasons only.
 
-Write a `for await reason in` loop over `NotificationCenter.default.notifications(named: AVCaptureSession.wasInterruptedNotification)`. [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an asynchronous sequence. Add two `compactMap` calls to the sequence. The first one reads `$0.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?`. The value for [`AVCaptureSessionInterruptionReasonKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessioninterruptionreasonkey) is a number object. The second one changes the number into an [`AVCaptureSession.InterruptionReason`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason) with `InterruptionReason(rawValue: $0.integerValue)`.
+Write a `for await reason in` loop over `NotificationCenter.default.notifications(named: AVCaptureSession.wasInterruptedNotification)`. [`notifications(named:object:)`](https://developer.apple.com/documentation/foundation/notificationcenter/notifications(named:object:)) gives the notifications as an asynchronous sequence. Add two `compactMap` calls to the sequence, each on its own line below the `for` line, with the opening brace of the loop at the end of the second `compactMap` line. The first one reads `$0.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?`. The value for [`AVCaptureSessionInterruptionReasonKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessioninterruptionreasonkey) is a number object. The second one changes the number into an [`AVCaptureSession.InterruptionReason`](https://developer.apple.com/documentation/avfoundation/avcapturesession/interruptionreason) with `InterruptionReason(rawValue: $0.integerValue)`.
 
 The last line is the decision. Each move to the background is also an interruption, and that must not show a message. So the value becomes `true` only when a different client uses the microphone or the camera: `isInterrupted = [.audioDeviceInUseByAnotherClient, .videoDeviceInUseByAnotherClient].contains(reason)`. The sample puts the comment "Set the `isInterrupted` state as appropriate." above this line, with three slashes.
 
@@ -140,7 +140,7 @@ You also make `setUpSession()` safe to call more than one time.
 ### Step
 In `observeNotifications()`, add a third task, which reads the error of each runtime error notification.
 
-The loop is `for await error in NotificationCenter.default.notifications(named: AVCaptureSession.runtimeErrorNotification)` with one `compactMap`. The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in the notification is an error object. The conditional cast `as? AVError` gives it to you as an `AVError`, so that you can compare its code in the next step. Until then, Xcode can show a warning that `error` is not used.
+The loop is `for await error in NotificationCenter.default.notifications(named: AVCaptureSession.runtimeErrorNotification)` with one `compactMap` on a second line, and the opening brace of the loop at the end of that line. The value for [`AVCaptureSessionErrorKey`](https://developer.apple.com/documentation/avfoundation/avcapturesessionerrorkey) in the notification is an error object. The conditional cast `as? AVError` gives it to you as an `AVError`, so that you can compare its code in the next step. Until then, Xcode can show a warning that `error` is not used.
 
 ```swift file=AVCam/CaptureService.swift highlight=8-12
         Task {
@@ -306,7 +306,7 @@ struct StatusOverlayView: View {
 ### Step
 Add a yellow color and a message for the `interrupted` status.
 
-The three colors show how serious a status is. Red tells the person to change a setting, and orange reports a failure. Yellow is for a state that ends by itself. In `color`, the new case returns `.yellow` after the `failed` case. In `message`, the new case goes between the `unauthorized` case and the `failed` case, and it returns "The camera was interrupted by higher-priority media processing." The text style that is already in the view uses dark gray text on yellow, because white text on yellow is hard to read.
+The three colors show how serious a status is. Red tells the person to change a setting, and orange reports a failure. Yellow is for a state that ends by itself. In `color`, the new case returns `.yellow` after the `failed` case. In `message`, the new case goes between the `unauthorized` case and the `failed` case, and it returns "The camera was interrupted by higher-priority media processing." The text style that is already in the view uses dark gray text on yellow, because white text on yellow is hard to read. In the Apple sample, the lines of `color` and `message` start with tab characters. Your new lines can start with spaces: a white space difference in a comparison with the branch means nothing.
 
 ```swift file=AVCam/Views/Overlays/StatusOverlayView.swift highlight=7-8,18-19
 	var color: Color {
@@ -476,7 +476,7 @@ In `MainToolbar.swift`, hide the thumbnail button until the camera status is `ru
 The thumbnail opens the Photos library. It is not necessary for the first photo, so it can wait. Add `.hidden(until: camera.status == .running)` on its own line below the button, with the comment "Hide it until the capture session runs, using a custom modifier." above it.
 
 > [!NOTE]
-> In the Apple sample, the `ThumbnailButton` line starts with tab characters, not with spaces. The branch `chapter-10` copies this. Thus Git reports the line as changed, although the code on it is the same.
+> In the Apple sample, the `ThumbnailButton` line starts with tab characters, not with spaces. The branch `chapter-10` copies this. Thus Git reports the line as changed, although the code on it is the same. In Try first mode, the first placeholder and the delete box stand for this one line. Keep your line as it is, with spaces. Only the comment and the modifier are new.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/MainToolbar.swift remove
             ThumbnailButton(camera: camera)
@@ -633,7 +633,7 @@ The modifier is `.overlay(Color.black.opacity(coverOpacity))`. The overlay is be
 ### Step
 Below `updateBlurRadius(_:_:)`, add the `updateCoverOpacity(_:_:)` method with its documentation comment and an empty body.
 
-The comment has five lines with three slashes: "Covers the preview as the app enters the background, and reveals it on return.", an empty comment line, "A preview that isn't covered on the way out reappears holding the frame it last", "rendered. Covering it first means a person doesn't see that stale frame, and the", and "reveal fades the cover away as live frames resume." The two parameters are the old phase and the new phase. This is the form that [`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) gives to its action. The method needs only the new phase.
+The comment has five lines with three slashes: "Covers the preview as the app enters the background, and reveals it on return.", an empty comment line, "A preview that isn't covered on the way out reappears holding the frame it last", "rendered. Covering it first means a person doesn't see that stale frame, and the", and "reveal fades the cover away as live frames resume." The method is `func updateCoverOpacity(_: ScenePhase, _ phase: ScenePhase)`, with no name for the first parameter, as in `updateBlurRadius(_:_:)` above it. The two parameters are the old phase and the new phase. This is the form that [`onChange(of:initial:_:)`](https://developer.apple.com/documentation/swiftui/view/onchange(of:initial:_:)) gives to its action. The method needs only the new phase.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=7-13
     func updateBlurRadius(_: Bool, _ isSwitching: Bool) {
@@ -659,7 +659,7 @@ The comment has five lines with three slashes: "Covers the preview as the app en
 ### Step
 In the method, make the cover opaque when the scene goes to the background.
 
-There is no animation here. The app leaves the screen at this moment, and it has no time to show a transition. The `default` case ignores the `inactive` phase, so the cover does not appear while the scene is only inactive, for example in the app switcher.
+Write `switch phase` with two cases: `case .background:` sets `coverOpacity = 1`, and `default:` has only `break`. There is no animation here. The app leaves the screen at this moment, and it has no time to show a transition. The `default` case ignores the `inactive` phase, so the cover does not appear while the scene is only inactive, for example in the app switcher.
 
 ```swift file=AVCam/Views/PreviewContainer.swift highlight=2-7
     func updateCoverOpacity(_: ScenePhase, _ phase: ScenePhase) {

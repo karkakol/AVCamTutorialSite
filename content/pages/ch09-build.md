@@ -247,7 +247,7 @@ actor CaptureService {
 ### Step
 Below `stopRecording()`, add the `setHDRVideoEnabled(_:)` method with a configuration pair.
 
-A format change is a change of the session configuration. The session applies all changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) together. The `defer` statement makes sure that the commit runs on each path out of the method. These pairs can be nested, which is important later in this section. The method is `func setHDRVideoEnabled(_ isEnabled: Bool)`. It is not `async` and does not throw: it handles the error of the next step itself.
+A format change is a change of the session configuration. The session applies all changes between [`beginConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/beginconfiguration()) and [`commitConfiguration()`](https://developer.apple.com/documentation/avfoundation/avcapturesession/commitconfiguration()) together. The `defer` statement makes sure that the commit runs on each path out of the method. These pairs can be nested, which is important later in this section. The method is `func setHDRVideoEnabled(_ isEnabled: Bool)`. It is not `async` and does not throw: it handles the error of the next step itself. In Try first mode, the first placeholder stands for the method head, and the second one for the two lines of the pair and the closing brace of the method.
 
 ```swift file=AVCam/CaptureService.swift highlight=7-12
     /// Stops the recording and returns the captured movie.
@@ -345,7 +345,7 @@ The method did not keep the old format, and it does not need it. A preset gives 
 ### Step
 In `setCaptureMode(_:)`, turn HDR on again in the video case when the state says so.
 
-The line `captureSession.sessionPreset = .high` in this case takes the control of the format away from the app. Without the new lines, HDR is lost each time the person goes to photo mode and comes back. The call is inside the configuration pair of `setCaptureMode(_:)`, so the pair of `setHDRVideoEnabled(_:)` is a nested pair. The session applies all changes at the outer commit.
+The line `captureSession.sessionPreset = .high` in this case takes the control of the format away from the app. Without the new lines, HDR is lost each time the person goes to photo mode and comes back. Write `if isHDRVideoEnabled {`, `setHDRVideoEnabled(true)`, and `}` on three lines after `try addOutput(movieCapture.output)`. Do not write `setHDRVideoEnabled(isHDRVideoEnabled)` without the `if`: that compiles, but it is a different line than in the sample. The call is inside the configuration pair of `setCaptureMode(_:)`, so the pair of `setHDRVideoEnabled(_:)` is a nested pair. The session applies all changes at the outer commit.
 
 ```swift file=AVCam/CaptureService.swift highlight=21-23
     /// Changes the mode of capture, which can be `photo` or `video`.
@@ -412,7 +412,7 @@ The first property is read-only for a view: only the camera knows the answer. Th
 ```
 
 ### Note
-The project does not compile at this time, because `CameraModel` and `PreviewCameraModel` do not have the new members. You add them in the next steps.
+The project does not compile at this time, because `CameraModel` and `PreviewCameraModel` do not have the new members. You add them in the next steps. The project compiles again after step 6 of this section.
 
 ### Step
 In `CameraModel.swift`, add the `isHDRVideoSupported` property with a private setter below `previewSource`.
@@ -433,7 +433,7 @@ A view can read the value but cannot change it. The value comes only from the ca
 ### Step
 In `observeState()`, add a third task that reads the capabilities of the capture service.
 
-The capture service publishes a new `CaptureCapabilities` value after each change of mode and each change of camera. The task copies the HDR flag to the model, and the views update. This is the same pattern as the task for the capture activity: `values` turns a publisher into an asynchronous sequence, and the task runs on the main actor.
+The capture service publishes a new `CaptureCapabilities` value after each change of mode and each change of camera. The task copies the HDR flag to the model, and the views update. The loop is `for await capabilities in await captureService.$captureCapabilities.values`, and its body is `isHDRVideoSupported = capabilities.isHDRSupported`. This is the same pattern as the task for the capture activity: `values` turns a publisher into an asynchronous sequence, and the task runs on the main actor.
 
 ```swift file=AVCam/CameraModel.swift highlight=23-28
     // Set up camera's state observations.
@@ -542,7 +542,7 @@ On an iPhone, the features toolbar is at the top of the screen. In chapter 7, yo
 ### Step
 In `FeatureToolbar.swift`, add the `hdrToggleButton` property at the end of the structure.
 
-The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer from the last section does the rest. The label is text, "HDR On" or "HDR Off", so the person always sees the current state. The property is `var hdrToggleButton: some View`. It returns a `Button` with two trailing closures: the action calls `toggle()` on `camera.isHDRVideoEnabled`, and the label is a `Text` with the modifier `.font(.body.weight(.semibold))`.
+The button changes `isHDRVideoEnabled` of the model, and the `didSet` observer from the last section does the rest. The label is text, "HDR On" or "HDR Off", so the person always sees the current state. The property is `var hdrToggleButton: some View`. It returns a `Button` with two trailing closures: the action calls `toggle()` on `camera.isHDRVideoEnabled`, and the label is `Text("HDR \(camera.isHDRVideoEnabled ? "On" : "Off")")` with the modifier `.font(.body.weight(.semibold))`. The interpolation `\( … )` is inside the string. The "texts in this code" line of the cover shows this string in three parts, because the cover cannot read a string inside a string.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=13-20
         } label: {
