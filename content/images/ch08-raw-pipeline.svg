@@ -54,9 +54,9 @@
     <text x="632" y="126" font-size="14" font-weight="600" fill="currentColor">One asset</text>
     <text x="632" y="150" font-size="13" fill="var(--muted)">in Photos</text>
     <text x="632" y="184" font-size="13" fill="currentColor">.photo</text>
-    <text x="632" y="202" font-size="13" fill="var(--muted)">the DNG</text>
-    <text x="632" y="228" font-size="13" fill="currentColor">.alternatePhoto</text>
-    <text x="632" y="246" font-size="13" fill="var(--muted)">the HEIF</text>
+    <text x="632" y="202" font-size="13" fill="var(--muted)">the DNG alone</text>
+    <text x="632" y="228" font-size="13" fill="currentColor">if refused</text>
+    <text x="632" y="246" font-size="13" fill="var(--muted)">HEIF + DNG pair</text>
   </g>
 
   <!-- Arrows -->

@@ -2,6 +2,10 @@
 
 Written 15 Oct 2026. Goal: two new chapters that sit after chapter 7 ("Photo features") as chapters 8 and 9, with the old chapters 8 to 18 renumbered to 10 to 20. The work is split so that cheaper models (Sonnet) do the mechanical and the writing parts, and the Fable coordinator only plans, decides, and checks.
 
+## Status (16 Oct 2026)
+
+Chapter 8 code is final apart from device round 7: one commit `04bee6a` on `chapter-07`; chapters 9 to 20 and `main` rebased onto it. The RAW save first stores the DNG alone with a full-size JPEG preview (the Camera app model, a user decision after round 6, untested), then the RAW+JPEG pair (processed `.photo`, DNG `.alternatePhoto` file; verified in round 6, badge "JPG + RAW"), then the processed photo alone. A RAW request does not set `photoQualityPrioritization` (Bayer RAW crashed at the setter on iOS 26). Pages, research section G, and notes are updated; round 7 (`docs/device-test-chapter-08.md`) tests the DNG alone for Apple ProRAW and Bayer RAW. The paragraph below is the history of the decision.
+
 ## Order of the new chapters
 
 Decided by the user on 15 Oct 2026: RAW is chapter 8, fast capture is chapter 9; the RAW control offers a choice between Apple ProRAW and Bayer RAW; the DNG and the processed photo go into one asset (option A, decided 15 Oct 2026). Research found that Apple's article makes the DNG the `.photo` resource and the HEIF the `.alternatePhoto`; the chapter first followed the article. The second device test (16 Oct 2026) saved nothing, so the chapter now follows the documentation and the iOS 27 headers (HEIF `.photo`, DNG `.alternatePhoto` with `contentType = .dng`), and a device check settles it. Constant color is out of chapter 8 (it cannot combine with RAW). Bayer RAW forces `.speed` prioritization and zoom 1.0; ProRAW excludes Live Photo. The RAW symbol is `r.square` / `r.square.fill`.

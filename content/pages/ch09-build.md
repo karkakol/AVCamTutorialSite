@@ -415,8 +415,8 @@ Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captu
     func capturePhoto() async {
         logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")
         do {
-            let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled, qualityPrioritization: qualityPrioritization,
-                                         rawFormat: rawFormat)
+            let photoFeatures = PhotoFeatures(isLivePhotoEnabled: isLivePhotoEnabled && isLivePhotoAvailable,
+                                              qualityPrioritization: qualityPrioritization, rawFormat: rawFormat)
             let photo = try await captureService.capturePhoto(with: photoFeatures)
             try await mediaLibrary.save(photo: photo)
         } catch {
