@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360">
-  <title>One capture request with RAW gives two photos from one sensor image: a DNG file and a processed HEIF photo. The delegate gets two calls. The app saves both in one asset in the Photos library, with the DNG as the photo resource and the HEIF as the alternate photo resource.</title>
+  <title>One capture request for Apple ProRAW with no processed format gives one photo: a DNG file with a full-size JPEG preview inside. The delegate gets one call. The app saves the DNG alone as the photo resource of one asset in the Photos library.</title>
   <defs>
     <marker id="ch08-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
@@ -14,7 +14,7 @@
   <g font-family="inherit" font-size="13" fill="var(--muted)" text-anchor="middle">
     <text x="62" y="24">The camera</text>
     <text x="226" y="24">One request</text>
-    <text x="434" y="24">Two photos</text>
+    <text x="434" y="24">One photo</text>
     <text x="630" y="24">What the app saves</text>
   </g>
 
@@ -26,26 +26,22 @@
   </g>
 
   <!-- Request -->
-  <rect x="142" y="120" width="168" height="120" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+  <rect x="142" y="110" width="168" height="140" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
   <g font-family="inherit" text-anchor="middle">
-    <text x="226" y="150" font-size="14" font-weight="600" fill="currentColor">capturePhoto</text>
-    <text x="226" y="176" font-size="13" fill="var(--muted)">RAW pixel format</text>
-    <text x="226" y="196" font-size="13" fill="var(--muted)">+ processed format</text>
-    <text x="226" y="216" font-size="13" fill="var(--muted)">(HEVC or JPEG)</text>
+    <text x="226" y="140" font-size="14" font-weight="600" fill="currentColor">capturePhoto</text>
+    <text x="226" y="166" font-size="13" fill="var(--muted)">Apple ProRAW format</text>
+    <text x="226" y="186" font-size="13" fill="var(--muted)">processedFormat: nil</text>
+    <text x="226" y="212" font-size="13" fill="var(--muted)">+ full-size JPEG</text>
+    <text x="226" y="230" font-size="13" fill="var(--muted)">preview in the DNG</text>
   </g>
 
-  <!-- Two outputs -->
-  <rect x="346" y="60" width="176" height="96" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
+  <!-- One output -->
+  <rect x="346" y="120" width="176" height="120" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
   <g font-family="inherit" text-anchor="middle">
-    <text x="434" y="88" font-size="14" font-weight="600" fill="currentColor">RAW photo</text>
-    <text x="434" y="110" font-size="13" fill="var(--muted)">DNG data</text>
-    <text x="434" y="132" font-size="13" fill="var(--muted)">call 1 or call 2</text>
-  </g>
-  <rect x="346" y="204" width="176" height="96" rx="10" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/>
-  <g font-family="inherit" text-anchor="middle">
-    <text x="434" y="232" font-size="14" font-weight="600" fill="currentColor">Processed photo</text>
-    <text x="434" y="254" font-size="13" fill="var(--muted)">HEIF data</text>
-    <text x="434" y="276" font-size="13" fill="var(--muted)">call 2 or call 1</text>
+    <text x="434" y="150" font-size="14" font-weight="600" fill="currentColor">RAW photo</text>
+    <text x="434" y="174" font-size="13" fill="var(--muted)">DNG data</text>
+    <text x="434" y="194" font-size="13" fill="var(--muted)">with its preview</text>
+    <text x="434" y="220" font-size="13" fill="var(--muted)">one call</text>
   </g>
 
   <!-- One asset -->
@@ -55,21 +51,19 @@
     <text x="632" y="150" font-size="13" fill="var(--muted)">in Photos</text>
     <text x="632" y="184" font-size="13" fill="currentColor">.photo</text>
     <text x="632" y="202" font-size="13" fill="var(--muted)">the DNG alone</text>
-    <text x="632" y="228" font-size="13" fill="currentColor">if refused</text>
-    <text x="632" y="246" font-size="13" fill="var(--muted)">HEIF + DNG pair</text>
+    <text x="632" y="228" font-size="13" fill="var(--muted)">a .dng file,</text>
+    <text x="632" y="246" font-size="13" fill="var(--muted)">shouldMoveFile</text>
   </g>
 
   <!-- Arrows -->
   <g fill="none" stroke-width="1.5">
     <path d="M114 180 H138" stroke="var(--muted)" marker-end="url(#ch08-arrow)"/>
-    <path d="M312 160 C330 160 328 108 342 108" stroke="var(--muted)" marker-end="url(#ch08-arrow)"/>
-    <path d="M312 200 C330 200 328 252 342 252" stroke="var(--muted)" marker-end="url(#ch08-arrow)"/>
-    <path d="M524 108 C540 108 538 150 552 150" stroke="var(--accent)" stroke-width="2" marker-end="url(#ch08-arrow-accent)"/>
-    <path d="M524 252 C540 252 538 210 552 210" stroke="var(--accent)" stroke-width="2" marker-end="url(#ch08-arrow-accent)"/>
+    <path d="M312 180 H342" stroke="var(--muted)" marker-end="url(#ch08-arrow)"/>
+    <path d="M524 180 H552" stroke="var(--accent)" stroke-width="2" marker-end="url(#ch08-arrow-accent)"/>
   </g>
 
   <!-- Footer -->
   <g font-family="inherit" font-size="13" fill="var(--muted)">
-    <text x="12" y="336">The delegate keeps the DNG in rawData and the HEIF in photoData. It reports once, at the end.</text>
+    <text x="12" y="336">The delegate keeps the DNG in photoData and sets isRAW. It reports once, at the end.</text>
   </g>
 </svg>
