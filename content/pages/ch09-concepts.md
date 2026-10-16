@@ -59,7 +59,7 @@ The coordinator has one more job. A tap does not change the readiness of the out
 
 The method [`startTrackingCaptureRequest(using:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutputreadinesscoordinator/starttrackingcapturerequest(using:)) closes this gap. You give it the photo settings of the new request before you call [`capturePhoto(with:delegate:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/capturephoto(with:delegate:)). The coordinator then counts the request in its value from that moment. The tracking stops when you call `capturePhoto` with the same settings, so you do not stop it yourself. If an error stops you before `capturePhoto`, call [`stopTrackingCaptureRequest(using:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutputreadinesscoordinator/stoptrackingcapturerequest(using:)) with the `uniqueID` of the settings.
 
-There is one condition. The coordinator calls its delegate **synchronously** only when you call `startTrackingCaptureRequest` on the main queue. Then the interface changes before the call returns, and a queued second tap cannot start a capture. When you call it on another queue, the callback comes later. The next section of this article, "Why the app does it this way", shows what the app does about this.
+There is one condition. The coordinator calls its delegate **synchronously** only when you call `startTrackingCaptureRequest` on the main queue. Then the interface changes before the call returns, and a queued second tap cannot start a capture. When you call it on another queue, the callback comes later. The section "The trade-off of tracking inside the actor" later in this article shows what the app does about this.
 
 ## What the camera can do
 
@@ -113,7 +113,7 @@ In a fast series, the output cannot give each photo the full processing. This sw
 
 ### Chapter 7 already set three switches
 
-The code of chapter 7 sets responsive capture, fast capture prioritization, and deferred delivery to their "supported" values. This chapter does not turn them on. It adds the missing parts:
+The code of chapter 7 sets responsive capture, fast capture prioritization, and deferred delivery to their "supported" values. Chapter 8 changed the last one: it is off while a RAW format is chosen. This chapter does not change these three switches. It adds the missing parts:
 
 - The line for zero shutter lag. The output enables it when it is supported, so the line changes nothing in the result. It makes the switch visible in the code, and it keeps the order right for the next line.
 - Three log lines with the "supported" and "enabled" values, so that a test on a device can read them.
@@ -145,7 +145,7 @@ The alternative is to create the photo settings on the main actor, call `startTr
 
 ### The value goes to the model, and then to the button
 
-`CaptureService` publishes `captureReadiness` as it does for `captureActivity`. `CameraModel` reads it in a third task in `observeState()`. The `Camera` protocol has the property, and `PreviewCameraModel` has a stored copy, so that an Xcode preview can set any value. This is how you can see the dim button without a device.
+`CaptureService` publishes `captureReadiness` as it does for `captureActivity`. `CameraModel` reads it in a new task in `observeState()`. The `Camera` protocol has the property, and `PreviewCameraModel` has a stored copy, so that an Xcode preview can set any value. This is how you can see the dim button without a device.
 
 When captures overlap, the value of `captureActivity` follows the delegate that reported last. This value drives only the flash of the screen and the Live badge, so the effect is small. The delegates need no change: each request has its own delegate and its own continuation.
 
@@ -167,7 +167,7 @@ The chapter ran on an iPhone 17 Pro Max with iOS 26, on top of the chapter 8 cod
 
 ### The switches
 
-At the start, the console showed `true/true` for all four lines: zero shutter lag, responsive capture, fast capture prioritization, and deferred photo delivery. Thus the `x = x.isSupported` lines turn each switch on, on this iPhone.
+At the start, the console showed `true/true` for all four lines: zero shutter lag, responsive capture, fast capture prioritization, and deferred photo delivery. Thus all four switches were on after `updateConfiguration(for:)` on this iPhone.
 
 ### A fast series
 
@@ -175,15 +175,15 @@ The person tapped the button about 15 times quickly, with the quality level Qual
 
 - **Every tap counted.** The output took each request, and Photos got each photo.
 - **No waiting state.** The readiness changed only between `ready` and `notReadyMomentarily`. The values `notReadyWaitingForCapture` and `notReadyWaitingForProcessing` never came. So the button never went dim, and the spinner never showed. The button rules are still correct. They only had nothing to do on this phone.
-- **The output changed the photos instead of waiting.** The "Resolved settings" lines show it. The first and the last capture of the series took the deferred path: 5712x4284 (24 MP) with a proxy. The captures between them came at once: 4032x3024 (12 MP), proxy 0x0. This is responsive capture at work: the output keeps up with the taps, and it gives up the slow path while the taps come fast. Fast capture prioritization is on too, and it allows such a lower quality. The log does not show which of the two switches made the choice.
+- **The output changed the photos instead of waiting.** The "Resolved settings" lines show it. The first and the last capture of the series took the deferred path: 5712x4284 (24 MP) with a proxy. The captures between them came at once: 4032x3024 (12 MP), proxy 0x0. This is probably the work of responsive capture: the output keeps up with the taps, and it gives up the slow path while the taps come fast. Fast capture prioritization is on too, and it allows such a lower quality. The log does not show which of the two switches made the choice, so this is an observation and not a proven cause.
 
 ### The readiness after a RAW capture
 
-With Apple ProRAW chosen, the readiness went to `sessionNotRunning` and back to `ready` after a capture, after the line "Saved asset". This value means that the session does not run, or that the output rebuilds its pipeline.
+With Apple ProRAW chosen, the readiness went to `sessionNotRunning` and back to `ready` after a capture, after the line "Saved asset". The SDK says that this value means that the session does not run.
 
-The capture code cannot cause this by itself. `capturePhoto(with:)` and `MediaLibrary.save(photo:)` do not touch the session. The deferred delivery switch changes only when the person picks a RAW choice, in `setRAWFormat(_:)`, and not for each capture. In chapter 9, the app changes the session in two places only: `setRAWFormat(_:)` and `changeCaptureDevice(to:)`. Both use `beginConfiguration()` and `commitConfiguration()`. The session also stops when the app goes to the background.
+The capture code does not seem to cause this. `capturePhoto(with:)` and `MediaLibrary.save(photo:)` do not touch the session. The deferred delivery switch is set in `updateDeferredPhotoDelivery()`. That method runs when the person picks a RAW choice (`setRAWFormat(_:)`) and after a change of camera (`updateConfiguration(for:)`), and not for each capture. After the start, the app changes the session in two places only: `setRAWFormat(_:)` and `changeCaptureDevice(to:)`. Both use `beginConfiguration()` and `commitConfiguration()`. The session also stops when the app goes to the background. One more source is possible: the mapping of the app turns each unknown readiness value into `sessionNotRunning`.
 
-So the value comes from the next step of the person after the capture. In the test, three such steps were possible: the switch back to Off (deferred delivery goes on again, and the pipeline is built again), the switch to the front camera (the test checked Apple ProRAW on both cameras), or a visit to the Photos app to look at the DNG. The test log did not show which of the three it was. The log lines before the value tell you: "Deferred photo delivery (supported/enabled)" comes from a RAW choice, and "RAW on Front TrueDepth Camera" comes from a camera switch. Thus this is an observation, not a proven cause.
+So the value comes from the next step of the person after the capture. In the test, three such steps were possible: the switch back to Off (deferred delivery goes on again, and the pipeline is built again), the switch to the front camera (the test checked Apple ProRAW on both cameras), or a visit to the Photos app to look at the DNG. The test log did not show which of the three it was. The log lines before the value tell you. A RAW choice prints the line "Deferred photo delivery (supported/enabled)" and nothing else. A camera switch prints the three switch lines, the deferred line, and "RAW on Front TrueDepth Camera". Thus this is an observation, not a proven cause.
 
 The effect is harmless. `sessionNotRunning` does not disable the button, and the value goes back to `ready` by itself.
 

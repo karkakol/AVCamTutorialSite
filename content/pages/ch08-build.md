@@ -28,7 +28,7 @@ In `DataTypes.swift`, below `QualityPrioritization`, add the `RAWFormat` enumera
 
 The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. Give each case a `///` comment above it: "No RAW photo." and "A linear DNG that the system partially processes." Leave the raw values at their defaults. Add a `///` comment above the enumeration too.
 
-Chapter 7 used a three-way choice for the quality. RAW is a choice of two in this chapter. An enumeration instead of a `Bool` leaves room for Bayer RAW, the second RAW format, which chapter 16 adds. The `description` property comes in the next step, so the project does not compile until then.
+Chapter 7 used a three-way choice for the quality. RAW is a choice of two in this chapter. An enumeration instead of a `Bool` leaves room for Bayer RAW, the second RAW format, which is planned for chapter 16. The `description` property comes in the next step, so the project does not compile until then.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=7-14
         case .quality:
@@ -52,7 +52,7 @@ enum CameraError: Error {
 ### Step
 Add the `description` property of type `String` to `RAWFormat`, below the last case.
 
-A `switch` on `self` returns "Off" and "Apple ProRAW". The menu shows these texts. The project compiles again after this step.
+A `switch` on `self` returns "Off" and "Apple ProRAW", with a `return` in each case. The menu shows these texts. The project compiles again after this step.
 
 ```swift file=AVCam/Model/DataTypes.swift highlight=7-14
 enum RAWFormat: Int, Identifiable, CaseIterable, CustomStringConvertible, Codable {
@@ -260,7 +260,7 @@ In the new method, write the DNG data to a file at `URL.rawFileURL`, and remove 
 
 Keep the URL in a constant `rawFileURL`, and call `try rawData.write(to: rawFileURL)`. Put the comment "Write the DNG data to a file. Photos reads the type of the RAW resource from the `.dng` extension." above the two lines. Then add `defer { try? FileManager.default.removeItem(at: rawFileURL) }`, with the comment "Remove the file if Photos doesn't take it. After a successful save, the file is already gone." above it.
 
-A device test showed why the DNG must be a file: Photos refused a request when the DNG came as `Data`. With `Data`, Photos takes the type from the resource type, and a resource type does not say "DNG". [`write(to:options:)`](https://developer.apple.com/documentation/foundation/data/write(to:options:)) throws if the disk is full. Then the method stops before Photos gets a request. The `defer` block runs when the method returns or throws. Later in this method, you ask Photos to move the file into the library. Photos removes the file only when the save succeeds. After a failure, the file stays in the temporary directory, so the `defer` block removes it. After a success, the file is gone, and `try?` ignores the error of [`removeItem(at:)`](https://developer.apple.com/documentation/foundation/filemanager/removeitem(at:)-xj6x).
+A device test showed why the DNG must be a file: Photos refused a request when the DNG came as `Data`. With `Data`, Photos takes the type from the resource type, and a resource type does not say "DNG". [`write(to:options:)`](https://developer.apple.com/documentation/foundation/data/write(to:options:)) throws if the disk is full. Then the method stops before Photos gets a request. The `defer` block runs when the method returns or throws. Later in this method, you ask Photos to move the file into the library. Photos removes the file only when the save succeeds. After a failure, the file stays in the temporary directory, so the `defer` block removes it. After a success, the file is gone, and `try?` ignores the error of [`removeItem(at:)`](https://developer.apple.com/documentation/foundation/filemanager/removeitem(at:)-xj6x). Until step 2.11, Xcode shows a warning for the `defer` line ("'defer' statement at end of scope always executes immediately"), because it is the last statement of the method. The warning goes away when step 2.11 adds code below it.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=2-6
     private func save(rawData: Data, location: CLLocation?) async throws {
@@ -275,7 +275,7 @@ A device test showed why the DNG must be a file: Photos refused a request when t
 ### Step
 Below `save(rawData:location:)`, add the private static method `imageInfo(of:)`. It returns the image type that Image I/O finds in the data, and the number of images.
 
-The return type is the tuple `(type: String, count: Int)`. Make an image source with [`CGImageSourceCreateWithData(_:_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcecreatewithdata(_:_:)) in a `guard`. If it gives `nil`, return `("none", 0)`. Read the type identifier with [`CGImageSourceGetType(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegettype(_:)), and use `"none"` when it is `nil`. Return the type and the result of [`CGImageSourceGetCount(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegetcount(_:)). Add the `///` comment "Returns the image type that Image I/O finds in the photo data, and the number of images in the data." above it.
+The return type is the tuple `(type: String, count: Int)`. Make an image source with [`CGImageSourceCreateWithData(_:_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcecreatewithdata(_:_:)) in a `guard`. Pass `data as CFData` and `nil` for the options. If it gives `nil`, return `("none", 0)`. Read the type identifier with [`CGImageSourceGetType(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegettype(_:)), and use `"none"` when it is `nil`. The function returns a `CFString?`, so convert it with `.map { $0 as String }`. Return the type and the result of [`CGImageSourceGetCount(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegetcount(_:)). Add the `///` comment "Returns the image type that Image I/O finds in the photo data, and the number of images in the data." above it.
 
 The method reads only the start of the data, where each file format has its signature. A DNG gives the type `com.adobe.raw-image`. A count of 0 means that Image I/O cannot read an image from the data. The method is `static`, because it uses no state of the media library. It returns a `String`, not a `UTType`, because the app only logs the value.
 
@@ -312,7 +312,7 @@ Device tests showed error 3300 for several requests, and the error named the DNG
 ### Step
 Below the `defer` line, log the resource, and call `performChange(_:)` with a request that has the DNG file as its only `.photo` resource.
 
-Log "Resource .photo: " with the size of `rawData` and the file name `rawFileURL.lastPathComponent`, with `logger.debug`. In the closure, make `creationRequest` with `PHAssetCreationRequest.forAsset()`, as `save(photo:)` does. Make a `PHAssetResourceCreationOptions` object in `rawOptions`, and set its [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) to `true`. Set nothing else. Call [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)) with [`.photo`](https://developer.apple.com/documentation/photos/phassetresourcetype/photo), `rawFileURL`, and `rawOptions`. Then set `creationRequest.location = location` and return `creationRequest.placeholderForCreatedAsset`. Copy the comments of the fence. The project compiles again after this step.
+Log "Resource .photo: " with the size of `rawData` and the file name `rawFileURL.lastPathComponent`, with `logger.debug`. In the closure, make `creationRequest` with `PHAssetCreationRequest.forAsset()`, as `save(photo:)` does. Make a `PHAssetResourceCreationOptions` object in `rawOptions`, and set its [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) to `true`. Set nothing else. Call [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)) with [`.photo`](https://developer.apple.com/documentation/photos/phassetresourcetype/photo), `rawFileURL`, and `rawOptions`. Then set `creationRequest.location = location` and return `creationRequest.placeholderForCreatedAsset`. Copy the comments of the fence.
 
 This is the model of the Camera app: one asset, one file, the DNG. Photos shows the JPEG preview that the capture embeds in the DNG (you add it in a later section). `shouldMoveFile` moves the file into the library, so Photos does not copy the many megabytes of a DNG. The Live Photo movie of `save(photo:)` uses the same option. The options have no file name and no type, so Photos takes both from the file URL, which ends in `.dng`. The options object is made inside the closure, because it is not `Sendable`. The SDK header of `PHAssetCreationRequest` says that `addResource` always succeeds, and that Photos checks the request later. So the log line shows what the app sent before Photos answers. The `try` is not in a `do` block: an error goes to `save(photo:)`, and from there to `capturePhoto()`, which logs it.
 
@@ -357,7 +357,7 @@ The `return` ends `save(photo:)` after the RAW save, so a RAW capture never reac
 ### Step
 In the `Error` enumeration of `MediaLibrary`, give the case `saveFailed` the associated value `reason` of type `Swift.Error`.
 
-Delete the old case. The new case keeps the error from Photos, so the code that catches `saveFailed` can log the reason. Write `Swift.Error`, because inside `MediaLibrary` the name `Error` means this enumeration.
+Delete the old case. The new case keeps the error from Photos, so the code that catches `saveFailed` can log the reason. Write `Swift.Error`, because inside `MediaLibrary` the name `Error` means this enumeration. The project does not compile until step 2.15, because `performChange(_:)` still throws `Error.saveFailed` without a reason.
 
 ```swift file=AVCam/Model/MediaLibrary.swift remove
         case saveFailed
@@ -408,7 +408,7 @@ extension PHPhotosError.Code {
 ### Step
 In `performChange(_:)` of `MediaLibrary`, log the identifier of the new asset, and log the error from Photos with the name of its code in the `catch` block.
 
-Inside `if let placeholder`, add `logger.debug("Saved asset \(placeholder.localIdentifier)")` as the first line. In the `catch` block, keep the name of the code in a constant `code`: cast the error to `PHPhotosError`, and read `code.name`, or use `"not a Photos error"`. Then log "Saving to Photos failed: " with the error and the code in parentheses, with `logger.error`. Put the comment "Log the reason from Photos with the name of its error code, because the error text often has no description." above the two lines. Replace `throw Error.saveFailed` with `throw Error.saveFailed(reason: error)`.
+Inside `if let placeholder`, add `logger.debug("Saved asset \(placeholder.localIdentifier)")` as the first line. In the `catch` block, keep the name of the code in a constant `code`: cast the error to `PHPhotosError`, and read `code.name`, or use `"not a Photos error"`. Then log "Saving to Photos failed: " with the error and the code in parentheses, with `logger.error`. Put the comment "Log the reason from Photos with the name of its error code, because the error text often has no description." above the two lines. Replace `throw Error.saveFailed` with `throw Error.saveFailed(reason: error)`. The project compiles again after this step.
 
 `PHPhotoLibrary.performChanges(_:)`, the `async` form of [`performChanges(_:completionHandler:)`](https://developer.apple.com/documentation/photos/phphotolibrary/performchanges(_:completionhandler:)), reports a refused request with an error. Before this step, the `catch` block replaced that error with `MediaLibrary.Error.saveFailed`, and nobody saw why Photos refused. Now the log line shows the full error and its name, and the thrown error carries the reason. The [`localIdentifier`](https://developer.apple.com/documentation/photos/phobject/localidentifier) of the [`PHObjectPlaceholder`](https://developer.apple.com/documentation/photos/phobjectplaceholder) is the identifier of the new asset; the line proves that Photos made it. Each save goes through this method, so the lines show the result of each save, also of a movie in a later chapter.
 
@@ -775,7 +775,7 @@ In `PhotoCaptureDelegate`, at the end of `willBeginCaptureFor`, log the resolved
 
 Read [`resolvedSettings.photoDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/photodimensions), [`rawPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/rawphotodimensions), and [`deferredPhotoProxyDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/deferredphotoproxydimensions) into the constants `photo`, `raw`, and `proxy`. Then log "Resolved settings: " with [`expectedPhotoCount`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/expectedphotocount) and the `width` and `height` of each constant. Copy the comment from the code.
 
-[`AVCaptureResolvedPhotoSettings`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings) tells what the photo output really does for this capture, before any photo arrives. A RAW capture of this app without deferred delivery has an expected count of 1, a photo size of 0x0, and a RAW size that is not 0x0. A proxy size that is not 0x0 means that a proxy replaces the processed photo.
+[`AVCaptureResolvedPhotoSettings`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings) tells what the photo output really does for this capture, before any photo arrives. A RAW capture of this app without deferred delivery has an expected count of 1 and a RAW size that is not 0x0. On the test iPhone, the line was "Resolved settings: 1 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0". Note that the photo size is not 0x0, although the request asks for no processed photo. A proxy size that is not 0x0 means that a proxy replaces the processed photo.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-9
     func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
@@ -806,7 +806,7 @@ Use `self.photoData?.count ?? 0` for N. Now the console shows which callback del
 ### Step
 In `updateCapabilities(for:)`, log whether the camera offers Apple ProRAW, with the name of the camera and its `isVirtualDevice` value.
 
-Below the initializer call, copy `capabilities.isAppleProRAWSupported` into the local constant `isAppleProRAWSupported`, so that the log closure does not read the property of `self`. Then log "RAW on ", `device.localizedName`, the value of [`device.isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice), and the flag. Copy the comment from the code. Git counts the closing brace of the method as a new line, so it is highlighted too.
+Below the initializer call, copy `capabilities.isAppleProRAWSupported` into the local constant `isAppleProRAWSupported`, so that the log closure does not read the property of `self`. Then log "RAW on ", `device.localizedName`, the value of [`device.isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice), and the flag. Copy the comment from the code. Git counts the closing brace of the method as a new line, so it is highlighted too. Your file has this brace already, so do not add a second one.
 
 This app uses the camera that the system prefers. On the back of an iPhone with several lenses, that is usually a virtual camera, such as the dual or the triple camera, which joins several physical cameras. Apple ProRAW works on a virtual camera. Bayer RAW does not, so chapter 16 needs the "virtual" value of this line.
 
@@ -1051,7 +1051,7 @@ In `FeatureToolbar.swift`, below `prioritizePicker`, add the private computed pr
 
 It filters `RAWFormat.allCases` with a `switch $0` in the closure. The case `.off` gives `true`. The case `.appleProRAW` gives `camera.captureCapabilities.isAppleProRAWSupported`. Write each case on one line, as `case .off: true`, with no `return`. Add the comment "The RAW formats that the current camera supports. A person can always turn RAW off." above it.
 
-The `switch` is an expression here, so each case is its value. The list always has `.off`. Thus the menu always has a way back. A `switch` instead of a single test leaves room for the Bayer RAW case of chapter 16: the compiler then asks for the new case here.
+The `switch` is an expression here, so each case is its value. The list always has `.off`. Thus the menu always has a way back. A `switch` instead of a single test leaves room for the Bayer RAW case that is planned for chapter 16: the compiler then asks for the new case here.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=7-15
             case .quality:
@@ -1121,7 +1121,7 @@ In `body`, add `rawMenu` below `prioritizePicker`.
 
 The `HStack` now holds the Live Photo button, the quality menu, and the RAW menu, from left to right.
 
-```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=5
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=5 result="../images/ch08-s7-4.jpg|The features toolbar rendered with the capture tool: the Live Photo button, the quality menu, and the RAW menu."
         HStack(spacing: 30) {
             Spacer()
             livePhotoButton
@@ -1136,7 +1136,7 @@ Build and run the app, and take a photo.
 In the Simulator with SimCam, the camera has no RAW format. The RAW menu is hidden, and the toolbar looks as in chapter 7. A capture saves a normal photo and shows its thumbnail. To see the menu without an iPhone, open the preview at the end of `FeatureToolbar.swift` in the Xcode canvas. The preview model reports Apple ProRAW, so the menu shows there.
 
 > [!IMPORTANT]
-> Seven tests on an iPhone 17 Pro Max with iOS 26 shaped this code. The last test verified the save path of this chapter on two cameras: the virtual "Back Dual Camera" and the "Front TrueDepth Camera". The front camera offers Apple ProRAW too. Each capture gave one DNG in Photos, and Photos showed it as a RAW photo. Share > Options > Format: Unmodified Original ("Export Unmodified Original") gave the DNG. The DNG was 12 MP (4032x3024) on the virtual camera. In an earlier test on the physical telephoto camera, it was 48 MP (8064x6048) and 54 MB. The console shows "Capturing with RAW format: Apple ProRAW", "RAW file types: com.adobe.raw-image", "RAW preview: JPEG WxH", "Quality prioritization ...: ignored for RAW", "Resolved settings: ...", "Captured RAW photo, N bytes", "RAW data: ...", "Resource .photo: N bytes, file ....dng", and "Saved asset ...". In the last test, the request still had a processed photo, and the app saved the DNG alone. The request of this chapter asks for the DNG alone, so "Resolved settings" is expected to show "1 photos" and a photo size of 0x0. While Apple ProRAW is chosen, the Live Photo button shows `livephoto.slash` and does not react. The choice of Apple ProRAW turns deferred delivery off, and that change builds the capture pipeline again. In chapter 9, you add a readiness log: on the device, it showed `sessionNotRunning` and then `ready` after a RAW capture, because of this rebuild. The app starts with the camera that the system prefers. The "RAW on ..." line names the camera and says whether it is virtual.
+> Seven tests on an iPhone 17 Pro Max with iOS 26 shaped this code. Test 7 verified the save path of this chapter on two cameras: the virtual "Back Dual Camera" and the "Front TrueDepth Camera". The front camera offers Apple ProRAW too. Each capture gave one DNG in Photos, and Photos showed it as a RAW photo. Share > Options > Format: Unmodified Original ("Export Unmodified Original") gave the DNG. The DNG was 12 MP (4032x3024) on the virtual camera. In an earlier test on the physical telephoto camera, it was 48 MP (8064x6048) and 54 MB. The console shows "Capturing with RAW format: Apple ProRAW", "RAW file types: com.adobe.raw-image", "RAW preview: JPEG WxH", "Quality prioritization ...: ignored for RAW", "Resolved settings: ...", "Captured RAW photo, N bytes", "RAW data: ...", "Resource .photo: N bytes, file ....dng", and "Saved asset ...". In test 7, the request still had a processed photo, and the app saved the DNG alone. A last test ran the final code, which asks for the DNG alone. The console showed "Resolved settings: 1 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0", and the app saved the DNG alone as one asset. While Apple ProRAW is chosen, the Live Photo button shows `livephoto.slash` and does not react. The choice of Apple ProRAW turns deferred delivery off, and that change builds the capture pipeline again. In chapter 9, you add a readiness log: on the device, it showed `sessionNotRunning` and then `ready` after a RAW capture. The cause is not proven. [Chapter 9](ch09-concepts.md#what-a-device-test-showed) lists the possible causes. The app starts with the camera that the system prefers. The "RAW on ..." line names the camera and says whether it is virtual.
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button
 Result: The RAW menu is hidden in the Simulator. The Live Photo button works as before. A capture saves a normal photo and shows its thumbnail.
@@ -1144,10 +1144,10 @@ Note: On an iPhone with a Pro camera, an Apple ProRAW capture saves one picture:
 ```
 
 ### Experiment
-On a real iPhone with a Pro camera, turn the Live Photo button on, then choose Apple ProRAW. The button now shows Live Photo as off. Take a photo, and read the "Resolved settings" line: the count is 1, the photo size is 0x0, and the RAW size is not 0x0. Choose Off again: the button shows Live Photo as on, as you left it. Take a photo: deferred delivery is on again, the RAW size is 0x0, and the proxy size can be more than 0x0. In Photos, open the RAW picture, and choose Share > Options: Format offers Unmodified Original, which gives the DNG. With Apple ProRAW and the quality menu on "Quality", the console shows "Quality prioritization Quality: ignored for RAW".
+On a real iPhone with a Pro camera, turn the Live Photo button on, then choose Apple ProRAW. The button now shows Live Photo as off. Take a photo, and read the "Resolved settings" line: the count is 1, the photo size is the same as the RAW size (4032x3024 on the test iPhone), and the proxy size is 0x0. Choose Off again: the button shows Live Photo as on, as you left it. Take a photo: deferred delivery is on again, the RAW size is 0x0, and the proxy size can be more than 0x0. In Photos, open the RAW picture, and choose Share > Options: Format offers Unmodified Original, which gives the DNG. With Apple ProRAW and the quality menu on "Quality", the console shows "Quality prioritization Quality: ignored for RAW".
 
 ### Text
-Your code is now the same as the `chapter-08` branch. The app captures and saves an Apple ProRAW DNG on a device that supports it, and it takes a normal photo on all others. In the next chapter, you make capture feel faster with responsive capture and a readiness state for the capture button.
+Your code is now the same as the `chapter-08` branch. The app captures and saves an Apple ProRAW DNG on a device that supports it, and it takes a normal photo on all others. In the next chapter, you add zero shutter lag and a readiness state for the capture button. Chapter 7 already turned on responsive capture.
 
 ## Check your understanding
 

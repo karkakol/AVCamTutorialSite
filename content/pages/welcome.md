@@ -6,7 +6,7 @@ abstract: What you build in this tutorial, what you need, and how the chapters, 
 estimatedMinutes: 5
 ---
 
-In this tutorial, you build a full camera app for iPhone and iPad. You start from an empty Xcode project. At the end, your code is almost the same as AVCam, the camera sample from Apple.
+In this tutorial, you build a full camera app for iPhone and iPad. You start from an empty Xcode project. At the end of chapter 15, your code is almost the same as AVCam, the camera sample from Apple. Two chapters add features that the sample does not have.
 
 You do not only copy code. Each chapter explains why the code has this form, and what the camera can do that the sample does not use. The goal is that you can design your own camera app after the last chapter.
 
@@ -14,9 +14,11 @@ You do not only copy code. Each chapter explains why the code has this form, and
 
 [AVCam](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app) is the sample app that Apple uses to show the camera API of AVFoundation. It shows a live preview, takes photos and Live Photos, records video, saves media to the Photos library, and works with the Camera Control and the Lock Screen.
 
-You build this app in 13 chapters. Each chapter adds one feature. The app builds and runs at the end of each chapter.
+You build this app in 15 chapters. Each chapter adds one feature. The app builds and runs at the end of each chapter.
 
-A second part, "Beyond the sample", has three more chapters. Their code is not from Apple: it adds features that the sample does not have, and it corrects defects of the sample.
+A second part, "Beyond the sample", has five more chapters. Their code is not from Apple: it adds features that the sample does not have, and it corrects defects of the sample.
+
+Chapters 8 and 9 are also not from the Apple sample. They add RAW capture and fast capture, and they are part of the 15 chapters. Their code is an extension that this tutorial wrote and ran on an iPhone 17 Pro Max with iOS 26.
 
 | Chapter | Title | The result |
 |---|---|---|
@@ -27,6 +29,8 @@ A second part, "Beyond the sample", has three more chapters. Their code is not f
 | 5 | Layout | The interface adapts to iPhone and iPad sizes. |
 | 6 | Focus and exposure | A tap on the preview sets the focus and the exposure. |
 | 7 | Photo features | Live Photos, a quality setting, and faster capture. |
+| 8 | RAW and Apple ProRAW | Extension. Not in the Apple sample. The app saves a photo as a DNG file, one asset in Photos. |
+| 9 | Fast capture | Extension. Not in the Apple sample. The capture button shows when the camera is ready for the next photo. |
 | 10 | Record video | A second capture mode records movies with sound. |
 | 11 | HDR video | The app records HDR video on cameras that support it. |
 | 12 | A robust session | The app handles interruptions and errors, and it starts fast. |
@@ -36,9 +40,11 @@ A second part, "Beyond the sample", has three more chapters. Their code is not f
 | 16 | Zoom and lenses | Part 2. The app uses the back camera with the most lenses and has a zoom control. |
 | 17 | Fix the sample | Part 2. You correct four defects of the Apple sample. |
 | 18 | iPhone Duo | Part 2. The app follows the direction of each camera and fits the Duo display. |
+| 19 | Two cameras at once | Part 2. The back camera and the front camera run together, with a small picture in a corner. |
+| 20 | Record picture in picture | Part 2. The app records a movie that shows both cameras in one picture. |
 
 > [!NOTE]
-> All 16 chapters are ready. Chapters 1, 3, 6, 7, 11, 13, 14, and 15 contain features that you can see only on a real iPhone; each page tells you which ones.
+> All 20 chapters are ready. Chapters 1, 3, 6, 7, 8, 9, 11, 13, 14, and 15 contain features that you can see only on a real iPhone; each page tells you which ones.
 
 ## How a chapter works
 
@@ -65,6 +71,8 @@ With SimCam, most of the tutorial works in the Simulator: the preview, the camer
 | The correct orientation of photos | 3 |
 | The visible effect of focus and exposure | 6 |
 | Live Photos | 7 |
+| RAW and Apple ProRAW (the Simulator has no RAW format) | 8 |
+| The fast capture switches and the readiness states of the capture button | 9 |
 | HDR video | 11 |
 | Capture with the hardware buttons and AirPods | 13 |
 | The Camera Control | 14 |
@@ -80,7 +88,7 @@ The code of the tutorial is in the app repository, `AVCamTutorialApp`. It is a G
 | Branch | Contents |
 |---|---|
 | `start` | The empty project that Xcode creates from the App template. |
-| `chapter-01` to `chapter-15` | The finished code of each chapter. `chapter-15` is the Apple sample. |
+| `chapter-01` to `chapter-15` | The finished code of each chapter. `chapter-15` is the Apple sample plus the extensions of chapters 8 and 9. |
 | `chapter-16` to `chapter-20` | The finished code of each chapter of part 2. |
 | `main` | The same as the last finished chapter. |
 

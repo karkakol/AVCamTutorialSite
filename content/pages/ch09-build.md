@@ -144,7 +144,7 @@ Write `photoOutput.isZeroShutterLagEnabled = photoOutput.isZeroShutterLagSupport
 ### Step
 Below the line for ProRAW, log the "supported" and "enabled" values of the three switches, with a `let` constant for the output.
 
-First write the comment `// Log the state of the capture switches so a device test can read them.` and `let output = photoOutput`. The constant has the same name as the `output` property of the class and hides it in this method. Then write three `logger.debug` calls. Their texts are `"Zero shutter lag (supported/enabled): \(output.isZeroShutterLagSupported)/\(output.isZeroShutterLagEnabled)"`, then the same form with `Responsive capture` and the two `isResponsiveCapture` properties, and with `Fast capture prioritization` and the two `isFastCapturePrioritization` properties. The values are read after all lines above, so they show the final state.
+First write the comment `// Log the state of the capture switches so a device test can read them.` and `let output = photoOutput`. The constant has the same name as the `output` property of the class and hides it in this method. A log text needs `self.` before each property of the class, so the constant keeps the three lines short. Then write three `logger.debug` calls. Their texts are `"Zero shutter lag (supported/enabled): \(output.isZeroShutterLagSupported)/\(output.isZeroShutterLagEnabled)"`, then the same form with `Responsive capture` and the two `isResponsiveCapture` properties, and with `Fast capture prioritization` and the two `isFastCapturePrioritization` properties. The values are read after all lines above, so they show the final state.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=3-7
         // Enabling Apple ProRAW adds its formats to the available RAW formats.
@@ -313,7 +313,7 @@ Write `private func monitorReadiness(isolation: isolated (any Actor)? = #isolati
 ```
 
 ### Step
-At the end of `updateConfiguration(for:)`, set the coordinator's delegate and start the monitor, but only one time.
+In `updateConfiguration(for:)`, below the log lines, set the coordinator's delegate and start the monitor, but only one time.
 
 Write the comment `// Start tracking readiness once. Setting the delegate delivers the first value.` and then `if readinessTask == nil {`. Inside, write `readinessCoordinator.delegate = readinessObserver` and `monitorReadiness()`. The method runs after each change of camera, so without the test, each change would start one more task. The first use of `readinessCoordinator` creates it, and setting the [`delegate`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutputreadinesscoordinator/delegate) makes the coordinator report the current value at once.
 
@@ -386,9 +386,9 @@ Write `photoCapture.$captureReadiness` and, on the next line, `.assign(to: &$cap
 ```
 
 ### Step
-In `CameraModel.swift`, add a third `Task` to `observeState()`, above the task for the capture activity.
+In `CameraModel.swift`, add a new `Task` to `observeState()`, between the task for the capabilities and the task for the capture activity.
 
-Write `Task {`, the comment `// Await new capture readiness values from the capture service.`, and a loop `for await readiness in await captureService.$captureReadiness.values`. In the loop, write `captureReadiness = readiness`. The first `await` belongs to the loop, and the second one is needed because the service is an actor. The other tasks in the method use the same form.
+Write `Task {`, the comment `// Await new capture readiness values from the capture service.`, and a loop `for await readiness in await captureService.$captureReadiness.values`. In the loop, write `captureReadiness = readiness`. The first `await` belongs to the loop, and the second one is needed because the service is an actor. The other tasks in the method use the same form. The method has four tasks after this step.
 
 ```swift file=AVCam/CameraModel.swift highlight=6-11
                     rawFormat = .off
@@ -410,7 +410,7 @@ Write `Task {`, the comment `// Await new capture readiness values from the capt
 ### Step
 In `capturePhoto()` of `CameraModel`, log the readiness at the start of the method.
 
-Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")` above `do`. The line shows which readiness value the app had when the person tapped. The `catch` block already logs a failed capture since chapter 8 ("Photo capture failed: ...").
+Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")` above `do`. Write `self.` before `captureReadiness`: a log text needs it. The line shows which readiness value the app had when the person tapped. The `catch` block already logs a failed capture since chapter 8 ("Photo capture failed: ...").
 
 ```swift file=AVCam/CameraModel.swift highlight=2
     func capturePhoto() async {
@@ -554,15 +554,15 @@ Result: The capture button is at half opacity and a spinner is on it. In the pre
 ### Step
 Build and run the app, and tap the capture button quickly several times.
 
-In the Simulator, the button stays at full opacity, because the output reports `notReadyMomentarily` and never a waiting state. The button stays enabled, so each tap starts a capture, and the library gets several photos. The console shows a `Capture requested` line for each tap. On an iPhone 17 Pro Max, the result was the same: the button did not change, and each tap gave a photo.
+In the Simulator, the button stays at full opacity, because the output reports `notReadyMomentarily` and never a waiting state. The button stays enabled, so each tap should start a capture. The console shows a `Capture requested` line for each tap. On an iPhone 17 Pro Max, about 15 fast taps gave the same result: the button did not change, and each tap gave a photo.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), tap the capture button quickly five times, then open the Photos app
-Result: The button does not change, the log shows the readiness values, and the library has the new photos. This is true in the Simulator and on an iPhone 17 Pro Max.
+Result: The button does not change, the log shows the readiness values, and the library has the new photos. The button did not change in the Simulator and on an iPhone 17 Pro Max.
 ```
 
 ### Important
-On an iPhone 17 Pro Max with iOS 26, about 15 fast taps at the quality level Quality gave this result. The output took every tap, and Photos got every photo. The readiness changed only between `ready` and `notReadyMomentarily`, so the button never went dim. The output did not wait: it changed the photos instead. The first and the last photo of the series came on the deferred path: 5712x4284 (24 MP) with a proxy. The photos between them came at once, as 4032x3024 (12 MP) with no proxy. This is responsive capture at work. A slower iPhone, a flash capture, or a longer series can still reach a waiting state, so keep the button rules. After a RAW capture, the readiness can also go to `sessionNotRunning` for a moment. The concepts article explains why. If you test this chapter, also look at the photo time stamps: with zero shutter lag, they can be a little earlier than the taps.
+On an iPhone 17 Pro Max with iOS 26, about 15 fast taps at the quality level Quality gave this result. The output took every tap, and Photos got every photo. The readiness changed only between `ready` and `notReadyMomentarily`, so the button never went dim. The output did not wait: it changed the photos instead. The first and the last photo of the series came on the deferred path: 5712x4284 (24 MP) with a proxy. The photos between them came at once, as 4032x3024 (12 MP) with no proxy. This is probably the work of responsive capture and fast capture prioritization: the log does not show which switch made the choice. A slower iPhone, a flash capture, or a longer series can still reach a waiting state, so keep the button rules. After a RAW capture, the readiness can also go to `sessionNotRunning` for a moment. The concepts article explains why. If you test this chapter, also look at the photo time stamps: with zero shutter lag, they can be a little earlier than the taps.
 
 ### Text
 The app now enables all four fast capture switches, and the capture button shows the readiness of the photo output. The Camera Control and the AirPods remote do not look at the readiness. When you add them in later chapters, check `captureReadiness` in `CameraModel.capturePhoto()` first.

@@ -33,7 +33,7 @@ The final commit `aae9ddf` keeps only the path that saved, and it drops the proc
    ```
    Do not use `git reset --hard`. It removes your signing change.
 2. Run the app on the iPhone. Choose Apple ProRAW. Take a photo.
-3. Expected lines: `Capturing with RAW format: Apple ProRAW`, `RAW file types: com.adobe.raw-image`, `RAW preview: JPEG WxH`, `Quality prioritization ...: ignored for RAW`, `Resolved settings: 1 photos, photo 0x0, RAW 4032x3024, proxy 0x0`, `Captured RAW photo, N bytes`, `RAW data: N bytes, header 4D 4D 00 2A, type com.adobe.raw-image, images N`, `Resource .photo: N bytes, file <UUID>.dng`, `Saved asset <identifier>`.
+3. Expected lines: `Capturing with RAW format: Apple ProRAW`, `RAW file types: com.adobe.raw-image`, `RAW preview: JPEG WxH`, `Quality prioritization ...: ignored for RAW`, `Resolved settings: 1 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0 (the device reported the photo size although the request was RAW only)`, `Captured RAW photo, N bytes`, `RAW data: N bytes, header 4D 4D 00 2A, type com.adobe.raw-image, images N`, `Resource .photo: N bytes, file <UUID>.dng`, `Saved asset <identifier>`.
 4. In Photos, open the new picture. Write down the text of the badge at the top left (for example `RAW`).
 
 Send back: the `Resolved settings` line and the badge text. Only if a line is missing or `Saving to Photos failed` shows: all lines from `Capturing with RAW format` to the end.

@@ -14,7 +14,7 @@ In this chapter, the app gets a RAW control with the choices Off and Apple ProRA
 The chapters before this one used the code of the Apple sample. The sample has no RAW capture. Thus this chapter is part 2 code ("Beyond the sample") inside the numbering of part 1. The design is this tutorial's own, and it is one of several possible designs. This article explains the camera facts that each design must obey, then the decisions of this design, and what is still open.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. The RAW code of this chapter ran in seven rounds on an iPhone 17 Pro Max with iOS 26. Each round found a defect or a rule. The last round verified the save of this chapter: the DNG alone, as the only resource of one asset. Photos showed it as a RAW photo, on the back camera and on the front camera. [What the device tests showed](#what-the-device-tests-showed) tells the story. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
+> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. The RAW code of this chapter ran in seven rounds on an iPhone 17 Pro Max with iOS 26. Each round found a defect or a rule. Round 7 verified the save of this chapter: the DNG alone, as the only resource of one asset. Photos showed it as a RAW photo, on the back camera and on the front camera. A last test ran the final code, which asks for the DNG alone. [What the device tests showed](#what-the-device-tests-showed) tells the story. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
 
 ## How it works
 
@@ -30,7 +30,7 @@ You ask for a RAW photo, and you say whether you also want a processed photo. Th
 
 ![One capture request for Apple ProRAW with no processed format gives one photo: a DNG file with a full-size JPEG preview inside. The delegate gets one call. The app saves the DNG alone as one asset in Photos.](../images/ch08-raw-pipeline.svg)
 
-The initializer [`init(rawPixelFormatType:processedFormat:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/init(rawpixelformattype:processedformat:)) takes the RAW format and a processed format. The SDK header says: pass `nil` if you want no processed photo. With `nil`, the photo output calls [`photoOutput(_:didFinishProcessingPhoto:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishprocessingphoto:error:)) one time, with the DNG. The resolved settings then show an expected photo count of 1.
+The initializer [`init(rawPixelFormatType:processedFormat:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/init(rawpixelformattype:processedformat:)) takes the RAW format and a processed format. The SDK header says: pass `nil` if you want no processed photo. With `nil`, the photo output calls [`photoOutput(_:didFinishProcessingPhoto:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishprocessingphoto:error:)) one time, with the DNG. The resolved settings then show an expected photo count of 1. On the test iPhone, the line was "Resolved settings: 1 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0". The photo size is not 0x0, although the request has no processed format.
 
 If you pass a processed format, such as HEVC, one sensor image gives two photos: the DNG and a processed photo. The method is then called two times, in no fixed order. Each call gets an [`AVCapturePhoto`](https://developer.apple.com/documentation/avfoundation/avcapturephoto) object, and the property [`isRawPhoto`](https://developer.apple.com/documentation/avfoundation/avcapturephoto/israwphoto) tells you which of the two you have. You need this form only for the RAW+JPEG model below.
 
@@ -104,7 +104,7 @@ Do not select a format from the name of the device. Read the list. It can be emp
 
 The pixel formats are `OSType` values, which are four-character codes. An Apple ProRAW format in the list looks like `l64r`. You do not need to know the codes. The class method sorts them for you.
 
-### Bayer RAW comes in chapter 16
+### Bayer RAW is planned for chapter 16
 
 The other kind of RAW is Bayer RAW: the sensor data of one camera, with no processing. It exists only on a physical camera, such as the wide or the telephoto camera alone. WWDC21 session 10160 says so, and the SDK header says that Apple ProRAW exists for the modes that fuse several captures, where no Bayer RAW is available. This app uses the camera that the system prefers. On the back of an iPhone with several lenses, that is a virtual camera, so Bayer RAW does not show. On the test iPhone, the menu had no Bayer RAW with the "Back Triple Camera", and it had it with the "Back Telephoto Camera". A Bayer RAW request also needs a zoom factor of 1.0. And the test showed the rule that this chapter keeps for all RAW: a Bayer RAW capture stopped the app at the `photoQualityPrioritization` setter (finding 6 below). Thus Bayer RAW needs the selection of a physical camera and a zoom control. [Chapter 16](ch16-concepts.md) teaches both, and it adds Bayer RAW in a section "Bayer RAW on a single lens".
 
@@ -115,7 +115,7 @@ When the settings of a capture break a rule, [`capturePhoto(with:delegate:)`](ht
 | Rule | What the app does |
 |---|---|
 | The RAW format must be in `availableRawPhotoPixelFormatTypes`. | The helper reads only that list. |
-| The documentation says that `photoQualityPrioritization` is not supported for a RAW capture. On the test iPhone, the setter raised an exception for a RAW request. | The code does not call the setter for a RAW request. |
+| The documentation says that `photoQualityPrioritization` is not supported for a RAW capture. On the test iPhone, the setter raised an exception for a Bayer RAW request. | The code does not call the setter for a RAW request. |
 | Apple ProRAW needs `livePhotoMovieFileURL` to be `nil`. | The code leaves the movie URL out. |
 | Constant color and RAW exclude each other. | The app has no constant color. |
 | A processed format needs a codec from `availablePhotoCodecTypes`. | The RAW request has no processed format (`nil`). |
@@ -164,7 +164,6 @@ The photo output offers more than AVCam uses. These are the main points:
 
 These points still need a real iPhone. Read each one as an expectation.
 
-- **The request without a processed photo.** Round 7 saved the DNG alone, but its request still asked for a processed photo too. The final request has `processedFormat: nil`. Expected: "Resolved settings: 1 photos, photo 0x0, RAW ..., proxy 0x0", one "Captured RAW photo" line, and the same save.
 - **The badge text.** Photos showed the DNG as a RAW photo. The exact text of the badge for a DNG-only picture was not written down. Expected: "RAW".
 - **iOS 27.** All tests ran on iOS 26. The save has no iOS 27 code, so it is expected to work the same.
 - **An error on the RAW photo.** If the RAW photo fails, the delegate logs the error. `photoData` stays `nil`, and `noPhotoData` is the result.
@@ -212,8 +211,12 @@ The chapter ran seven times on an iPhone 17 Pro Max with iOS 26. Seven findings 
 ### 7. The DNG alone saves
 
 - **Symptom.** None. On the virtual "Back Dual Camera" and on the "Front TrueDepth Camera", the capture resolved to 2 photos (the request still had a processed photo), and the console showed "RAW preview: JPEG WxH", "Resource .photo: N bytes, file ....dng", "Saved asset ...", and "Saved the RAW as the DNG alone".
-- **Cause.** Photos accepts the model of the Camera app: the DNG file alone as `.photo`, with `shouldMoveFile`. Photos showed it as a RAW photo, and Unmodified Original gave the DNG. The front camera offers Apple ProRAW too. In chapter 9, the readiness went to `sessionNotRunning` and back to `ready` after a RAW capture. The capture itself does not cause this. [Chapter 9](ch09-concepts.md#what-a-device-test-showed) explains the possible causes.
+- **Cause.** Photos accepts the model of the Camera app: the DNG file alone as `.photo`, with `shouldMoveFile`. Photos showed it as a RAW photo, and Unmodified Original gave the DNG. The front camera offers Apple ProRAW too. In chapter 9, the readiness went to `sessionNotRunning` and back to `ready` after a RAW capture. The capture code does not seem to cause this, and the cause is not proven. [Chapter 9](ch09-concepts.md#what-a-device-test-showed) explains the possible causes.
 - **Fix.** The final code asks for the RAW photo alone (`processedFormat: nil`) and keeps only this save request. The pair code, the processed photo, and the fallbacks are gone.
+
+### The final code
+
+A last test ran the final code on the iPhone 17 Pro Max: `processedFormat: nil`, the embedded JPEG preview, and the save of the DNG alone. The console showed "Resolved settings: 1 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0". The app saved the DNG alone as one asset, from a temporary `.dng` file with `shouldMoveFile`. Deferred delivery was off, so the proxy size was 0x0.
 
 ### The conditions of a RAW capture
 
@@ -221,7 +224,7 @@ The chapter ran seven times on an iPhone 17 Pro Max with iOS 26. Seven findings 
 |---|---|---|
 | Live Photo | Not allowed: the movie URL must be `nil`. | `excludesLivePhoto` in `PhotoCapture`, and the locked Live Photo button. |
 | Quality prioritization | Not supported for RAW. The device accepted the setter for Apple ProRAW, and refused it for Bayer RAW. | No setter for any RAW request. |
-| Deferred delivery | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while Apple ProRAW is chosen. The change builds the pipeline again, so the readiness of chapter 9 can show `sessionNotRunning` for a moment after a new RAW choice. |
+| Deferred delivery | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while Apple ProRAW is chosen. The change can build the pipeline again. In chapter 9, the readiness showed `sessionNotRunning` once after a RAW capture; the cause is not proven. |
 | Processed photo | Not needed. | `processedFormat: nil`. One photo per capture. |
 | Save | The DNG alone as `.photo`, from a `.dng` file. | `MediaLibrary.save(rawData:location:)`, one request. |
 | Constant color | Not allowed with RAW. | The app has no constant color. |
