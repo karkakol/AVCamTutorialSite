@@ -14,7 +14,7 @@ In this chapter, the app gets a RAW control. When the person selects a RAW forma
 The chapters before this one used the code of the Apple sample. The sample has no RAW capture. Thus this chapter is part 2 code ("Beyond the sample") inside the numbering of part 1. The design is this tutorial's own, and it is one of several possible designs. This article explains the camera facts that each design must obey, then the decisions of this design, and what is still open.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. Three rounds of RAW captures ran on a real iPhone with a Pro camera. Each round found a defect in the chapter. [What a device test showed](#what-a-device-test-showed) tells the story and the fixes. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
+> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. Four rounds of RAW captures ran on a real iPhone with a Pro camera. Each round found a defect in the chapter or narrowed it down. Photos has not saved a RAW asset yet; the app then saves the processed photo alone. [What a device test showed](#what-a-device-test-showed) tells the story and the fixes. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
 
 ## How it works
 
@@ -71,7 +71,7 @@ This is the helper of the app. It returns the first format of the kind that the 
 
 You learned in [chapter 4](ch04-concepts.md) that a Photos asset has resources. The photo is one resource. A Live Photo adds a paired video as a second resource. For a RAW capture, the app adds the DNG as the `.photo` resource and the processed photo as the [`.alternatePhoto`](https://developer.apple.com/documentation/photos/phassetresourcetype/alternatephoto) resource. Both go into one [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest) object. This is the order of Apple's article about RAW capture. Photos is expected to show one tile, with a RAW badge, and the person can export the original.
 
-Each resource has a type of data, such as HEIF or DNG, and a file name. The options object [`PHAssetResourceCreationOptions`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions) can state both. If the options have no type, Photos infers it from the resource type or from the file name extension. So the app writes the DNG data to a file with the extension `.dng` and adds it with [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)). [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) moves the file into the library instead of copying it. The app also gives each resource a file name ([`originalFilename`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/originalfilename)) and a type identifier ([`uniformTypeIdentifier`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/uniformtypeidentifier)). The two names have the same base, as the two files of a RAW+JPEG pair from a camera do.
+Each resource has a type of data, such as HEIF or DNG, and a file name. The options object [`PHAssetResourceCreationOptions`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions) can state both. If the options have no type, Photos infers it from the resource type or from the file name extension. So the app writes the DNG data to a file with the extension `.dng` and adds it with [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)). [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) moves the file into the library instead of copying it. It is the only option that the app sets, as in Apple's article. The processed photo has no options.
 
 ## What the camera can do
 
@@ -159,7 +159,7 @@ These points need a real iPhone with a Pro camera. Read each one as an expectati
 
 ## What a device test showed
 
-The chapter ran three times on a real iPhone with a Pro camera. The first test found one defect and confirmed one limit. The second test, after the first fix, found a second defect. The third test showed the error that the second test hid.
+The chapter ran four times on a real iPhone with a Pro camera. The first test found one defect and confirmed one limit. The second test, after the first fix, found a second defect. The third test showed the error that the second test hid. The fourth test showed that Photos names the DNG file in that error. The cause is not known yet.
 
 ### The symptom
 
@@ -227,13 +227,57 @@ The extension `.dng` matters, because Photos infers the type from the file name 
 
 If Photos still refuses the pair, the app saves the processed photo alone in a second request. The console then shows "Saving to Photos failed: ... (code name)", "Saved asset ...", and "Saved the processed photo without the RAW: ..." with the error. The person gets a picture without a RAW badge. Only if the second request fails too does "Photo capture failed: ..." come. The DNG file is removed from the temporary directory in each case.
 
+### The fourth test: the article's file, refused again
+
+The same iPhone 17 Pro Max, Apple ProRAW. The build of the third fix showed these lines (the identifiers are shortened):
+
+```text
+Captured RAW photo, 15584824 bytes
+Captured processed photo, 2014683 bytes
+RAW pair, .photo with .alternatePhoto supported: true
+Resource .photo: 15584824 bytes, com.adobe.raw-image, file 9A7ED4CC-....dng
+Resource .alternatePhoto: 2014683 bytes, public.heic, file 9A7ED4CC-....heic
+Saving to Photos failed: Error Domain=PHPhotosErrorDomain Code=3300 "(null)" UserInfo={_PHResourceUrlsErrorKey=("file:///private/var/mobile/.../tmp/9A7ED4CC-....dng")} (changeNotSupported)
+Saved asset B057858A-.../L0/001
+Saved the processed photo without the RAW: ...
+```
+
+These facts are now known:
+
+- Photos supports the pair `.photo` with `.alternatePhoto`. `supportsAssetResourceTypes(_:)` returned `true`.
+- Both resources were in the request, with the expected sizes.
+- The error is 3300 again. This time it has a key in its user info that lists one URL: the DNG file. So Photos names the DNG resource as the part that it does not accept.
+- The fallback works. Photos saved the processed photo alone, so the HEIF data is good.
+
+Error 3300 now came for two requests: the HEIF as the main photo with the DNG data as the alternate, and the DNG file as the main photo with the HEIF data as the alternate. The DNG was in both requests. A HEIF alone always saves.
+
+### What the cause can be
+
+The request of the fourth test was not exactly the article's request. It set a file name and a type identifier for both resources. The article sets only `shouldMoveFile`. These candidates remain:
+
+- **The options.** The added file names and type identifiers are the only difference from the article. The third test failed without file names, so this is not a likely cause. But it is the one difference that is easy to remove.
+- **The DNG data.** The type `com.adobe.raw-image` in the log line was a constant in the code, not a value read from the data. Nothing proved that the data of `fileDataRepresentation()` is a DNG that Photos can read. The settings name no RAW file type, and the SDK header says that the photo output then chooses a default container. The documentation says that this container is DNG.
+- **The file and the move.** Not likely. The Live Photo movie uses the same temporary directory and `shouldMoveFile`, and Photos takes it. The third test used `Data`, not a file, and failed too.
+- **The photo size.** Not likely. The resolved settings gave 4032x3024 for both photos.
+
+The current hypothesis: Photos refuses the DNG resource itself, because it does not accept the DNG data or its options as the RAW of a pair. The fifth test separates the two parts.
+
+### The fourth fix
+
+- The request is now the article's request without additions: the DNG file as `.photo` with only `shouldMoveFile`, and the processed photo as `.alternatePhoto` with no options. The app keeps only the location of the asset, which every normal save also sets.
+- Before the save, the console shows "RAW data: N bytes, header ..., type ..., images ...". The header is the first 4 bytes in hexadecimal. A DNG has the structure of a TIFF file, so the header is `49 49 2A 00` or `4D 4D 00 2A`. The type and the number of images come from Image I/O (`CGImageSourceGetType` and `CGImageSourceGetCount`). A DNG that the system can read gives `com.adobe.raw-image` and at least 1 image.
+- The line "Resource .alternatePhoto" shows the type and the number of images that Image I/O finds in the processed data.
+- The capture logs "RAW file types: ..." with `availableRawPhotoFileTypes` of the photo output. The settings still use the short initializer, as the article does, so the output chooses the container. The value for DNG is `com.adobe.raw-image`.
+
+If the header, the type, or the number of images is wrong, the DNG data is the cause, and the capture settings must change. If the data is a good DNG and Photos still refuses the pair, the next step is a save of the DNG alone (one asset with the DNG as `.photo`). That test shows whether Photos refuses the DNG or the pair.
+
 ### What the console shows now
 
-When the person picks Apple ProRAW, the console shows "Deferred photo delivery (supported/enabled): true/false". A capture then shows "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size that is not 0x0 and a proxy size of 0x0, "Captured RAW photo, N bytes", "Captured processed photo, N bytes". Then the save shows "RAW pair, .photo with .alternatePhoto supported: ...", "Resource .photo: N bytes, com.adobe.raw-image, file <UUID>.dng", "Resource .alternatePhoto: N bytes, public.heic, file <UUID>.heic", and "Saved asset ...". If Photos refuses the pair, "Saving to Photos failed: ... (code name)" comes first, then "Saved asset ..." and "Saved the processed photo without the RAW: ..." for the fallback. When the person picks Off again, the console shows "true/true", and a normal capture can show "Captured deferred photo proxy" again.
+When the person picks Apple ProRAW, the console shows "Deferred photo delivery (supported/enabled): true/false". A capture then shows "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size that is not 0x0 and a proxy size of 0x0, "Captured RAW photo, N bytes", "Captured processed photo, N bytes". Then the save shows "RAW data: N bytes, header 49 49 2A 00, type com.adobe.raw-image, images 1" (or the header `4D 4D 00 2A`), "RAW pair, .photo with .alternatePhoto supported: true", "Resource .photo: N bytes, file <UUID>.dng", "Resource .alternatePhoto: N bytes, type public.heic, images 1", and "Saved asset ...". Before the save, the capture shows "RAW file types: com.adobe.raw-image". If Photos refuses the pair, "Saving to Photos failed: ... (code name)" comes first, then "Saved asset ..." and "Saved the processed photo without the RAW: ..." for the fallback. When the person picks Off again, the console shows "true/true", and a normal capture can show "Captured deferred photo proxy" again.
 
 ### What to expect in Photos
 
-Photos is expected to show one asset with a RAW badge. The command File > Export > Export Unmodified Original on a Mac, or the export of the original on the iPhone, is expected to give the DNG file. This part is an expectation until the fourth test confirms it. Because the DNG is the main photo, the export of the unmodified original is expected to give the `.dng` file, and maybe the `.heic` file too. If the fallback runs, Photos shows the processed photo without a RAW badge, and the code name decides the next design, for example two assets.
+Photos is expected to show one asset with a RAW badge. The command File > Export > Export Unmodified Original on a Mac, or the export of the original on the iPhone, is expected to give the DNG file. This part is an expectation until a test confirms it. Four tests have not saved a RAW asset yet. Because the DNG is the main photo, the export of the unmodified original is expected to give the `.dng` file, and maybe the `.heic` file too. If the fallback runs, Photos shows the processed photo without a RAW badge, and the code name decides the next design, for example two assets.
 
 ### Bayer RAW on a virtual camera
 

@@ -15,7 +15,7 @@ You work in an order that keeps the app safe at each checkpoint. First you teach
 This is part 2 code inside part 1 of the numbering. The Apple sample has no RAW capture, so the design of this chapter is this tutorial's own. [Concepts: RAW and Apple ProRAW](ch08-concepts.md) explains the design and its limits.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. A first test on such an iPhone found that RAW and deferred delivery do not work together; the section "Turn off deferred delivery for RAW" is the fix. A second test found that the RAW photo arrived but Photos saved nothing, and the console did not show why. A third test showed the reason: Photos refused the processed photo as the main photo with the DNG data as the alternate (error 3300). The section "Save the DNG" now follows Apple's article: it writes the DNG to a `.dng` file, saves that file as the main photo, and logs each resource and each result. The section "Keep the photo when Photos refuses the RAW" saves the processed photo alone if Photos still refuses the pair. Where the text says what an iPhone does after the fix, it is an expectation from the SDK headers, the Apple documentation, and that test.
+> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. A first test on such an iPhone found that RAW and deferred delivery do not work together; the section "Turn off deferred delivery for RAW" is the fix. A second test found that the RAW photo arrived but Photos saved nothing, and the console did not show why. A third test showed the reason: Photos refused the processed photo as the main photo with the DNG data as the alternate (error 3300). A fourth test saved the DNG as a `.dng` file and the main photo, with a file name and a type for each resource, and Photos refused it with the same error. The section "Save the DNG" now uses the request of Apple's article without additions: the DNG file as the main photo with only `shouldMoveFile`, and the processed photo as the alternate with no options. It also logs the first bytes and the type of the DNG data, each resource, and each result. The section "Keep the photo when Photos refuses the RAW" saves the processed photo alone if Photos still refuses the pair. Where the text says what an iPhone does after the fix, it is an expectation from the SDK headers, the Apple documentation, and that test.
 
 Read [Concepts: RAW and Apple ProRAW](ch08-concepts.md) first if you want the background for each step.
 
@@ -246,22 +246,21 @@ extension URL {
 ```
 
 ### Step
-In `MediaLibrary.swift`, import `ImageIO` and `UniformTypeIdentifiers`.
+In `MediaLibrary.swift`, import `ImageIO`.
 
-Keep the imports in alphabetical order. `ImageIO` gives [`CGImageSource`](https://developer.apple.com/documentation/imageio/cgimagesource), which reads the type of the processed photo. `UniformTypeIdentifiers` gives [`UTType`](https://developer.apple.com/documentation/uniformtypeidentifiers/uttype-swift.struct), which names the types of the two files.
+Put the import between `Foundation` and `Photos`, so the imports stay in alphabetical order. `ImageIO` gives [`CGImageSource`](https://developer.apple.com/documentation/imageio/cgimagesource). The app uses it to check the data of each photo before the save.
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=2,5
+```swift file=AVCam/Model/MediaLibrary.swift highlight=2
 import Foundation
 import ImageIO
 import Photos
 import UIKit
-import UniformTypeIdentifiers
 ```
 
 ### Step
 In `MediaLibrary`, add a new private method `save(rawData:processedData:location:)` below `performChange(_:)`, in a new part with the mark `// MARK: - Saving RAW photos`.
 
-The method is `async throws`. It takes the DNG data, the data of the processed photo, and the location as a `CLLocation?`. Add the `///` comments "Saves a RAW capture as one asset: the DNG file as the main photo, and the processed photo as its alternate." and "The order and the file follow Apple's article "Capturing photos in RAW and Apple ProRAW formats"." above it, with an empty `///` line between them. Leave the body empty for now. The next steps fill it.
+The method is `async throws`. It takes the DNG data, the data of the processed photo, and the location as a `CLLocation?`. Add the `///` comments "Saves a RAW capture as one asset: the DNG file as the main photo, and the processed photo as its alternate." and "The request follows Apple's article "Capturing photos in RAW and Apple ProRAW formats"." above it, with an empty `///` line between them. Leave the body empty for now. The next steps fill it.
 
 The method has the same base name as `save(photo:)`, but other argument labels, so Swift keeps the two apart. It is private, because only `save(photo:)` calls it.
 
@@ -270,7 +269,7 @@ The method has the same base name as `save(photo:)`, but other argument labels, 
     
     /// Saves a RAW capture as one asset: the DNG file as the main photo, and the processed photo as its alternate.
     ///
-    /// The order and the file follow Apple's article "Capturing photos in RAW and Apple ProRAW formats".
+    /// The request follows Apple's article "Capturing photos in RAW and Apple ProRAW formats".
     private func save(rawData: Data, processedData: Data, location: CLLocation?) async throws {
     }
     
@@ -278,7 +277,7 @@ The method has the same base name as `save(photo:)`, but other argument labels, 
 ```
 
 ### Step
-At the start of the new method, write the DNG data to a file at `URL.rawFileURL`, and remove the file when the method ends.
+In the new method, write the DNG data to a file at `URL.rawFileURL`, and remove the file when the method ends.
 
 Keep the URL in a constant `rawFileURL`, and call `try rawData.write(to: rawFileURL)`. Put the comment "Write the DNG data to a file. Photos reads the type of the main RAW resource from the `.dng` extension." above the two lines. Then add `defer { try? FileManager.default.removeItem(at: rawFileURL) }`, with the comment "Remove the file if Photos doesn't take it. After a successful save, the file is already gone." above it.
 
@@ -295,86 +294,80 @@ Keep the URL in a constant `rawFileURL`, and call `try rawData.write(to: rawFile
 ```
 
 ### Step
-Below the `defer` line, make the file name and the type identifier of each resource.
+Below `save(rawData:processedData:location:)`, add the private static method `imageInfo(of:)`. It returns the image type that Image I/O finds in the data, and the number of images.
 
-For the DNG, keep `rawFileURL.lastPathComponent` in `rawFilename` and `UTType.dng.identifier` in `rawTypeIdentifier`. For the processed photo, get its type with `Self.imageType(of: processedData)` (you write this helper in the next step) and keep it in `processedType`. Keep its `preferredFilenameExtension` in `processedExtension`, with `"heic"` when it is `nil`. Make `processedFilename` from `rawFileURL` with the DNG extension replaced by `processedExtension`. Keep `processedType.identifier` in `processedTypeIdentifier`. Add the comments "Give both resources the same base name and a type, as a camera does for a RAW+JPEG pair." and "The processed photo is HEIF or JPEG, depending on the codec of the capture." as the fence shows.
+The return type is the tuple `(type: String, count: Int)`. Make an image source with [`CGImageSourceCreateWithData(_:_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcecreatewithdata(_:_:)) in a `guard`. If it gives `nil`, return `("none", 0)`. Read the type identifier with [`CGImageSourceGetType(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegettype(_:)), and use `"none"` when it is `nil`. Return the type and the result of [`CGImageSourceGetCount(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegetcount(_:)). Add the `///` comment "Returns the image type that Image I/O finds in the photo data, and the number of images in the data." above it.
 
-A camera gives the two files of a RAW+JPEG pair the same base name, for example `IMG_0001.DNG` and `IMG_0001.HEIC`. You do the same: both names use the UUID of the DNG file. The type identifier of the DNG is `com.adobe.raw-image`. The codec of the processed photo is HEVC, or JPEG when the output has no HEVC (see "Ask the camera for RAW"). So the type of the processed photo is `public.heic` or `public.jpeg`, and the extension is `heic` or `jpeg`. The constants are strings, so the change closure of the next steps can use them.
+The method reads only the start of the data, where each file format has its signature. A DNG gives the type `com.adobe.raw-image`, a HEIF photo gives `public.heic`, and a JPEG photo gives `public.jpeg`. A count of 0 means that Image I/O cannot read an image from the data. The method is `static`, because it uses no state of the media library. It returns a `String`, not a `UTType`, because the app only logs the value.
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=3-10
-        defer { try? FileManager.default.removeItem(at: rawFileURL) }
-        
-        // Give both resources the same base name and a type, as a camera does for a RAW+JPEG pair.
-        let rawFilename = rawFileURL.lastPathComponent
-        let rawTypeIdentifier = UTType.dng.identifier
-        // The processed photo is HEIF or JPEG, depending on the codec of the capture.
-        let processedType = Self.imageType(of: processedData)
-        let processedExtension = processedType.preferredFilenameExtension ?? "heic"
-        let processedFilename = rawFileURL.deletingPathExtension().appendingPathExtension(processedExtension).lastPathComponent
-        let processedTypeIdentifier = processedType.identifier
-    }
-```
-
-### Step
-Below `save(rawData:processedData:location:)`, add the private static method `imageType(of:)`. It returns the `UTType` of the photo data.
-
-Make a [`CGImageSourceCreateWithData(_:_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcecreatewithdata(_:_:)) image source from the data, read its type with [`CGImageSourceGetType(_:)`](https://developer.apple.com/documentation/imageio/cgimagesourcegettype(_:)), and make a `UTType` from the identifier. If one of the three steps gives `nil`, return `.heic`. Add the `///` comment "Returns the image type of the photo data, such as HEIC or JPEG." above it.
-
-The `Photo` value does not say which codec the capture used. The data itself says it: the image source reads the start of the data and finds the format. The method is `static`, because it uses no state of the media library.
-
-```swift file=AVCam/Model/MediaLibrary.swift highlight=1-9
-    /// Returns the image type of the photo data, such as HEIC or JPEG.
-    private static func imageType(of data: Data) -> UTType {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let identifier = CGImageSourceGetType(source),
-              let type = UTType(identifier as String) else {
-            return .heic
+```swift file=AVCam/Model/MediaLibrary.swift highlight=1-8
+    /// Returns the image type that Image I/O finds in the photo data, and the number of images in the data.
+    private static func imageInfo(of data: Data) -> (type: String, count: Int) {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return ("none", 0)
         }
-        return type
+        let type = CGImageSourceGetType(source).map { $0 as String } ?? "none"
+        return (type, CGImageSourceGetCount(source))
     }
     
     // MARK: - Thumbnail handling
 ```
 
 ### Step
-Back in `save(rawData:processedData:location:)`, below `processedTypeIdentifier`, log each resource before the request.
+At the start of `save(rawData:processedData:location:)`, above the comment "Write the DNG data to a file", log what the RAW data is.
 
-First, ask [`PHAssetCreationRequest.supportsAssetResourceTypes(_:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/supportsassetresourcetypes(_:)) if Photos supports the pair `.photo` with `.alternatePhoto`. The method takes an array of `NSNumber`, so map each [`PHAssetResourceType`](https://developer.apple.com/documentation/photos/phassetresourcetype) to `NSNumber(value: $0.rawValue)`. Keep the result in `isSupported`. Then log three lines with `logger.debug`: the answer, and for each resource its resource type, its size in bytes, its type identifier, and its file name. Put the comment "Log each resource before the request, because Photos reports a refused request only with an error code." above the lines.
+Make a string `rawHeader` from the first 4 bytes of `rawData`: `rawData.prefix(4)`, each byte with `String(format: "%02X", $0)`, joined with a space. Keep `Self.imageInfo(of: rawData)` in `rawImage`. Then log "RAW data: " with the size, the header, `rawImage.type`, and `rawImage.count`, with `logger.debug`. Put the comment "Check the RAW data before the save. A DNG file is a TIFF file, so it starts with `49 49 2A 00` or `4D 4D 00 2A`." above the lines.
+
+Two device tests showed error 3300 for two different requests with the DNG. The second error names the DNG file. These values tell if the data is a DNG that the system can read. A DNG has the structure of a TIFF file. Its first 4 bytes are `49 49 2A 00` ("II*", little-endian byte order) or `4D 4D 00 2A` ("MM", big-endian byte order). The type `com.adobe.raw-image` with at least 1 image means that Image I/O reads the data as a DNG.
+
+```swift file=AVCam/Model/MediaLibrary.swift highlight=2-5
+    private func save(rawData: Data, processedData: Data, location: CLLocation?) async throws {
+        // Check the RAW data before the save. A DNG file is a TIFF file, so it starts with `49 49 2A 00` or `4D 4D 00 2A`.
+        let rawHeader = rawData.prefix(4).map { String(format: "%02X", $0) }.joined(separator: " ")
+        let rawImage = Self.imageInfo(of: rawData)
+        logger.debug("RAW data: \(rawData.count) bytes, header \(rawHeader), type \(rawImage.type), images \(rawImage.count)")
+        
+        // Write the DNG data to a file. Photos reads the type of the main RAW resource from the `.dng` extension.
+```
+
+### Step
+Below the `defer` line, log each resource before the request.
+
+Keep `Self.imageInfo(of: processedData)` in `processedImage`. Then ask [`PHAssetCreationRequest.supportsAssetResourceTypes(_:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/supportsassetresourcetypes(_:)) if Photos supports the pair `.photo` with `.alternatePhoto`. The method takes an array of `NSNumber`, so map each [`PHAssetResourceType`](https://developer.apple.com/documentation/photos/phassetresourcetype) to `NSNumber(value: $0.rawValue)`. Keep the result in `isSupported`. Log three lines with `logger.debug`: the answer; the `.photo` resource with its size and the file name `rawFileURL.lastPathComponent`; the `.alternatePhoto` resource with its size, `processedImage.type`, and `processedImage.count`. Put the comment "Log each resource before the request, because Photos reports a refused request only with an error code." above the lines.
 
 The SDK header of `PHAssetCreationRequest` says that `addResource` always succeeds, and that Photos checks the request later. A refused request gives only an error with a code and no text. These lines show what the app sent, so the error has a context in the console.
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=3-7
-        let processedTypeIdentifier = processedType.identifier
+```swift file=AVCam/Model/MediaLibrary.swift highlight=3-8
+        defer { try? FileManager.default.removeItem(at: rawFileURL) }
         
         // Log each resource before the request, because Photos reports a refused request only with an error code.
+        let processedImage = Self.imageInfo(of: processedData)
         let isSupported = PHAssetCreationRequest.supportsAssetResourceTypes([PHAssetResourceType.photo, .alternatePhoto].map { NSNumber(value: $0.rawValue) })
         logger.debug("RAW pair, .photo with .alternatePhoto supported: \(isSupported)")
-        logger.debug("Resource .photo: \(rawData.count) bytes, \(rawTypeIdentifier), file \(rawFilename)")
-        logger.debug("Resource .alternatePhoto: \(processedData.count) bytes, \(processedTypeIdentifier), file \(processedFilename)")
+        logger.debug("Resource .photo: \(rawData.count) bytes, file \(rawFileURL.lastPathComponent)")
+        logger.debug("Resource .alternatePhoto: \(processedData.count) bytes, type \(processedImage.type), images \(processedImage.count)")
     }
 ```
 
 ### Step
 Below the log lines, call `performChange(_:)`, make a creation request, and add the DNG file as the `.photo` resource.
 
-In the closure, make `creationRequest` with `PHAssetCreationRequest.forAsset()`, as `save(photo:)` does. Make a `PHAssetResourceCreationOptions` object in `rawOptions`. Set its [`originalFilename`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/originalfilename) to `rawFilename`, its [`uniformTypeIdentifier`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/uniformtypeidentifier) to `rawTypeIdentifier`, and its [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) to `true`. Then call [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)) with `.photo`, `rawFileURL`, and `rawOptions`. Put the comment "Save the DNG file as the main photo. Move the large file into the library instead of copying it." above `rawOptions`.
+In the closure, make `creationRequest` with `PHAssetCreationRequest.forAsset()`, as `save(photo:)` does. Make a `PHAssetResourceCreationOptions` object in `options`, and set its [`shouldMoveFile`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/shouldmovefile) to `true`. Set nothing else. Then call [`addResource(with:fileURL:options:)`](https://developer.apple.com/documentation/photos/phassetcreationrequest/addresource(with:fileurl:options:)) with `.photo`, `rawFileURL`, and `options`. Put the comment "Save the DNG file as the main photo. Move the large file into the library instead of copying it." above `options`.
 
-This is the order of Apple's article: the DNG is the main photo, and it comes from a file, not from `Data`. A device test showed that Photos refuses the opposite order (see the concepts page). `shouldMoveFile` moves the file into the library, so the 14 MB of a DNG are not copied. The Live Photo movie of `save(photo:)` uses the same option. The options object is made inside the closure, because it is not `Sendable`. The closure captures only strings, `Data`, a URL, and the location.
+This is the request of Apple's article: the DNG is the main photo, it comes from a file, and the options set only `shouldMoveFile`. The options have no file name and no type, so Photos takes both from the file URL, which ends in `.dng`. A device test set a file name and a type in addition, and Photos refused that request (see the concepts page). `shouldMoveFile` moves the file into the library, so the 15 MB of a DNG are not copied. The Live Photo movie of `save(photo:)` uses the same option. The options object is made inside the closure, because it is not `Sendable`.
 
 The project does not compile at the end of this step. The closure has no `return` yet. The next step adds it.
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=3-12
-        logger.debug("Resource .alternatePhoto: \(processedData.count) bytes, \(processedTypeIdentifier), file \(processedFilename)")
+```swift file=AVCam/Model/MediaLibrary.swift highlight=3-10
+        logger.debug("Resource .alternatePhoto: \(processedData.count) bytes, type \(processedImage.type), images \(processedImage.count)")
         
         try await performChange {
             let creationRequest = PHAssetCreationRequest.forAsset()
             
             // Save the DNG file as the main photo. Move the large file into the library instead of copying it.
-            let rawOptions = PHAssetResourceCreationOptions()
-            rawOptions.originalFilename = rawFilename
-            rawOptions.uniformTypeIdentifier = rawTypeIdentifier
-            rawOptions.shouldMoveFile = true
-            creationRequest.addResource(with: .photo, fileURL: rawFileURL, options: rawOptions)
+            let options = PHAssetResourceCreationOptions()
+            options.shouldMoveFile = true
+            creationRequest.addResource(with: .photo, fileURL: rawFileURL, options: options)
         }
     }
 ```
@@ -382,18 +375,15 @@ The project does not compile at the end of this step. The closure has no `return
 ### Step
 Below the DNG resource, add the processed photo as the `.alternatePhoto` resource, set the location, and return the placeholder.
 
-Make a second options object in `processedOptions`, with `originalFilename` set to `processedFilename` and `uniformTypeIdentifier` set to `processedTypeIdentifier`. Call `addResource(with:data:options:)` with `.alternatePhoto`, `processedData`, and `processedOptions`. Put the comment "Save the processed photo as the alternate photo." above it. Then set `creationRequest.location = location` and return `creationRequest.placeholderForCreatedAsset`, as `save(photo:)` does.
+Call `addResource(with:data:options:)` with `.alternatePhoto`, `processedData`, and `options: nil`. Put the comment "Save the processed photo as the alternate photo." above it. Then set `creationRequest.location = location` and return `creationRequest.placeholderForCreatedAsset`, as `save(photo:)` does.
 
-The processed photo stays `Data`, as in the article. The two names tell Photos that the two resources are one RAW+JPEG pair. The `uniformTypeIdentifier` property has a newer form, `contentType`, which takes a `UTType`. The second device test used `contentType = .dng` with the DNG as `Data`, and Photos refused it. This version uses the property that Photos has accepted since iOS 9. The SDK marks it as "to be deprecated", which does not give a warning.
+The processed photo stays `Data` and has no options, as in the article. Photos then infers its type from the resource type. The location is the only addition to the article's request. The normal save of chapter 4 sets it in the same way, and Photos accepts it there.
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=3-10
-            creationRequest.addResource(with: .photo, fileURL: rawFileURL, options: rawOptions)
+```swift file=AVCam/Model/MediaLibrary.swift highlight=3-7
+            creationRequest.addResource(with: .photo, fileURL: rawFileURL, options: options)
             
             // Save the processed photo as the alternate photo.
-            let processedOptions = PHAssetResourceCreationOptions()
-            processedOptions.originalFilename = processedFilename
-            processedOptions.uniformTypeIdentifier = processedTypeIdentifier
-            creationRequest.addResource(with: .alternatePhoto, data: processedData, options: processedOptions)
+            creationRequest.addResource(with: .alternatePhoto, data: processedData, options: nil)
             
             creationRequest.location = location
             return creationRequest.placeholderForCreatedAsset
@@ -535,7 +525,7 @@ Note: On an iPhone with deferred delivery, a normal capture can deliver a proxy 
 
 ## Keep the photo when Photos refuses the RAW
 
-Photos can still refuse a RAW pair. Three device tests showed that Photos gives only a code, and that a refused request saves nothing at all. In this section, you add a fallback: when the pair fails, the app saves the processed photo alone. The person then always gets a picture, and the console tells why the RAW is missing. The fallback makes the app robust, but it is not a part of the RAW save itself. So it has its own section, and you can leave it out to see the pure behavior of Photos.
+Photos can still refuse a RAW pair. Device tests showed that Photos gives only a code, and that a refused request saves nothing at all. In this section, you add a fallback: when the pair fails, the app saves the processed photo alone. The person then always gets a picture, and the console tells why the RAW is missing. The fallback makes the app robust, but it is not a part of the RAW save itself. So it has its own section, and you can leave it out to see the pure behavior of Photos.
 
 ### Step
 In `save(photo:)`, add a `catch` block to the `do` block of the RAW branch. In it, save the processed photo alone, and log "Saved the processed photo without the RAW: " with the error.
@@ -689,6 +679,21 @@ The initializer [`init(rawPixelFormatType:processedFormat:)`](https://developer.
         }
         
         /// Set the format of the preview image to capture. The `photoSettings` object returns the available
+```
+
+### Step
+Below the log line in the `if let rawType` block, log the RAW file types of the photo output.
+
+Keep `photoOutput.availableRawPhotoFileTypes`, mapped to `rawValue` and joined with ", ", in a constant `rawFileTypes`. Log "RAW file types: " and `rawFileTypes` with `logger.debug`. Put the comment "The settings name no RAW file type, so the photo output chooses a default container for the RAW photo." above the lines.
+
+The initializer that you use names no file type for the RAW photo. The SDK header says that the photo output then chooses a default container. A longer initializer, [`init(rawPixelFormatType:rawFileType:processedFormat:processedFileType:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/init(rawpixelformattype:rawfiletype:processedformat:processedfiletype:)), takes a file type from [`availableRawPhotoFileTypes`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/availablerawphotofiletypes). Apple's article uses the short form, and the documentation says that `fileDataRepresentation()` gives DNG data for a RAW photo. This line shows the list on the device. The value for DNG is `com.adobe.raw-image`. The constant is local, because the log message is a closure that runs later.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-4
+            logger.debug("Capturing with RAW format: \(features.rawFormat.description)")
+            // The settings name no RAW file type, so the photo output chooses a default container for the RAW photo.
+            let rawFileTypes = photoOutput.availableRawPhotoFileTypes.map(\.rawValue).joined(separator: ", ")
+            logger.debug("RAW file types: \(rawFileTypes)")
+        }
 ```
 
 ### Step
@@ -1139,7 +1144,7 @@ Build and run the app, and take a photo.
 In the Simulator with SimCam, the camera has no RAW format. The RAW menu is hidden, and the toolbar looks as in chapter 7. A capture saves a normal photo and shows its thumbnail. To see the menu without an iPhone, open the preview at the end of `FeatureToolbar.swift` in the Xcode canvas. The preview model reports both formats, so the menu shows there.
 
 > [!IMPORTANT]
-> The RAW capture itself needs an iPhone with a Pro camera. On such an iPhone, the toolbar shows an `r.square` button. Choose Apple ProRAW and take a photo. The Xcode console is expected to show "Deferred photo delivery (supported/enabled): true/false" after the choice, then "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size, "Captured RAW photo, N bytes", "Captured processed photo, N bytes", the three "RAW pair" and "Resource ..." lines, and "Saved asset ...". N of the DNG is often many megabytes. If the console shows "Saving to Photos failed: ..." with a code name, Photos refused the pair. Then the fallback saves the processed photo, and the console shows "Saved the processed photo without the RAW: ...". The Photos app is expected to show one photo with a RAW badge, and the export of the unmodified original is expected to give the DNG file. The "RAW" choice does not show on the virtual back camera, because Bayer RAW needs a physical camera. The line "RAW on ..." shows what each camera offers.
+> The RAW capture itself needs an iPhone with a Pro camera. On such an iPhone, the toolbar shows an `r.square` button. Choose Apple ProRAW and take a photo. The Xcode console is expected to show "Deferred photo delivery (supported/enabled): true/false" after the choice, then "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size, "Captured RAW photo, N bytes", "Captured processed photo, N bytes", "RAW file types: com.adobe.raw-image", the "RAW data", "RAW pair", and "Resource ..." lines, and "Saved asset ...". N of the DNG is often many megabytes. If the console shows "Saving to Photos failed: ..." with a code name, Photos refused the pair. Then the fallback saves the processed photo, and the console shows "Saved the processed photo without the RAW: ...". The Photos app is expected to show one photo with a RAW badge, and the export of the unmodified original is expected to give the DNG file. The "RAW" choice does not show on the virtual back camera, because Bayer RAW needs a physical camera. The line "RAW on ..." shows what each camera offers.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button
