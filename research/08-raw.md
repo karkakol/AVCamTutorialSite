@@ -168,6 +168,13 @@ Two kinds of RAW exist. [H][W]
 - Final save, `MediaLibrary.save(rawData:processedData:location:)`: log "RAW data"; write `<UUID>.dng`; `defer` remove. (1) "Resource .photo: N bytes, file <UUID>.dng"; DNG alone as `.photo` by file URL, `shouldMoveFile`; "Saved the RAW as the DNG alone". UNTESTED. (2) On error: notice "Photos refused the DNG alone. Saving the processed photo with the DNG as alternate."; "Resource .photo: N bytes, type …, images …", "Resource .alternatePhoto: N bytes, file <UUID>.dng"; processed `.photo` from `Data` (nil options) + DNG `.alternatePhoto` by file URL with `shouldMoveFile`; "Saved the RAW as the processed photo with the DNG as alternate". VERIFIED (round 6). (3) `save(photo:)` catch: the processed photo alone, "Saved the processed photo without the RAW: <error>". The matrix extension and every "Save variant" line are gone.
 - Commits: the five iteration commits squashed into one "Chapter 8: RAW and Apple ProRAW capture" on `chapter-07`; `chapter-09` … `chapter-20` and `main` rebased onto it with no conflicts, each tip builds with zero warnings.
 
+### H. Scope change: Bayer RAW moves to chapter 16 (16 Oct 2026)
+
+- Decision by the user (tester: iPhone 17 Pro Max). The app uses the virtual back camera that the system prefers. Bayer RAW exists only on a single physical camera, so it cannot be tested inside the app before chapter 16 teaches lenses and zoom. In round 6 it showed only because a zoomed shot in the Camera app had made the "Back Telephoto Camera" the preferred camera. Chapter 8 now offers Off and Apple ProRAW only.
+- Code (`chapter-08`, one commit `108eea6` on `chapter-07`): `RAWFormat` has `off` and `appleProRAW`; `CaptureCapabilities` has `isLivePhotoCaptureSupported` and `isAppleProRAWSupported`; `rawPixelFormat(for:)` handles Apple ProRAW only; `excludesLivePhoto = rawType != nil`; the "RAW on <camera> (virtual: …): Apple ProRAW …" log stays. The rule "no `photoQualityPrioritization` setter for a RAW request" stays with its log, for all RAW; the comment no longer names Bayer RAW. `PreviewCameraModel` reports Apple ProRAW only. Unchanged: the Live Photo lock, the embedded preview, the save order (DNG alone, then the pair, then the processed photo alone) with its logs, deferred delivery off for RAW, the diagnostics logs.
+- The facts below stay for the chapter 16 writer. Bayer RAW: only on a single physical camera [W][T]; the zoom factor must be 1.0 [H]; the header says `photoQualityPrioritization` must be `.speed`, but on iOS 26 the setter itself raised "Unsupported when capturing RAW" for a Bayer RAW request, also with `.speed` [T] (section G), so do not call the setter; Live Photo is allowed by the header [H] but the RAW save does not keep the movie; the Bayer formats come before the Apple ProRAW formats in `availableRawPhotoPixelFormatTypes` [H]; `isBayerRAWPixelFormat(_:)` is the test [H]. Not yet known: the resolution and size of a Bayer DNG, the badge in Photos, which save path Photos accepts, and the default prioritization of a RAW settings object.
+- Plan for chapter 16 (`notes/chapter-16.md`, "Planned addition: Bayer RAW on a single lens"): while Bayer RAW is selected, switch to the physical camera that matches the zoom level; back to the virtual camera when RAW is Off; no prioritization setter; check zoom 1.0 before the capture.
+
 ### B. No Bayer RAW in the menu
 
 - [T] The menu offered Off and Apple ProRAW only.
@@ -187,7 +194,7 @@ Two kinds of RAW exist. [H][W]
 ### Photo quality and `photoQualityPrioritization`
 
 - [H] Default for the settings is `.balanced`. Default for the output's `maxPhotoQualityPrioritization` is `.balanced` on a normal session.
-- Bayer: force `.speed` for that capture (the whole request, so the processed HEIF also gets `.speed`). ProRAW: keep the user's choice.
+- Bayer: force `.speed` for that capture (the whole request, so the processed HEIF also gets `.speed`). ProRAW: keep the user's choice. SUPERSEDED by G and H: no setter for any RAW request.
 - [H] Fast capture prioritization lowers the quality on rapid shots. It is not said how it treats a RAW request. See `research/09-fast-capture.md`.
 
 ## How the tutorial app will use it (chapter 8)

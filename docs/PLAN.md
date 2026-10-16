@@ -125,9 +125,9 @@ Result: Live Photo capture with a "LIVE" badge, a quality prioritization picker,
 - Views: `FeaturesToolbar` (photo items), `LiveBadge`, overlay in `CameraUI`.
 
 ### Chapter 8 — RAW and Apple ProRAW (`chapter-08`)
-Result: a RAW menu in the features toolbar with Off, Apple ProRAW, and Bayer RAW. The menu shows only the formats that the camera supports. Details and decisions: `docs/PLAN-raw-and-fast-capture.md`, `research/08-raw.md`, `notes/chapter-08.md`.
-- `DataTypes`: `RAWFormat`, `CaptureCapabilities` gets `isAppleProRAWSupported` and `isBayerRAWSupported`, `PhotoFeatures` gets the RAW format.
-- `PhotoCapture`: the RAW pixel format choice, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the callback for the RAW photo, the DNG saved as an alternate resource of the same asset.
+Result: a RAW menu in the features toolbar with Off and Apple ProRAW. The menu shows only when the camera supports Apple ProRAW. Bayer RAW moved to chapter 16 (it needs a single physical camera). Details and decisions: `docs/PLAN-raw-and-fast-capture.md`, `research/08-raw.md`, `notes/chapter-08.md`.
+- `DataTypes`: `RAWFormat`, `CaptureCapabilities` gets `isAppleProRAWSupported`, `PhotoFeatures` gets the RAW format.
+- `PhotoCapture`: the RAW pixel format choice, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the callback for the RAW photo, the DNG saved alone with an embedded preview, the RAW+JPEG pair as the fallback.
 - `Camera` / `CameraModel` / `PreviewCameraModel`: `rawFormat`. Views: `FeatureToolbar` (the `rawMenu`).
 - Needs a real iPhone with a supported device for verification; the Simulator takes the fallback path.
 
@@ -181,7 +181,7 @@ Result: the app starts from the Lock Screen, Control Center, and the Action butt
 
 These chapters are NOT in the Apple sample. The design is our own. Rule 1 of the code rules ("the final state equals the Apple sample") ends at `chapter-15`. All other rules stay. Each page of part 2 says clearly that the code is not Apple's.
 
-- **Chapter 16 — Zoom and lenses (`chapter-16`)**: virtual back cameras, zoom levels from the switch-over factors, a zoom control, a pinch gesture, zoom state in sync with the device.
+- **Chapter 16 — Zoom and lenses (`chapter-16`)**: virtual back cameras, zoom levels from the switch-over factors, a zoom control, a pinch gesture, zoom state in sync with the device; planned: a section "Bayer RAW on a single lens" (Bayer RAW moved from chapter 8: switch to the physical camera that matches the zoom level while Bayer RAW is selected, zoom 1.0, no prioritization setter; see `notes/chapter-16.md`).
 - **Chapter 17 — Fix the sample (`chapter-17`)**: a recording that ends by itself, the Live Photo badge counter, the rotation angle of a new movie connection, the capture sound before the capture work.
 - **Chapter 18 — iPhone Duo (`chapter-18`)**: camera direction with `AVCaptureDeviceDirectionCoordinator`, preview mirroring by direction, a centered layout on the Duo display. Research: `research/06-iphone-duo.md`.
 

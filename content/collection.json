@@ -139,7 +139,7 @@
     {
       "number": 8,
       "title": "RAW and Apple ProRAW",
-      "abstract": "A new RAW control in the features toolbar offers Off, Apple ProRAW, and RAW. The app captures a DNG file together with the processed photo and saves both in one asset in Photos.",
+      "abstract": "A new RAW control in the features toolbar offers Off and Apple ProRAW. The app captures a DNG file together with the processed photo and saves both in one asset in Photos.",
       "pages": [
         {
           "slug": "ch08-concepts",

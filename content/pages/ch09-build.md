@@ -175,9 +175,8 @@ In `PhotoCapture.swift`, below the `PhotoCapture` class, add the private class `
 
 Write `private class ReadinessObserver: NSObject, AVCapturePhotoOutputReadinessCoordinatorDelegate`, with a `// MARK: - A delegate to observe the photo output's readiness.` line and a `///` comment above it. The coordinator needs an [`NSObject`](https://developer.apple.com/documentation/objectivec/nsobject-swift.class) as its delegate, and `PhotoCapture` is not one. Inside the class, write `let readinessStream: AsyncStream<CaptureReadiness>` and `private let readinessContinuation: AsyncStream<CaptureReadiness>.Continuation`. The project does not compile until step 3.2, because the class has no initializer.
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=6,8-12,14-16,18
-                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil,
-                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=5,7-11,13-15,17
+                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil)
     }
 }
 

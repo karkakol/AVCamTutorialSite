@@ -2,14 +2,14 @@
 kind: article
 chapter: 8
 title: Concepts: RAW and Apple ProRAW
-abstract: What a RAW photo is, how Bayer RAW differs from Apple ProRAW, why one capture gives two photos, how the app saves them in one asset, and which rules make a RAW request fail.
+abstract: What a RAW photo is, what Apple ProRAW adds, why one capture gives two photos, how the app saves them in one asset, and which rules make a RAW request fail.
 estimatedMinutes: 14
 branch: chapter-08
 ---
 
 A normal photo is a finished picture. The camera has chosen the white balance, the noise reduction, the tones, and the sharpness for you. A RAW photo keeps much more of what the sensor saw. A photo editor can then make these choices again, and it does not start from a picture that is already compressed.
 
-In this chapter, the app gets a RAW control. When the person selects a RAW format, one tap gives a DNG file and the processed photo. The app saves the DNG in Photos, as the Camera app does, and it keeps the processed photo for the case that Photos refuses the DNG. [Build: RAW and Apple ProRAW](ch08-build.md) is the tutorial for the code.
+In this chapter, the app gets a RAW control with the choices Off and Apple ProRAW. When the person selects Apple ProRAW, one tap gives a DNG file and the processed photo. The app saves the DNG in Photos, as the Camera app does, and it keeps the processed photo for the case that Photos refuses the DNG. [Build: RAW and Apple ProRAW](ch08-build.md) is the tutorial for the code.
 
 The chapters before this one used the code of the Apple sample. The sample has no RAW capture. Thus this chapter is part 2 code ("Beyond the sample") inside the numbering of part 1. The design is this tutorial's own, and it is one of several possible designs. This article explains the camera facts that each design must obey, then the decisions of this design, and what is still open.
 
@@ -48,9 +48,9 @@ Two facts make the rule strict here too:
 - **The list is empty until the output is in a session with a video input.** Before that, no RAW format is available.
 - **Enabling Apple ProRAW builds the capture pipeline again.** This takes time, so you set `isAppleProRAWEnabled` before the session starts. It may be `true` only when `isAppleProRAWSupported` is `true`. The value depends on the camera and the session configuration, so you set it again after each change of camera.
 
-After you enable Apple ProRAW, the list holds both kinds of format. The Apple ProRAW formats come after the Bayer formats. You sort them with two class methods: [`isBayerRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isbayerrawpixelformat(_:)) and [`isAppleProRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawpixelformat(_:)).
+After you enable Apple ProRAW, the list holds the Apple ProRAW formats. On a physical camera, it can also hold Bayer RAW formats, which come first. The class method [`isAppleProRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawpixelformat(_:)) finds the Apple ProRAW formats.
 
-This is the helper of the app. It returns the first format of the kind that the person chose, or `nil`:
+This is the helper of the app. It returns the first Apple ProRAW format, or `nil`:
 
 ```swift file=AVCam/Capture/PhotoCapture.swift
     /// Returns the first RAW pixel format of the requested kind that the photo output offers.
@@ -61,8 +61,6 @@ This is the helper of the app. It returns the first format of the kind that the 
             return nil
         case .appleProRAW:
             return formats.first { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }
-        case .bayerRAW:
-            return formats.first { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
         }
     }
 ```
@@ -87,22 +85,25 @@ The preview inside the DNG comes from the capture settings: `rawEmbeddedThumbnai
 
 ## What the camera can do
 
-### Two kinds of RAW
+### Apple ProRAW
 
-| | Bayer RAW | Apple ProRAW |
-|---|---|---|
-| What it is | The sensor data, with no processing. | A DNG that the system has already demosaiced and partly processed. It still keeps much room for editing. |
-| Which devices | Since iOS 10. Single cameras (a wide or a telephoto camera). | Since iOS 14.3. iPhone 12 Pro and later Pro models. Also the virtual cameras that join several lenses. |
-| Quality prioritization | The header says `.speed`. On the test iPhone, the setter itself raised an exception, so the app does not set it. | `.balanced` and `.quality` are allowed. |
-| Zoom | The zoom factor must be 1.0. | No such rule. |
-| Live Photo | The header allows it. | Not allowed: the movie URL must be `nil`. |
-| File size | Not stated. | About 10 to 40 MB, and more for a complex scene. |
+| | Apple ProRAW |
+|---|---|
+| What it is | A DNG that the system has already demosaiced and partly processed. It still keeps much room for editing. |
+| Which devices | Since iOS 14.3. iPhone 12 Pro and later Pro models. Also the virtual cameras that join several lenses. |
+| Quality prioritization | The app does not set it for a RAW request (see the rules below). |
+| Live Photo | Not allowed: the movie URL must be `nil`. |
+| File size | About 10 to 40 MB, and more for a complex scene. On the test iPhone: about 15 MB at 12 MP, 54 MB at 48 MP. |
 
-Apple ProRAW joins the two worlds. Like a normal photo, it has the work of the camera pipeline: it can use several frames, and it has the noise reduction. Like a RAW photo, it keeps a wide range of tones for the editor. The cost is a bigger file.
+Apple ProRAW joins two worlds. Like a normal photo, it has the work of the camera pipeline: it can use several frames, and it has the noise reduction. Like a RAW photo, it keeps a wide range of tones for the editor. The cost is a bigger file.
 
-Do not select a format from the name of the device. Read the list. The list can hold none, one, or both kinds, and it can change when the person switches the camera. Apple ProRAW also needs a session configuration that supports the highest photo quality. AVCam uses the `.photo` preset, which does.
+Do not select a format from the name of the device. Read the list. It can be empty, and it can change when the person switches the camera. Apple ProRAW also needs a session configuration that supports the highest photo quality. AVCam uses the `.photo` preset, which does.
 
-The pixel formats are `OSType` values, which are four-character codes. An Apple ProRAW format in the list looks like `l64r`. You do not need to know the codes. The two class methods sort them for you.
+The pixel formats are `OSType` values, which are four-character codes. An Apple ProRAW format in the list looks like `l64r`. You do not need to know the codes. The class method sorts them for you.
+
+### Bayer RAW comes in chapter 16
+
+The other kind of RAW is Bayer RAW: the sensor data of one camera, with no processing. It exists only on a physical camera, such as the wide or the telephoto camera alone. WWDC21 session 10160 says so, and the SDK header says that Apple ProRAW exists for the modes that fuse several captures, where no Bayer RAW is available. This app uses the camera that the system prefers. On the back of an iPhone with several lenses, that is a virtual camera, so Bayer RAW does not show. On the test iPhone, the menu had no Bayer RAW with the "Back Triple Camera", and it had it with the "Back Telephoto Camera". A Bayer RAW request also needs a zoom factor of 1.0. And the test showed the rule that this chapter keeps for all RAW: a Bayer RAW capture stopped the app at the `photoQualityPrioritization` setter (finding 6 below). Thus Bayer RAW needs the selection of a physical camera and a zoom control. [Chapter 16](ch16-concepts.md) teaches both, and it adds Bayer RAW in a section "Bayer RAW on a single lens".
 
 ### Rules that make a request fail
 
@@ -111,8 +112,7 @@ When the settings of a capture break a rule, [`capturePhoto(with:delegate:)`](ht
 | Rule | What the app does |
 |---|---|
 | The RAW format must be in `availableRawPhotoPixelFormatTypes`. | The helper reads only that list. |
-| Bayer RAW needs `.speed` for the prioritization. On the test iPhone, the setter raised an exception even with `.speed`. | The code does not call the setter for a RAW request. |
-| Bayer RAW needs a zoom factor of 1.0. | The app has no zoom control yet. A later chapter that adds one must reset the zoom before a Bayer capture. |
+| The documentation says that `photoQualityPrioritization` is not supported for a RAW capture. On the test iPhone, the setter raised an exception for a RAW request. | The code does not call the setter for a RAW request. |
 | Apple ProRAW needs `livePhotoMovieFileURL` to be `nil`. | The code leaves the movie URL out. |
 | Constant color and RAW exclude each other. | The app has no constant color. |
 | The processed format needs a codec. | The code gives HEVC, or JPEG when there is no HEVC. |
@@ -151,13 +151,13 @@ The photo output offers more than AVCam uses. These are the main points:
 
 **Always a processed photo.** The RAW request always has a processed format. Without it, the request would give the DNG alone, the delegate could never fill `photoData`, and the fallbacks would have nothing to save. The codec is HEVC when the output offers it, else JPEG. The Simulator has no HEVC, so the JPEG case matters there.
 
-**One list, one test.** The flags `isAppleProRAWSupported` and `isBayerRAWSupported` of `CaptureCapabilities` come from `rawPixelFormat(for:)`. They do not come from `photoOutput.isAppleProRAWSupported`. Thus the interface and the capture use the same test. The interface shows a format only if a capture can request it.
+**One list, one test.** The flag `isAppleProRAWSupported` of `CaptureCapabilities` comes from `rawPixelFormat(for:)`. It does not come from `photoOutput.isAppleProRAWSupported`. Thus the interface and the capture use the same test. The interface shows Apple ProRAW only if a capture can request it.
 
-**The rules stay in the capture code, and the interface tells them.** The prioritization rule and the Live Photo rule are in `createPhotoSettings(with:)`. For a RAW capture, the code does not set the prioritization, and it logs the choice of the person as "ignored for RAW". For Apple ProRAW, the code leaves the movie URL out. The Live Photo button also shows Live Photo as off and is disabled while Apple ProRAW is chosen, so the interface does not promise a movie. The values of the person stay in the model, and they come back when RAW is Off. The cost: a person who selects Quality and RAW does not get Quality. A different design could disable the quality menu while RAW is on.
+**The rules stay in the capture code, and the interface tells them.** The prioritization rule and the Live Photo rule are in `createPhotoSettings(with:)`. For a RAW capture, the code does not set the prioritization, and it logs the choice of the person as "ignored for RAW". For Apple ProRAW, the code leaves the movie URL out. The Live Photo button also shows Live Photo as off and is disabled while Apple ProRAW is chosen, so the interface does not promise a movie. The values of the person stay in the model, and they come back when RAW is Off. The cost: a person who selects Quality and Apple ProRAW does not get Quality. A different design could disable the quality menu while RAW is on.
 
 **A fallback at three places.** If the device offers no RAW, three things protect the app. The menu is hidden when the list has only Off. After a camera switch, `CameraModel` sets the choice back to Off if the new camera does not support it. `rawPixelFormat(for:)` returns `nil`, and then the code takes the normal path. In the Simulator, this is what happens: the RAW control is hidden, and a capture saves a normal photo.
 
-**Bayer RAW only on a physical camera.** Bayer RAW is the data of one sensor, so only a physical camera has it. The WWDC session 10160 says that Bayer RAW works only with single cameras, such as the wide or the telephoto camera. The SDK header says that Apple ProRAW exists for modes that have no Bayer RAW, such as the modes that fuse several captures. The app starts with the camera that the system prefers, and chapter 2 falls back to the dual camera, which is a virtual device. On a virtual camera, the menu offers Off and Apple ProRAW only. On a physical camera, RAW can show too. The device test showed both: with the "Back Triple Camera" the menu had no RAW, and with the "Back Telephoto Camera" it had. The system preferred the telephoto camera after a zoomed shot in the Camera app. The app keeps this behavior. A different design could switch to the physical wide camera while the person chooses RAW. That design needs a second camera path, it loses the lens change of the dual camera, and the app cannot know before the switch if the wide camera has Bayer RAW. For a first RAW chapter, a menu that shows what the current camera offers is simpler and honest.
+**Apple ProRAW only in this chapter.** Apple ProRAW works on the camera that the app already uses, also on a virtual camera. So a person can test it at once. A first version of this chapter also offered Bayer RAW when the current camera had it. On the test iPhone, Bayer RAW showed only after a zoomed shot in the Camera app had made the telephoto camera the preferred camera. A feature that shows only by chance cannot be tested in a tutorial. Bayer RAW needs a physical camera and a zoom factor of 1.0, so it moves to chapter 16, which adds the lenses and the zoom. `RAWFormat` stays an enumeration, and the menu stays a picker, so that chapter can add one case.
 
 **Types of the app in the model.** As in chapter 7, the views and the model use `RAWFormat`, not an AVFoundation type. The raw values of `RAWFormat` are the app's own: they are not the values of the pixel formats.
 
@@ -165,11 +165,9 @@ The photo output offers more than AVCam uses. These are the main points:
 
 These points still need a real iPhone. Read each one as an expectation.
 
-- **The DNG alone.** The first request of the save has not run on a device. Round 7 tests it for Apple ProRAW and for Bayer RAW. Expected: "Saved the RAW as the DNG alone", and one picture with a "RAW" badge.
+- **The DNG alone.** The first request of the save has not run on a device. The next device test checks it for Apple ProRAW. Expected: "Saved the RAW as the DNG alone", and one picture with a "RAW" badge.
 - **The embedded preview.** The size and the codec of the preview are from the header. The line "RAW preview: JPEG ..." shows the request; the DNG shows what the output made.
-- **A complete Bayer RAW capture.** The first Bayer RAW capture stopped at the prioritization setter. The fix does not call the setter. A Bayer RAW capture with the fix has not run yet.
-- **Live Photo with Bayer RAW.** The header allows it. The RAW save does not add the movie, so the movie is lost. If a device shows a problem, remove the movie URL for both formats.
-- **The front camera.** Whether it offers RAW is not known. The log line "RAW on ..." tells it for each camera.
+- **The front camera.** Whether it offers Apple ProRAW is not known. The log line "RAW on ..." tells it for each camera.
 - **iOS 27.** All tests ran on iOS 26. The save has no iOS 27 code, so it is expected to work the same.
 - **An error on one of the two photos.** If the RAW photo fails and the processed photo works, the delegate logs the error. The save then has the processed photo alone, or no data, and `noPhotoData` is the result.
 
@@ -207,24 +205,23 @@ The chapter ran seven times on an iPhone 17 Pro Max with iOS 26. Six findings ca
 - **Cause.** Photos accepts a RAW pair in the model of its own documentation: the compressed photo is the main photo, and the RAW is a file that is the alternate. Round 3 had the same order, but with the DNG as `Data`.
 - **Fix.** The final code keeps this request as the verified fallback. Photos showed one picture with the badge "JPG + RAW". Share > Options > Format: Unmodified Original gave the DNG. On the telephoto camera, the DNG was 8064x6048 (48 MP) and 54 MB. After this round, the user chose the Camera app model as the first request: the DNG alone with a full-size preview. Round 7 tests it.
 
-### 6. The prioritization setter stops a Bayer RAW capture
+### 6. The prioritization setter stops a RAW capture
 
-- **Symptom.** On the physical telephoto camera, the menu offered RAW. A capture with RAW stopped the app with "-[AVCapturePhotoSettings setPhotoQualityPrioritization:] Unsupported when capturing RAW", at the line that set `.speed`.
-- **Cause.** The SDK header says that a Bayer RAW request must have `.speed`, and that the default of the settings is `.balanced`. On the device, the setter itself refused a RAW request. The header does not describe this. An Apple ProRAW capture accepted the setter in the same test.
-- **Fix.** For a RAW request, the code does not set [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization). It logs "Quality prioritization ...: ignored for RAW".
+- **Symptom.** At that time, the menu also offered Bayer RAW (the choice "RAW") on a physical camera. On the telephoto camera, a capture with Bayer RAW stopped the app with "-[AVCapturePhotoSettings setPhotoQualityPrioritization:] Unsupported when capturing RAW", at the line that set `.speed`.
+- **Cause.** The SDK header says that a Bayer RAW request must have `.speed`, and that the default of the settings is `.balanced`. On the device, the setter itself refused a RAW request. The message names RAW in general. An Apple ProRAW capture accepted the setter in the same test.
+- **Fix.** For a RAW request, the code does not set [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization). It logs "Quality prioritization ...: ignored for RAW". This rule covers Apple ProRAW now, and Bayer RAW when chapter 16 adds it. After this round, Bayer RAW moved to chapter 16, because it needs a physical camera that the app selects on purpose.
 
 ### The conditions of a RAW capture
 
-| Condition | Bayer RAW | Apple ProRAW | Where the app handles it |
-|---|---|---|---|
-| Live Photo | The header allows it. | Not allowed: the movie URL must be `nil`. | `excludesLivePhoto` in `PhotoCapture`, and the locked Live Photo button. |
-| Quality prioritization | The header says `.speed`; the device refused the setter. | The device accepted the setter. | No setter for any RAW request. |
-| Zoom | The zoom factor must be 1.0. | No rule. | No zoom control in this chapter. A later chapter that adds zoom must keep this rule. |
-| Deferred delivery | Not available for RAW. | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while RAW is chosen. |
-| Constant color | Not allowed with RAW. | Not allowed with RAW. | The app has no constant color. |
-| Options that the system turns off | None stated. | Content-aware distortion correction, red-eye reduction, the portrait effects matte, and semantic segmentation mattes. | Nothing to do. The app does not use them. |
-| Camera | Only a physical camera, such as the wide or the telephoto camera alone. | Also a virtual camera. | The menu shows only what the current camera offers. |
-| Resolution | Not known yet: the first Bayer RAW capture stopped before it delivered a photo. | 12 MP (4032x3024) on the virtual triple camera; 48 MP (8064x6048) on the telephoto camera. | `maxPhotoDimensions` stays at the largest value. "Resolved settings" shows the size. |
+| Condition | Apple ProRAW | Where the app handles it |
+|---|---|---|
+| Live Photo | Not allowed: the movie URL must be `nil`. | `excludesLivePhoto` in `PhotoCapture`, and the locked Live Photo button. |
+| Quality prioritization | Not supported for RAW. The device accepted the setter for Apple ProRAW, and refused it for Bayer RAW. | No setter for any RAW request. |
+| Deferred delivery | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while Apple ProRAW is chosen. |
+| Constant color | Not allowed with RAW. | The app has no constant color. |
+| Options that the system turns off | Content-aware distortion correction, red-eye reduction, the portrait effects matte, and semantic segmentation mattes. | Nothing to do. The app does not use them. |
+| Camera | Also a virtual camera. | The menu shows only when the current camera offers it. |
+| Resolution | 12 MP (4032x3024) on the virtual triple camera; 48 MP (8064x6048) on the telephoto camera. | `maxPhotoDimensions` stays at the largest value. "Resolved settings" shows the size. |
 
 With RAW Off, the telephoto camera gave an 8064x6048 photo through a proxy (deferred delivery). That is the normal path of chapter 7.
 
@@ -233,9 +230,9 @@ With RAW Off, the telephoto camera gave an 8064x6048 photo through a proxy (defe
 - **You write `photoData = photo.fileDataRepresentation()` for each call.** A RAW capture calls the method twice, so the second call replaces the first. Test `isRawPhoto`.
 - **You request RAW without reading the list.** A format that is not in `availableRawPhotoPixelFormatTypes` raises an exception.
 - **You read the list before the output is in a session.** The list is empty, and you conclude that the device has no RAW.
-- **You forget `isAppleProRAWEnabled`.** The list then has Bayer formats only, and Apple ProRAW never shows.
+- **You forget `isAppleProRAWEnabled`.** The list then has no Apple ProRAW format, and Apple ProRAW never shows.
 - **You enable Apple ProRAW after `startRunning()`.** The pipeline builds again while the session runs. Do it before the start, and again after a change of camera.
-- **You set the prioritization for Bayer RAW.** The header asks for `.speed`, but on the test iPhone the setter raised an exception with any value. Leave the default for a RAW request.
+- **You set the prioritization for a RAW request.** The setter is not supported for RAW. On the test iPhone, it raised an exception for a Bayer RAW request. Leave the default for a RAW request.
 - **You set a Live Photo movie URL with Apple ProRAW.** The photo output raises an exception.
 - **You hide the error of `performChanges`.** Photos checks a creation request only when it performs the change. If your code replaces or drops that error, a refused asset leaves no trace. Log it.
 - **You give a DNG as `Data`.** Photos then must infer the type, and a device test showed error 3300 even with `contentType` set to `UTType.dng`. Write the DNG to a file with the extension `.dng`, and add it as `.alternatePhoto` with a file URL and `shouldMoveFile`. Add the processed photo as `.photo`.
@@ -243,7 +240,6 @@ With RAW Off, the telephoto camera gave an 8064x6048 photo through a proxy (defe
 - **You follow the order of Apple's article.** The DNG as `.photo` and the processed photo as `.alternatePhoto` gave error 3300 on the test iPhone, also as a file. Use the RAW+JPEG order.
 - **You lose the capture when Photos refuses the pair.** A refused request saves nothing. Save the processed photo alone as a fallback, and log the Photos error with the name of its code.
 - **You leave deferred delivery on for RAW.** The output can then give a proxy and no RAW photo. Turn `isAutoDeferredPhotoDeliveryEnabled` off while a RAW format is chosen.
-- **You look for Bayer RAW on a virtual camera.** The dual and triple cameras offer Apple ProRAW only. Bayer RAW needs a physical camera.
 - **You request RAW with no processed format.** You get the DNG alone, and your delegate waits for a photo that never comes.
 - **You test the Simulator and trust it.** The Simulator has no RAW. A working Simulator build says nothing about the RAW path.
 - **You offer constant color and RAW together.** They exclude each other.
@@ -257,7 +253,6 @@ AVCapturePhotoOutput | https://developer.apple.com/documentation/avfoundation/av
 isAppleProRAWSupported | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawsupported | Whether the configuration supports Apple ProRAW.
 isAppleProRAWEnabled | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawenabled | The switch that adds the Apple ProRAW formats to the list.
 availableRawPhotoPixelFormatTypes | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/availablerawphotopixelformattypes-9t9k5 | The list of RAW formats that the output offers.
-isBayerRAWPixelFormat(_:) | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isbayerrawpixelformat(_:) | The test for a Bayer RAW format.
 isAppleProRAWPixelFormat(_:) | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawpixelformat(_:) | The test for an Apple ProRAW format.
 init(rawPixelFormatType:processedFormat:) | https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/init(rawpixelformattype:processedformat:) | The settings for RAW plus a processed photo.
 rawPhotoPixelFormatType | https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/rawphotopixelformattype | The RAW format of a settings object.

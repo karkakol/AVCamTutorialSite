@@ -8,14 +8,14 @@ startBranch: chapter-07
 branch: chapter-08
 ---
 
-In this tutorial, you add RAW capture to the photo service. The person chooses Off, Apple ProRAW, or RAW in a new menu of the features toolbar. When the choice is not Off, one tap gives two photos: a DNG file and the processed photo. The app saves both in one asset in the Photos library.
+In this tutorial, you add RAW capture to the photo service. The person chooses Off or Apple ProRAW in a new menu of the features toolbar. With Apple ProRAW, one tap gives two photos: a DNG file and the processed photo. The app saves both in one asset in the Photos library.
 
 You work in an order that keeps the app safe at each checkpoint. First you teach the delegate and the media library to handle a DNG. Then you ask the camera for RAW. Only then do you add the control that the person uses.
 
 This is part 2 code inside part 1 of the numbering. The Apple sample has no RAW capture, so the design of this chapter is this tutorial's own. [Concepts: RAW and Apple ProRAW](ch08-concepts.md) explains the design and its limits.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. Seven device tests on an iPhone 17 Pro Max shaped the code. RAW and deferred delivery do not work together, so the app turns deferred delivery off for RAW. Photos took the RAW pair only in one form: the processed photo is the main photo, and the DNG is a file that is the alternate photo. A Bayer RAW request stops the app when the code sets the quality prioritization, so a RAW request keeps the default. The save now first tries the model of the Camera app: the DNG alone, with a full-size JPEG preview inside. That first request has not run on a device yet. The verified pair is its fallback. [Concepts: What the device tests showed](ch08-concepts.md#what-the-device-tests-showed) tells the full story.
+> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. Seven device tests on an iPhone 17 Pro Max shaped the code. RAW and deferred delivery do not work together, so the app turns deferred delivery off for RAW. Photos took the RAW pair only in one form: the processed photo is the main photo, and the DNG is a file that is the alternate photo. The quality prioritization setter is not supported for a RAW request, so a RAW request keeps the default. The save now first tries the model of the Camera app: the DNG alone, with a full-size JPEG preview inside. That first request has not run on a device yet. The verified pair is its fallback. This chapter offers Apple ProRAW only. Bayer RAW needs a single physical camera, and this app uses the virtual camera that the system prefers, so Bayer RAW comes in chapter 16 with the lenses and the zoom. [Concepts: What the device tests showed](ch08-concepts.md#what-the-device-tests-showed) tells the full story.
 
 Read [Concepts: RAW and Apple ProRAW](ch08-concepts.md) first if you want the background for each step.
 
@@ -24,13 +24,13 @@ Read [Concepts: RAW and Apple ProRAW](ch08-concepts.md) first if you want the ba
 The views and the model must not use AVFoundation types. In this section, you add small app types that carry the choice of the person down to the capture code, and the abilities of the camera up to the interface. This is the same method as in chapter 7.
 
 ### Step
-In `DataTypes.swift`, below `QualityPrioritization`, add the `RAWFormat` enumeration with the cases `off`, `appleProRAW`, and `bayerRAW`.
+In `DataTypes.swift`, below `QualityPrioritization`, add the `RAWFormat` enumeration with the cases `off` and `appleProRAW`.
 
-The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. Give each case a `///` comment above it: "No RAW photo.", "A linear DNG that the system partially processes.", and "A DNG with the unprocessed sensor data." Leave the raw values at their defaults. Add a `///` comment above the enumeration too.
+The enumeration adopts `Int`, `Identifiable`, `CaseIterable`, `CustomStringConvertible`, and `Codable`, in this order. For `Identifiable`, write `var id: Self { self }` as the first line of the body. Give each case a `///` comment above it: "No RAW photo." and "A linear DNG that the system partially processes." Leave the raw values at their defaults. Add a `///` comment above the enumeration too.
 
-Chapter 7 used a three-way choice for the quality. RAW is also a choice of three, because Apple ProRAW and RAW are two different formats. The `description` property comes in the next step, so the project does not compile until then.
+Chapter 7 used a three-way choice for the quality. RAW is a choice of two in this chapter. An enumeration instead of a `Bool` leaves room for Bayer RAW, the second RAW format, which chapter 16 adds. The `description` property comes in the next step, so the project does not compile until then.
 
-```swift file=AVCam/Model/DataTypes.swift highlight=7-16
+```swift file=AVCam/Model/DataTypes.swift highlight=7-14
         case .quality:
             return "Quality"
         }
@@ -44,8 +44,6 @@ enum RAWFormat: Int, Identifiable, CaseIterable, CustomStringConvertible, Codabl
     case off
     /// A linear DNG that the system partially processes.
     case appleProRAW
-    /// A DNG with the unprocessed sensor data.
-    case bayerRAW
 }
 
 enum CameraError: Error {
@@ -54,25 +52,21 @@ enum CameraError: Error {
 ### Step
 Add the `description` property of type `String` to `RAWFormat`, below the last case.
 
-A `switch` on `self` returns "Off", "Apple ProRAW", and "RAW". The menu shows these texts. The Bayer format has the short name "RAW" because that is the name that the system camera uses. The project compiles again after this step.
+A `switch` on `self` returns "Off" and "Apple ProRAW". The menu shows these texts. The project compiles again after this step.
 
-```swift file=AVCam/Model/DataTypes.swift highlight=9-18
+```swift file=AVCam/Model/DataTypes.swift highlight=7-14
 enum RAWFormat: Int, Identifiable, CaseIterable, CustomStringConvertible, Codable {
     var id: Self { self }
     /// No RAW photo.
     case off
     /// A linear DNG that the system partially processes.
     case appleProRAW
-    /// A DNG with the unprocessed sensor data.
-    case bayerRAW
     var description: String {
         switch self {
         case .off:
             return "Off"
         case .appleProRAW:
             return "Apple ProRAW"
-        case .bayerRAW:
-            return "RAW"
         }
     }
 }
@@ -92,38 +86,35 @@ struct PhotoFeatures {
 ```
 
 ### Step
-In the `CaptureCapabilities` structure, add the properties `isAppleProRAWSupported` and `isBayerRAWSupported`, both of type `Bool`, below `isLivePhotoCaptureSupported`.
+In the `CaptureCapabilities` structure, add the property `isAppleProRAWSupported` of type `Bool`, below `isLivePhotoCaptureSupported`.
 
-Both are `let`. They tell the interface which RAW formats the current camera offers. The initializer does not set them yet, so the project does not compile until the next step.
+It is a `let`. It tells the interface whether the current camera offers Apple ProRAW. The initializer does not set it yet, so the project does not compile until the next step.
 
-```swift file=AVCam/Model/DataTypes.swift highlight=6-7
+```swift file=AVCam/Model/DataTypes.swift highlight=6
 /// A structure that represents the capture capabilities of `CaptureService` in
 /// its current configuration.
 struct CaptureCapabilities {
 
     let isLivePhotoCaptureSupported: Bool
     let isAppleProRAWSupported: Bool
-    let isBayerRAWSupported: Bool
 ```
 
 ### Step
-Replace the initializer of `CaptureCapabilities` with one that has three parameters, `isLivePhotoCaptureSupported`, `isAppleProRAWSupported`, and `isBayerRAWSupported`, and assign the two new properties.
+Replace the initializer of `CaptureCapabilities` with one that has two parameters, `isLivePhotoCaptureSupported` and `isAppleProRAWSupported`, and assign the new property.
 
-Each parameter has the type `Bool` and the default value `false`, so `CaptureCapabilities()` and `CaptureCapabilities.unknown` still mean "nothing is supported". The new `self` assignments go below the existing one. Delete the old first line of the initializer and keep the rest. The project compiles again after this step.
+Each parameter has the type `Bool` and the default value `false`, so `CaptureCapabilities()` and `CaptureCapabilities.unknown` still mean "nothing is supported". Put each parameter on its own line. The new `self` assignment goes below the existing one. Delete the old first line of the initializer and keep the rest. The project compiles again after this step.
 
 ```swift file=AVCam/Model/DataTypes.swift remove
     init(isLivePhotoCaptureSupported: Bool = false) {
 ```
 
-```swift file=AVCam/Model/DataTypes.swift highlight=3-5,7-8
-    let isBayerRAWSupported: Bool
+```swift file=AVCam/Model/DataTypes.swift highlight=3-4,6
+    let isAppleProRAWSupported: Bool
     
     init(isLivePhotoCaptureSupported: Bool = false,
-         isAppleProRAWSupported: Bool = false,
-         isBayerRAWSupported: Bool = false) {
+         isAppleProRAWSupported: Bool = false) {
         self.isLivePhotoCaptureSupported = isLivePhotoCaptureSupported
         self.isAppleProRAWSupported = isAppleProRAWSupported
-        self.isBayerRAWSupported = isBayerRAWSupported
     }
     
     static let unknown = CaptureCapabilities()
@@ -576,7 +567,7 @@ Change the closing brace of the `do` block to `} catch {`. In the `catch` block,
 
 The `catch` block gets each error of `save(rawData:processedData:location:)`: a `MediaLibrary.Error.saveFailed(reason:)` from the second request, or the error of `write(to:options:)`. So this is the third path: the DNG alone failed, and the pair failed too. `performChange(_:)` has already logged the Photos error with the name of its code, so the console shows "Saving to Photos failed: ..." first, then "Saved asset ...", and then the new line. The new line comes only after the second save succeeds. If the second save fails too, its error goes to `capturePhoto()`, which logs "Photo capture failed: ...". The `.unauthorized` error also takes this path, because the second save checks the access again.
 
-The fallback request is the code of chapter 4 without the Live Photo movie. An Apple ProRAW capture has no movie, so nothing is lost there. The RAW pair has no movie either. A Bayer RAW capture with Live Photo on can record a movie, and this chapter does not save it.
+The fallback request is the code of chapter 4 without the Live Photo movie. An Apple ProRAW capture has no movie, so nothing is lost there. The RAW pair has no movie either.
 
 ```swift file=AVCam/Model/MediaLibrary.swift highlight=4-12
         if let rawData = photo.rawData, !photo.isProxy {
@@ -635,13 +626,13 @@ The property is an array of `OSType` values, one for each RAW format that the ou
 ```
 
 ### Step
-Add the cases `.appleProRAW` and `.bayerRAW` to the `switch`, each with a `return` that finds the first matching format.
+Add the case `.appleProRAW` to the `switch`, with a `return` that finds the first Apple ProRAW format.
 
-Write `return formats.first { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }` for `.appleProRAW` and `return formats.first { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }` for `.bayerRAW`. These two class methods are [`isAppleProRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawpixelformat(_:)) and [`isBayerRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isbayerrawpixelformat(_:)). The project compiles again after this step.
+Write `return formats.first { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }`. The class method [`isAppleProRAWPixelFormat(_:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawpixelformat(_:)) tests one format. The project compiles again after this step.
 
-The list holds both kinds of format. The system sorts the formats of Apple ProRAW after the Bayer formats, so a test of each format is the only safe way to find the kind.
+On a physical camera, the list can also hold Bayer RAW formats. The system sorts the formats of Apple ProRAW after the Bayer formats, so a test of each format is the only safe way to find the kind. Chapter 16 adds a case for Bayer RAW with its own test.
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=7-10
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=7-8
     /// Returns the first RAW pixel format of the requested kind that the photo output offers.
     private func rawPixelFormat(for rawFormat: RAWFormat) -> OSType? {
         let formats = photoOutput.availableRawPhotoPixelFormatTypes
@@ -650,8 +641,6 @@ The list holds both kinds of format. The system sorts the formats of Apple ProRA
             return nil
         case .appleProRAW:
             return formats.first { AVCapturePhotoOutput.isAppleProRAWPixelFormat($0) }
-        case .bayerRAW:
-            return formats.first { AVCapturePhotoOutput.isBayerRAWPixelFormat($0) }
         }
     }
 ```
@@ -661,7 +650,7 @@ In `updateConfiguration(for:)`, set `photoOutput.isAppleProRAWEnabled` to `photo
 
 Add the comment "Enabling Apple ProRAW adds its formats to the available RAW formats." above the line. This is level 1 of the two-level rule. Both properties are on the photo output: [`isAppleProRAWSupported`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawsupported) and [`isAppleProRAWEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isappleprorawenabled).
 
-Without this line, the list of RAW formats holds only Bayer formats. Enabling Apple ProRAW makes the pipeline build again, which takes time, so it must happen before the session starts. `CaptureService` calls this method before `startRunning()`. The line comes before `updateCapabilities(for:)`, which reads the list.
+Without this line, the list of RAW formats holds no Apple ProRAW format. Enabling Apple ProRAW makes the pipeline build again, which takes time, so it must happen before the session starts. `CaptureService` calls this method before `startRunning()`. The line comes before `updateCapabilities(for:)`, which reads the list.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=1-2
         // Enabling Apple ProRAW adds its formats to the available RAW formats.
@@ -671,21 +660,20 @@ Without this line, the list of RAW formats holds only Bayer formats. Enabling Ap
 ```
 
 ### Step
-In `updateCapabilities(for:)`, pass the two RAW flags to the `CaptureCapabilities` initializer.
+In `updateCapabilities(for:)`, pass the Apple ProRAW flag to the `CaptureCapabilities` initializer.
 
-Use the labels `isAppleProRAWSupported:` and `isBayerRAWSupported:`. The values are `rawPixelFormat(for: .appleProRAW) != nil` and `rawPixelFormat(for: .bayerRAW) != nil`. Keep `isLivePhotoCaptureSupported:` as the first argument and put each argument on its own line. Delete the old one-line call.
+Use the label `isAppleProRAWSupported:` with the value `rawPixelFormat(for: .appleProRAW) != nil`. Keep `isLivePhotoCaptureSupported:` as the first argument and put each argument on its own line. Delete the old one-line call.
 
-The flags come from the same helper that the capture uses. Thus the interface offers a format only if a capture can really request it.
+The flag comes from the same helper that the capture uses. Thus the interface offers Apple ProRAW only if a capture can really request it.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
         capabilities = CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported)
 ```
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-4
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-3
     private func updateCapabilities(for device: AVCaptureDevice) {
         capabilities = CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported,
-                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil,
-                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
+                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil)
     }
 ```
 
@@ -763,9 +751,9 @@ The SDK header of `AVCapturePhotoSettings` says that the codec must be in `avail
 ### Step
 Change the line that sets `livePhotoMovieFileURL` so that an Apple ProRAW capture has no Live Photo movie.
 
-Above the line, add the constant `excludesLivePhoto`: it is `true` when `rawType != nil && features.rawFormat == .appleProRAW`. Add the comment "An Apple ProRAW capture can't include a Live Photo movie." above it. Then add `&& !excludesLivePhoto` to the condition of the existing line. Delete the old line.
+Above the line, add the constant `excludesLivePhoto`: it is `true` when `rawType != nil`, because the only RAW format of this chapter is Apple ProRAW. Add the comment "An Apple ProRAW capture can't include a Live Photo movie." above it. Then add `&& !excludesLivePhoto` to the condition of the existing line. Delete the old line.
 
-If a Live Photo movie URL is in the settings of an Apple ProRAW capture, the photo output raises an exception. Swift `try` does not catch it, so the app would stop. This line protects the capture code itself. A later section also locks the Live Photo button, so the interface tells the same fact. A capture with Bayer RAW keeps the movie URL, because the SDK header allows it.
+If a Live Photo movie URL is in the settings of an Apple ProRAW capture, the photo output raises an exception. Swift `try` does not catch it, so the app would stop. This line protects the capture code itself. A later section also locks the Live Photo button, so the interface tells the same fact.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
         photoSettings.livePhotoMovieFileURL = features.isLivePhotoEnabled ? URL.movieFileURL : nil
@@ -776,25 +764,24 @@ If a Live Photo movie URL is in the settings of an Apple ProRAW capture, the pho
         
         // Set the movie URL if the photo output supports Live Photo capture.
         // An Apple ProRAW capture can't include a Live Photo movie.
-        let excludesLivePhoto = rawType != nil && features.rawFormat == .appleProRAW
+        let excludesLivePhoto = rawType != nil
         photoSettings.livePhotoMovieFileURL = features.isLivePhotoEnabled && !excludesLivePhoto ? URL.movieFileURL : nil
 ```
 
 ### Step
 In the code that sets the quality prioritization, skip the setter for a RAW capture, and log the choice of the person as "ignored for RAW".
 
-Put a new `if rawType != nil` above the existing `if let prioritization`. In its body, log "Quality prioritization ", `features.qualityPrioritization.description`, and ": ignored for RAW" with `logger.debug`. Then change the old `if let` into an `else if let`, on the same line as the closing brace. Add the two new comment lines of the fence below the existing comment. Delete the old `if let` line.
+Put a new `if rawType != nil` above the existing `if let prioritization`. In its body, log "Quality prioritization ", `features.qualityPrioritization.description`, and ": ignored for RAW" with `logger.debug`. Then change the old `if let` into an `else if let`, on the same line as the closing brace. Add the new comment line of the fence below the existing comment. Delete the old `if let` line.
 
-The SDK header has two rules for a Bayer RAW request: the prioritization must be [`.speed`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/qualityprioritization/speed), and a violation throws an exception. A first version of this chapter therefore set `.speed` for Bayer RAW. On the iPhone, the app stopped at exactly that line, with the text "Unsupported when capturing RAW". So on this iOS version, the setter itself is the problem, whatever the value. The fix does not call the setter for a RAW request at all. An Apple ProRAW capture accepted the setter in the test, but one rule for both RAW kinds is simpler and safe. [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) then keeps its default. The menu keeps the choice of the person, and the next capture without RAW uses it again.
+On the test iPhone, the setter raised the exception "Unsupported when capturing RAW" for a RAW request, and the app stopped. That capture was a Bayer RAW capture, in a first version of this chapter. An Apple ProRAW capture accepted the setter in the same test, but the message names RAW in general, and the SDK header does not describe the case. So the code does not call the setter for any RAW request. Chapter 16 adds Bayer RAW, and it needs the same rule. [`photoQualityPrioritization`](https://developer.apple.com/documentation/avfoundation/avcapturephotosettings/photoqualityprioritization) then keeps its default. The menu keeps the choice of the person, and the next capture without RAW uses it again.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift remove
         if let prioritization = AVCapturePhotoOutput.QualityPrioritization(rawValue: features.qualityPrioritization.rawValue) {
 ```
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-6
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-5
         // Set the priority of speed versus quality during this capture.
-        // The photo output throws an exception at this setter for a Bayer RAW request, even with speed.
-        // A RAW request of either kind keeps the default value, so one rule covers both formats.
+        // The setter isn't supported for a RAW request, so a RAW request keeps the default value.
         if rawType != nil {
             logger.debug("Quality prioritization \(features.qualityPrioritization.description): ignored for RAW")
         } else if let prioritization = AVCapturePhotoOutput.QualityPrioritization(rawValue: features.qualityPrioritization.rawValue) {
@@ -841,7 +828,7 @@ Put the comment "Enables deferred photo delivery only while no RAW format is in 
 [`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) is never a RAW photo: the SDK header says that deferred processing is not available for RAW. Each change of `isAutoDeferredPhotoDeliveryEnabled` makes the capture pipeline build again, which takes time. The `if` prevents this work when the value stays the same.
 
 ```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-13
-                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
+                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil)
     }
     
     // Enables deferred photo delivery only while no RAW format is in use.
@@ -956,31 +943,30 @@ Use `self.photoData?.count ?? 0` for N. Now the console shows which callback del
 ```
 
 ### Step
-In `updateCapabilities(for:)`, log which RAW kinds the camera offers, with the name of the camera and its `isVirtualDevice` value.
+In `updateCapabilities(for:)`, log whether the camera offers Apple ProRAW, with the name of the camera and its `isVirtualDevice` value.
 
-Below the initializer call, copy `capabilities` into a local constant of the same name, so that the log closure does not read the property of `self`. Then log "RAW on ", `device.localizedName`, the value of [`device.isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice), and the two flags. Copy the comment from the code.
+Below the initializer call, copy `capabilities.isAppleProRAWSupported` into the local constant `isAppleProRAWSupported`, so that the log closure does not read the property of `self`. Then log "RAW on ", `device.localizedName`, the value of [`device.isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice), and the flag. Copy the comment from the code. Git counts the closing brace of the method as a new line, so it is highlighted too.
 
-Bayer RAW exists only on a physical camera, such as the wide camera alone. This app uses the virtual dual camera on the back when the iPhone has one, so that camera offers Apple ProRAW only. The log line shows this on the device.
+This app uses the camera that the system prefers. On the back of an iPhone with several lenses, that is usually a virtual camera, such as the dual or the triple camera, which joins several physical cameras. Apple ProRAW works on a virtual camera. Bayer RAW does not, so chapter 16 needs the "virtual" value of this line.
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-8
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-7
     private func updateCapabilities(for device: AVCaptureDevice) {
         capabilities = CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported,
-                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil,
-                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
-        // Bayer RAW exists only on a physical camera. A virtual camera, such as the dual camera, offers Apple ProRAW only.
-        let capabilities = capabilities
-        logger.debug("RAW on \(device.localizedName) (virtual: \(device.isVirtualDevice)): Apple ProRAW \(capabilities.isAppleProRAWSupported), Bayer RAW \(capabilities.isBayerRAWSupported)")
+                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil)
+        // Log the camera and whether it's virtual, such as the dual camera that fuses two lenses.
+        let isAppleProRAWSupported = capabilities.isAppleProRAWSupported
+        logger.debug("RAW on \(device.localizedName) (virtual: \(device.isVirtualDevice)): Apple ProRAW \(isAppleProRAWSupported)")
     }
 ```
 
 ### Step
 Build and run the app, and look at the Xcode console.
 
-No code calls `setRAWFormat(_:)` yet. At the start, the console shows the RAW line and the deferred delivery line for the camera. In the Simulator with SimCam, both RAW flags are `false`.
+No code calls `setRAWFormat(_:)` yet. At the start, the console shows the RAW line and the deferred delivery line for the camera. In the Simulator with SimCam, the Apple ProRAW flag is `false`.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button
-Result: The app saves the photo as before. The console shows "RAW on ..." with both RAW kinds false, "Deferred photo delivery (supported/enabled): ...", and a "Resolved settings: 1 photos, ..." line for the capture.
+Result: The app saves the photo as before. The console shows "RAW on ..." with Apple ProRAW false, "Deferred photo delivery (supported/enabled): ...", and a "Resolved settings: 1 photos, ..." line for the capture.
 ```
 
 ## Pass the choice through the model
@@ -1014,18 +1000,18 @@ The `didSet` observer runs each time the value changes: when the person picks a 
 ```
 
 ### Step
-In `PreviewCameraModel.swift`, below `qualityPrioritization`, add `rawFormat` and `captureCapabilities` with both RAW formats supported.
+In `PreviewCameraModel.swift`, below `qualityPrioritization`, add `rawFormat` and `captureCapabilities` with Apple ProRAW supported.
 
-Write `var rawFormat = RAWFormat.off`. Then write `let captureCapabilities = CaptureCapabilities(isAppleProRAWSupported: true, isBayerRAWSupported: true)` with the comment "Report both RAW formats as supported so the previews show the RAW control." above it. The preview model never changes its capabilities, so `let` is enough.
+Write `var rawFormat = RAWFormat.off`. Then write `let captureCapabilities = CaptureCapabilities(isAppleProRAWSupported: true)` with the comment "Report Apple ProRAW as supported so the previews show the RAW control." above it. The preview model never changes its capabilities, so `let` is enough.
 
-The Xcode canvas has no camera, so it cannot find out what a camera supports. With both flags `true`, the canvas shows the RAW menu that the Simulator hides. The file is in the group `Preview Content`.
+The Xcode canvas has no camera, so it cannot find out what a camera supports. With the flag `true`, the canvas shows the RAW menu that the Simulator hides. The file is in the group `Preview Content`.
 
 ```swift file=AVCam/Preview Content/PreviewCameraModel.swift highlight=3-5
     var isLivePhotoEnabled = true
     var qualityPrioritization = QualityPrioritization.quality
     var rawFormat = RAWFormat.off
-    // Report both RAW formats as supported so the previews show the RAW control.
-    let captureCapabilities = CaptureCapabilities(isAppleProRAWSupported: true, isBayerRAWSupported: true)
+    // Report Apple ProRAW as supported so the previews show the RAW control.
+    let captureCapabilities = CaptureCapabilities(isAppleProRAWSupported: true)
     var shouldFlashScreen = false
 ```
 
@@ -1073,18 +1059,17 @@ Put it between the thumbnail `Task` and the capture activity `Task`. Write the c
 ```
 
 ### Step
-Inside that loop, set `rawFormat` to `.off` when the new capabilities do not support the chosen format.
+Inside that loop, set `rawFormat` to `.off` when the new capabilities do not support Apple ProRAW.
 
-Add the comment "Fall back to no RAW when the new camera doesn't support the chosen format." above an `if`. The condition has two parts joined with `||`: `rawFormat == .appleProRAW && !capabilities.isAppleProRAWSupported`, and `rawFormat == .bayerRAW && !capabilities.isBayerRAWSupported`. Put the second part on a new line.
+Add the comment "Fall back to no RAW when the new camera doesn't support Apple ProRAW." above an `if`. The condition is `rawFormat == .appleProRAW && !capabilities.isAppleProRAWSupported`.
 
-A person can choose RAW with the back camera and then switch to a camera that has no RAW. Without the reset, the next capture would ask for a format that the camera does not have. `rawPixelFormat(for:)` would return `nil`, so the capture would not stop, but the menu would show a choice that does nothing. The reset keeps the menu honest.
+A person can choose Apple ProRAW with the back camera and then switch to a camera that has no RAW. Without the reset, the next capture would ask for a format that the camera does not have. `rawPixelFormat(for:)` would return `nil`, so the capture would not stop, but the menu would show a choice that does nothing. The reset keeps the menu honest.
 
-```swift file=AVCam/CameraModel.swift highlight=3-7
+```swift file=AVCam/CameraModel.swift highlight=3-6
             for await capabilities in await captureService.$captureCapabilities.values {
                 captureCapabilities = capabilities
-                // Fall back to no RAW when the new camera doesn't support the chosen format.
-                if rawFormat == .appleProRAW && !capabilities.isAppleProRAWSupported
-                    || rawFormat == .bayerRAW && !capabilities.isBayerRAWSupported {
+                // Fall back to no RAW when the new camera doesn't support Apple ProRAW.
+                if rawFormat == .appleProRAW && !capabilities.isAppleProRAWSupported {
                     rawFormat = .off
                 }
             }
@@ -1109,7 +1094,7 @@ In `CameraModel.swift`, below `isLivePhotoEnabled`, add the computed property `i
 
 The body is `rawFormat != .appleProRAW`, with the comment "An Apple ProRAW capture can't include a Live Photo movie." above it. Add the `///` comment "A Boolean value that indicates whether the current RAW format allows a Live Photo." above the property.
 
-The property is internal, because the views read it through the `Camera` protocol. It is computed, so it is always in step with `rawFormat`, and it needs no storage. It does not change `isLivePhotoEnabled`. Bayer RAW does not lock Live Photo, because the SDK header has the movie rule only for Apple ProRAW.
+The property is internal, because the views read it through the `Camera` protocol. It is computed, so it is always in step with `rawFormat`, and it needs no storage. It does not change `isLivePhotoEnabled`.
 
 ```swift file=AVCam/CameraModel.swift highlight=4-8
     /// A Boolean value that indicates whether to capture Live Photos when capturing stills.
@@ -1198,16 +1183,16 @@ Result: The Live Photo button works as before. The app saves the photo and shows
 
 ## Add the RAW menu
 
-The last piece is the control. It is a menu in the features toolbar from chapter 7. It shows only when the camera offers at least one RAW format.
+The last piece is the control. It is a menu in the features toolbar from chapter 7. It shows only when the camera offers Apple ProRAW.
 
 ### Step
 In `FeatureToolbar.swift`, below `prioritizePicker`, add the private computed property `supportedRAWFormats` of type `[RAWFormat]`.
 
-It filters `RAWFormat.allCases` with a `switch $0` in the closure. The case `.off` gives `true`. The case `.appleProRAW` gives `camera.captureCapabilities.isAppleProRAWSupported`, and `.bayerRAW` gives `camera.captureCapabilities.isBayerRAWSupported`. Write each case on one line, as `case .off: true`, with no `return`. Add the comment "The RAW formats that the current camera supports. A person can always turn RAW off." above it.
+It filters `RAWFormat.allCases` with a `switch $0` in the closure. The case `.off` gives `true`. The case `.appleProRAW` gives `camera.captureCapabilities.isAppleProRAWSupported`. Write each case on one line, as `case .off: true`, with no `return`. Add the comment "The RAW formats that the current camera supports. A person can always turn RAW off." above it.
 
-The `switch` is an expression here, so each case is its value. The list always has `.off`. Thus the menu always has a way back.
+The `switch` is an expression here, so each case is its value. The list always has `.off`. Thus the menu always has a way back. A `switch` instead of a single test leaves room for the Bayer RAW case of chapter 16: the compiler then asks for the new case here.
 
-```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=7-16
+```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=7-15
             case .quality:
                 Image(systemName: "dial.high")
             }
@@ -1220,7 +1205,6 @@ The `switch` is an expression here, so each case is its value. The list always h
             switch $0 {
             case .off: true
             case .appleProRAW: camera.captureCapabilities.isAppleProRAWSupported
-            case .bayerRAW: camera.captureCapabilities.isBayerRAWSupported
             }
         }
     }
@@ -1231,7 +1215,7 @@ Add the property `rawMenu` of type `some View`, marked `@ViewBuilder`. It shows 
 
 Write the comment "A menu to choose the RAW format. The menu is hidden when the camera supports no RAW format." above `@ViewBuilder`. Inside the `if`, write a `Menu` whose label is `Image(systemName:)`. The symbol is `"r.square.fill"` when `camera.rawFormat` is not `.off`, and `"r.square"` when it is `.off`. Leave the content closure of the `Menu` empty for now.
 
-The count is greater than 1 when `.off` and at least one RAW format are in the list. The system has no symbol `camera.raw`, so the app uses the square with the letter R. In the Simulator, the list has only `.off`, so the menu does not appear.
+The count is greater than 1 when `.off` and Apple ProRAW are in the list. The system has no symbol `camera.raw`, so the app uses the square with the letter R. In the Simulator, the list has only `.off`, so the menu does not appear.
 
 ```swift file=AVCam/Views/Toolbars/FeatureToolbar/FeatureToolbar.swift highlight=3-12
     }
@@ -1288,10 +1272,10 @@ The `HStack` now holds the Live Photo button, the quality menu, and the RAW menu
 ### Step
 Build and run the app, and take a photo.
 
-In the Simulator with SimCam, the camera has no RAW format. The RAW menu is hidden, and the toolbar looks as in chapter 7. A capture saves a normal photo and shows its thumbnail. To see the menu without an iPhone, open the preview at the end of `FeatureToolbar.swift` in the Xcode canvas. The preview model reports both formats, so the menu shows there.
+In the Simulator with SimCam, the camera has no RAW format. The RAW menu is hidden, and the toolbar looks as in chapter 7. A capture saves a normal photo and shows its thumbnail. To see the menu without an iPhone, open the preview at the end of `FeatureToolbar.swift` in the Xcode canvas. The preview model reports Apple ProRAW, so the menu shows there.
 
 > [!IMPORTANT]
-> Seven tests on an iPhone 17 Pro Max with iOS 26 shaped this code. The verified result is the RAW+JPEG pair, the second request of the save. With Apple ProRAW, Photos showed one picture with the badge "JPG + RAW". The word is JPG, although the processed photo is a HEIF. Share > Options > Format: Unmodified Original gave the DNG. On the telephoto camera, the DNG was 8064x6048 (48 MP) and 54 MB. On the virtual back camera, it was 4032x3024 (12 MP) and about 15 MB. The first request, the DNG alone with its embedded preview, has not run on a device yet. If Photos accepts it, the console shows "RAW preview: JPEG ...", "Resource .photo: N bytes, file ....dng", "Saved asset ...", and "Saved the RAW as the DNG alone". Photos is then expected to show one picture with a "RAW" badge, as for a RAW photo of the Camera app. If Photos refuses it, the console shows "Saving to Photos failed: ... (code name)", "Photos refused the DNG alone. ...", the two "Resource" lines, "Saved asset ...", and "Saved the RAW as the processed photo with the DNG as alternate". While Apple ProRAW is chosen, the Live Photo button shows `livephoto.slash` and does not react. The "RAW" choice (Bayer RAW) shows only on a physical camera, such as the telephoto camera alone. A Bayer RAW capture with the fix of the prioritization has not run yet. The app starts with the camera that the system prefers. After a zoomed shot in the Camera app, the system can prefer the telephoto camera, and then the app starts with it.
+> Seven tests on an iPhone 17 Pro Max with iOS 26 shaped this code. The verified result is the RAW+JPEG pair, the second request of the save. With Apple ProRAW, Photos showed one picture with the badge "JPG + RAW". The word is JPG, although the processed photo is a HEIF. Share > Options > Format: Unmodified Original gave the DNG. On the telephoto camera, the DNG was 8064x6048 (48 MP) and 54 MB. On the virtual back camera, it was 4032x3024 (12 MP) and about 15 MB. The first request, the DNG alone with its embedded preview, has not run on a device yet. If Photos accepts it, the console shows "RAW preview: JPEG ...", "Resource .photo: N bytes, file ....dng", "Saved asset ...", and "Saved the RAW as the DNG alone". Photos is then expected to show one picture with a "RAW" badge, as for a RAW photo of the Camera app. If Photos refuses it, the console shows "Saving to Photos failed: ... (code name)", "Photos refused the DNG alone. ...", the two "Resource" lines, "Saved asset ...", and "Saved the RAW as the processed photo with the DNG as alternate". While Apple ProRAW is chosen, the Live Photo button shows `livephoto.slash` and does not react. The app starts with the camera that the system prefers. After a zoomed shot in the Camera app, the system can prefer the telephoto camera, and then the app starts with it. The "RAW on ..." line names the camera and says whether it is virtual.
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button
 Result: The RAW menu is hidden in the Simulator. The Live Photo button works as before. A capture saves a normal photo and shows its thumbnail.
@@ -1299,7 +1283,7 @@ Note: On an iPhone with a Pro camera, an Apple ProRAW capture saves one picture:
 ```
 
 ### Experiment
-On a real iPhone with a Pro camera, turn the Live Photo button on, then choose Apple ProRAW. The button now shows Live Photo as off. Take a photo, and read the "Resolved settings" line: the count is 2, and the proxy size is 0x0. Choose Off again: the button shows Live Photo as on, as you left it. Take a photo: deferred delivery is on again, and the count is 1. If the RAW menu offers "RAW", choose it, set the quality menu to "Quality", and take a photo. The console shows "Quality prioritization Quality: ignored for RAW", and the capture does not stop.
+On a real iPhone with a Pro camera, turn the Live Photo button on, then choose Apple ProRAW. The button now shows Live Photo as off. Take a photo, and read the "Resolved settings" line: the count is 2, and the proxy size is 0x0. Choose Off again: the button shows Live Photo as on, as you left it. Take a photo: deferred delivery is on again, and the count is 1. With Apple ProRAW and the quality menu on "Quality", the console shows "Quality prioritization Quality: ignored for RAW".
 
 ### Text
 Your code is now the same as the `chapter-08` branch. The app captures RAW on a device that supports it, and it falls back to a normal photo on all others. In the next chapter, you make capture feel faster with responsive capture and a readiness state for the capture button.
@@ -1315,11 +1299,11 @@ Your code is now the same as the `chapter-08` branch. The app captures RAW on a 
 - [ ] The photo output raises an exception, because the method is called more than once.
   > A RAW plus processed request is meant to call the method two times. The photo output expects this.
 
-### A person chooses RAW in the menu. Quality is set to "Quality". Why does the code not set `photoQualityPrioritization` for this capture?
+### A person chooses Apple ProRAW in the menu. Quality is set to "Quality". Why does the code not set `photoQualityPrioritization` for this capture?
 
 - [ ] RAW files are too large for the quality level, so the system would delay the save.
   > The size of the file is not the reason. The rule is about the capture request.
-- [x] On the test iPhone, the photo output throws an exception at the setter for a Bayer RAW request, even with `.speed`, so the code keeps the default for every RAW request.
+- [x] The setter is not supported for a RAW request: on the test iPhone it raised "Unsupported when capturing RAW", so the code keeps the default for every RAW request.
   > Correct. The menu keeps its value, and the next capture without RAW uses it again. The log line "ignored for RAW" shows the skipped choice.
 - [ ] The code skips the setter so that the camera can record the Live Photo movie.
   > The prioritization has no link to the movie. The Live Photo rule for Apple ProRAW is a different line.
