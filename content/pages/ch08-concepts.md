@@ -14,7 +14,7 @@ In this chapter, the app gets a RAW control. When the person selects a RAW forma
 The chapters before this one used the code of the Apple sample. The sample has no RAW capture. Thus this chapter is part 2 code ("Beyond the sample") inside the numbering of part 1. The design is this tutorial's own, and it is one of several possible designs. This article explains the camera facts that each design must obey, then the decisions of this design, and what is still open.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. One RAW capture ran on a real iPhone with a Pro camera, and it found a defect in the first version of this chapter. [What a device test showed](#what-a-device-test-showed) tells the story and the fix. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
+> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. Two rounds of RAW captures ran on a real iPhone with a Pro camera. Each round found a defect in the chapter. [What a device test showed](#what-a-device-test-showed) tells the story and the fixes. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
 
 ## How it works
 
@@ -69,7 +69,9 @@ This is the helper of the app. It returns the first format of the kind that the 
 
 ### One asset in Photos
 
-You learned in [chapter 4](ch04-concepts.md) that a Photos asset has resources. The photo is one resource. A Live Photo adds a paired video as a second resource. For a RAW capture, the app adds the DNG as the `.photo` resource and the processed photo as the [`.alternatePhoto`](https://developer.apple.com/documentation/photos/phassetresourcetype/alternatephoto) resource. Both go into one [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest) object. Photos then shows one tile, with a RAW badge, and the person can export the original.
+You learned in [chapter 4](ch04-concepts.md) that a Photos asset has resources. The photo is one resource. A Live Photo adds a paired video as a second resource. For a RAW capture, the app adds the processed photo as the `.photo` resource and the DNG as the [`.alternatePhoto`](https://developer.apple.com/documentation/photos/phassetresourcetype/alternatephoto) resource. Both go into one [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest) object. Photos is expected to show one tile, with a RAW badge, and the person can export the original.
+
+Each resource has a type of data, such as HEIF or DNG. Photos reads the type from the [`contentType`](https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/contenttype) of the options. If the options have no type, Photos infers it from the resource type or from the file name extension. The app gives the DNG as `Data`, which has no file name, so it sets `contentType` to `UTType.dng`.
 
 ## What the camera can do
 
@@ -125,9 +127,9 @@ The photo output offers more than AVCam uses. These are the main points:
 
 ## Why AVCam does it this way
 
-**One asset, the DNG as the photo.** The app saves the DNG as `.photo` and the processed photo as `.alternatePhoto`, in one request. Apple's article about RAW capture does the same. One tile in the library is easier for a person than two. The processed photo travels with the DNG, so the person can still share an ordinary picture.
+**One asset, the processed photo as the photo.** The app saves the processed photo as `.photo` and the DNG as `.alternatePhoto`, in one request. One tile in the library is easier for a person than two. The processed photo travels with the DNG, so the person can still share an ordinary picture.
 
-**An open question about the order.** The sources do not agree. The Apple documentation page for `.alternatePhoto` describes the opposite model: the processed photo is the main resource, and the RAW file is the alternate. The headers of the iOS 27 SDK follow that page. A third answer comes from WWDC session 10160: it says that the model "RAW plus JPEG" is not recommended for Apple ProRAW, and it advises one DNG with a full-size JPEG preview inside. So there are three designs: this one, the reverse order, and a DNG alone. Only a test on a real iPhone shows what Photos does with this order. The chapter follows the article because it is the Apple code for exactly this task. The notes under "What nobody tested" say what to look for.
+**An open question about the order.** The sources do not agree. The Apple documentation page for `.alternatePhoto` says that the alternate photo is the RAW file, and that the JPEG is the primary form of the asset. The headers of the iOS 27 SDK use the same model: they speak of "RAW+JPEG assets" and of assets "that have a RAW alternate". Apple's article about RAW capture uses the opposite order: the DNG is the `.photo`, and the HEIF is the alternate. The article gives the DNG as a file with the extension `.dng`. A third answer comes from WWDC session 10160: it says that the model "RAW plus JPEG" is not recommended for Apple ProRAW, and it advises one DNG with a full-size JPEG preview inside. The first version of this chapter followed the article, but with the DNG as `Data`, and the second device test saved nothing (see below). The chapter now follows the documentation and the headers, because they describe the type of asset that Photos has an API for. A test on a real iPhone decides if Photos accepts it. The notes under "What nobody tested" say what to look for.
 
 **Always a processed photo.** The RAW request always has a processed format. Without it, the request would give the DNG alone, and the delegate could never fill `photoData`. The codec is HEVC when the output offers it, else JPEG. The Simulator has no HEVC, so the JPEG case matters there.
 
@@ -146,8 +148,8 @@ The photo output offers more than AVCam uses. These are the main points:
 These points need a real iPhone with a Pro camera. Read each one as an expectation.
 
 - **The menu and the formats.** On the virtual back camera, the menu shows Off and Apple ProRAW only (seen on one iPhone with a Pro camera). Whether the front camera offers RAW is not known. The log line "RAW on ..." tells it for each camera.
-- **The photo in Photos.** The asset has a RAW badge. A look at the resources shows if the DNG or the processed photo is the main one, and if the library makes one asset or two.
-- **RAW with deferred delivery off.** After the fix, the console must show "Resolved settings: 2 photos" with a RAW size that is not 0x0, and then "Captured RAW photo, N bytes". The first test ran before the fix.
+- **The photo in Photos.** The console must show "Saved asset ...". The asset is expected to have a RAW badge, and the export of the original is expected to give the DNG. If the console shows "Saving to Photos failed: ...", the error text tells what Photos refused.
+- **RAW with deferred delivery off.** Confirmed by the second test: "Resolved settings: 2 photos" with a RAW size of 4032x3024, and "Captured RAW photo" with about 14 MB.
 - **Live Photo with Bayer RAW.** The header allows it. If a device shows a problem, remove the movie URL for both formats.
 - **The size.** The photo size stays at the largest value, so a DNG can be very big. The log line "Captured RAW photo" shows the size.
 - **The speed of normal photos.** `isAppleProRAWEnabled` changes the capture pipeline. Check that a normal photo is still as fast.
@@ -155,7 +157,7 @@ These points need a real iPhone with a Pro camera. Read each one as an expectati
 
 ## What a device test showed
 
-The first version of this chapter ran on a real iPhone with a Pro camera. The test found one defect and confirmed one limit.
+The chapter ran two times on a real iPhone with a Pro camera. The first test found one defect and confirmed one limit. The second test, after the first fix, found a second defect.
 
 ### The symptom
 
@@ -171,13 +173,32 @@ Chapter 7 turned on automatic deferred photo delivery. With it, the photo output
 - `MediaLibrary.save(photo:)` makes a RAW pair only with a finished photo. Proxy data is valid only as a `.photoProxy` resource, so it must never be the `.alternatePhoto` of a DNG.
 - New log lines show what the output decides: "RAW on ..." and "Deferred photo delivery (supported/enabled): ..." after each camera setup, "Resolved settings: ..." at the start of each capture, and "Captured deferred photo proxy, N bytes" for each proxy.
 
+### The second test: the RAW photo arrives, Photos gets nothing
+
+The iPhone has a "Back Triple Camera", so it is a Pro model. After the first fix, the console showed what the fix promised. At the start, deferred delivery was "true/true". The back camera was virtual and offered Apple ProRAW but no Bayer RAW. After the choice of Apple ProRAW, deferred delivery was "true/false". Each of three captures showed "Resolved settings: 2 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0" and "Captured RAW photo" with 14 to 15 MB. No error line came. But none of the three photos reached the Photos library.
+
+### The cause of the second defect
+
+The capture side was complete. The SDK header says that `didFinishCaptureFor` always comes last, after both calls of `didFinishProcessingPhoto`. The processed photo had no error, because the delegate logs each error and the console showed none. So the `Photo` value had both the processed data and the DNG. Access to Photos was not the cause either: the same `save(photo:)` method saved the normal photos of the first test.
+
+That leaves the save. Two pieces of code hid its error. `MediaLibrary.performChange(_:)` replaced each error from Photos with `MediaLibrary.Error.saveFailed`, and `CameraModel.capturePhoto()` stored the error in a property that no view reads. Neither one logged it. The SDK header of `PHAssetCreationRequest` says that `addResource` always succeeds, and that Photos checks the request only in `performChanges`. So a refused request is silent unless the app logs the error.
+
+The request of the first version was unlike every model that Apple describes. The DNG was the `.photo` resource as `Data` with no type and no file name, so Photos had to guess its type from the resource type. The HEIF was the `.alternatePhoto` resource, which the documentation reserves for the RAW file. Apple's article uses the same order, but it gives the DNG as a `.dng` file. The most likely cause is that Photos refused this request. No log line proves it, so the third test confirms it.
+
+### The second fix
+
+- `MediaLibrary.save(photo:)` saves the processed photo as `.photo` and the DNG as `.alternatePhoto`, the order of the documentation. The options of the DNG set `contentType` to `UTType.dng`.
+- `MediaLibrary.performChange(_:)` logs "Saved asset <identifier>" for each new asset, and "Saving to Photos failed: <error>" with the error from Photos.
+- `CameraModel.capturePhoto()` logs "Photo capture failed: <error>" for each error of the capture or the save.
+- The delegate logs "Captured processed photo, N bytes", so the console shows both photos of a RAW capture.
+
 ### What the console shows now
 
-When the person picks Apple ProRAW, the console shows "Deferred photo delivery (supported/enabled): true/false". A capture then shows "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size that is not 0x0 and a proxy size of 0x0, and "Captured RAW photo, N bytes". When the person picks Off again, the console shows "true/true", and a normal capture can show "Captured deferred photo proxy" again.
+When the person picks Apple ProRAW, the console shows "Deferred photo delivery (supported/enabled): true/false". A capture then shows "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size that is not 0x0 and a proxy size of 0x0, "Captured RAW photo, N bytes", "Captured processed photo, N bytes", and then "Saved asset ...". If Photos refuses the asset, "Saving to Photos failed: ..." and "Photo capture failed: ..." come instead of "Saved asset", with the reason. When the person picks Off again, the console shows "true/true", and a normal capture can show "Captured deferred photo proxy" again.
 
 ### What to expect in Photos
 
-Photos shows one asset with a RAW badge. The command File > Export > Export Unmodified Original on a Mac, or the export of the original on the iPhone, gives the DNG file. This part is an expectation until a test after the fix confirms it.
+Photos is expected to show one asset with a RAW badge. The command File > Export > Export Unmodified Original on a Mac, or the export of the original on the iPhone, is expected to give the DNG file. This part is an expectation until the third test confirms it. If Photos refuses the documented order too, the error text decides the next design: the article's order with the DNG as a `.dng` file, or two assets.
 
 ### Bayer RAW on a virtual camera
 
@@ -192,6 +213,8 @@ The same test showed only Off and Apple ProRAW in the menu. This is correct, not
 - **You enable Apple ProRAW after `startRunning()`.** The pipeline builds again while the session runs. Do it before the start, and again after a change of camera.
 - **You use the quality menu for Bayer RAW.** Any value but `.speed` raises an exception.
 - **You set a Live Photo movie URL with Apple ProRAW.** The photo output raises an exception.
+- **You hide the error of `performChanges`.** Photos checks a creation request only when it performs the change. If your code replaces or drops that error, a refused asset leaves no trace. Log it.
+- **You give a DNG as `Data` with no type.** Photos then infers the type from the resource type. Set `contentType` to `UTType.dng`, or give a file URL with the extension `.dng`.
 - **You leave deferred delivery on for RAW.** The output can then give a proxy and no RAW photo. Turn `isAutoDeferredPhotoDeliveryEnabled` off while a RAW format is chosen.
 - **You look for Bayer RAW on a virtual camera.** The dual and triple cameras offer Apple ProRAW only. Bayer RAW needs a physical camera.
 - **You request RAW with no processed format.** You get the DNG alone, and your delegate waits for a photo that never comes.
@@ -221,7 +244,9 @@ isVirtualDevice | https://developer.apple.com/documentation/avfoundation/avcaptu
 setPreparedPhotoSettingsArray(_:completionHandler:) | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/setpreparedphotosettingsarray(_:completionhandler:) | Prepare the buffers of a RAW request.
 isConstantColorSupported | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isconstantcolorsupported | The constant color feature, which cannot combine with RAW.
 PHAssetCreationRequest | https://developer.apple.com/documentation/photos/phassetcreationrequest | The request that saves an asset with several resources.
-PHAssetResourceType.alternatePhoto | https://developer.apple.com/documentation/photos/phassetresourcetype/alternatephoto | The resource type for the second photo of an asset.
+PHAssetResourceType.alternatePhoto | https://developer.apple.com/documentation/photos/phassetresourcetype/alternatephoto | The resource type for the RAW file of a RAW plus JPEG asset.
+PHAssetResourceCreationOptions.contentType | https://developer.apple.com/documentation/photos/phassetresourcecreationoptions/contenttype | The type of the data of a resource, such as DNG.
+UTType.dng | https://developer.apple.com/documentation/uniformtypeidentifiers/uttype-swift.struct/dng | The type identifier of a DNG file.
 WWDC21: Capture and process ProRAW images | https://developer.apple.com/videos/play/wwdc2021/10160/ | The session about Apple ProRAW, with the advice on how to save it.
 Build: RAW and Apple ProRAW | ch08-build.md | The tutorial for this chapter.
 ```

@@ -43,7 +43,7 @@ Branch `chapter-08`, start `chapter-07`. One commit `c16d761`. Full change: `git
 - Rules that throw an exception: Bayer needs `.speed` (the code overrides the picker for that capture only); ProRAW must have no Live Photo movie URL. Bayer also needs zoom 1.0. This app has no zoom control yet, so the code has no zoom line (a later chapter that adds zoom must reset it before a Bayer capture). Constant color is out of scope (it cannot combine with RAW).
 - Live Photo with Bayer RAW is allowed by the header, so only ProRAW removes the movie URL. If a device test shows a problem, remove it for both.
 - Hiding: the menu hides when the device offers no RAW. `CameraModel` also resets a stored choice to `.off` after a camera switch if the new camera does not support it, so no unsupported request reaches `capturePhoto`. The `rawPixelFormat(for:)` check is a second guard.
-- Saving follows Apple's article: DNG `.photo`, processed `.alternatePhoto`. Research says other sources use the reverse order; the device check decides. The `.photo` resource is added from `Data`, as the article does.
+- Saving first followed Apple's article (DNG `.photo`, processed `.alternatePhoto`); device test two saved nothing. Since `87747f2` it follows the documentation and the iOS 27 headers: processed `.photo`, DNG `.alternatePhoto` with `contentType = .dng`. The device check decides.
 - A deferred proxy with RAW: the code sends the processed data as `.alternatePhoto` even if `isProxy` is true (a proxy with a DNG is untested). If the device test fails, turn off `isAutoDeferredPhotoDeliveryEnabled` while a RAW mode is chosen.
 - Quality: `maxPhotoDimensions` stays at the largest size, so a ProRAW DNG may be very big. The log line shows the size.
 
@@ -72,8 +72,17 @@ Full evidence: `research/08-raw.md`, section "Device finding". Pages: `ch08-conc
 - **Rebase.** `chapter-09` … `chapter-20` and `main` rebased onto `2ccbaa7`. One conflict in `chapter-10` ("record video", `CaptureService.swift`): `setRAWFormat(_:)` and the new "Movie capture" methods at the same place; both kept. Each tip builds with zero warnings. Old SHAs: `scratchpad/old-branches-fix.txt` of the session.
 - **The user's checkout.** The branch `chapter-08` moved under the user's main checkout (refs only). See `docs/device-test-chapter-08.md` for the safe update.
 
+## Device finding two and fix (16 Oct 2026)
+
+Full evidence: `research/08-raw.md`, section "C. Second test". Pages: `ch08-concepts.md#what-a-device-test-showed` (subsections "The second test", "The cause of the second defect", "The second fix"), and the section "Save the DNG" in `ch08-build.md`.
+
+- **Finding.** iPhone with a "Back Triple Camera". After fix A the capture works: "Resolved settings: 2 photos, photo 4032x3024, RAW 4032x3024, proxy 0x0", "Captured RAW photo" 14 to 15 MB, no error line. But none of three photos reached Photos, and the console had no line for the processed photo, the save, or an error.
+- **Cause (most likely, not proven).** The save. `performChange(_:)` replaced the Photos error with `saveFailed`, and `CameraModel.capturePhoto()` dropped it silently. The request had the DNG as `.photo` from `Data` with no `contentType` (type inferred from the resource type) and the HEIF as `.alternatePhoto`. The documentation and the iOS 27 headers describe RAW as the alternate; the article uses the reverse order but with a `.dng` file URL. Capture side and authorization ruled out (see research).
+- **Fix.** New commit `87747f2` on `chapter-08` (parent `2ccbaa7`): documented order (processed `.photo`, DNG `.alternatePhoto` with `contentType = .dng`); logs "Captured processed photo, N bytes", "Saved asset <id>", "Saving to Photos failed: <error>", "Photo capture failed: <error>". Simulator (no RAW): the three success lines appear and the photo saves.
+- **Rebase.** `chapter-09` … `chapter-20` and `main` rebased. One conflict in `chapter-09` (`CameraModel.capturePhoto()` catch): chapter 9 had added `logger.error("Photo capture failed. \(error)")`; resolved to the chapter 8 line only, so chapter 9 no longer adds it (`ch09-build.md` step changed). Every tip builds with zero warnings. Replay of ch08, ch09, ch10: each section builds, end states equal the branches. Old SHAs: `scratchpad/old-branches-fix2.txt` of the session.
+
 ### Open device checks
-1. Apple ProRAW after the fix: "Resolved settings: 2 photos" with a RAW size and proxy 0x0; "Captured RAW photo, N bytes"; one asset with a RAW badge; "Export Unmodified Original" gives a DNG (and maybe the HEIF too).
+1. Apple ProRAW after fix two: "Captured RAW photo, N bytes", "Captured processed photo, N bytes", then "Saved asset ..." (or "Saving to Photos failed: ..." plus "Photo capture failed: ...", send the error text); one asset with a RAW badge; "Export Unmodified Original" gives a DNG (and maybe the HEIF too). The capture part ("2 photos", RAW size, proxy 0x0) is confirmed by test two.
 2. Off after ProRAW: deferred delivery "true/true" again; normal captures still fast.
 3. Bayer RAW on a physical camera (an iPhone without a telephoto camera, or the front camera if "RAW on ..." says true): the quality override to `.speed` works; no exception.
 4. The iPhone model, and the "RAW on ..." lines for the back and the front camera.

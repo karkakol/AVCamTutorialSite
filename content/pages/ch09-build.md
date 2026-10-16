@@ -407,11 +407,11 @@ Write `Task {`, the comment `// Await new capture readiness values from the capt
 ```
 
 ### Step
-In `capturePhoto()` of `CameraModel`, log the readiness at the start of the method, and log an error in the `catch` block.
+In `capturePhoto()` of `CameraModel`, log the readiness at the start of the method.
 
-Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")` above `do`. Add `logger.error("Photo capture failed. \(error)")` above `self.error = error`. The first line shows which readiness value the app had when the person tapped. The second line makes a failed capture visible in the console.
+Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")` above `do`. The line shows which readiness value the app had when the person tapped. The `catch` block already logs a failed capture since chapter 8 ("Photo capture failed: ...").
 
-```swift file=AVCam/CameraModel.swift highlight=2,9
+```swift file=AVCam/CameraModel.swift highlight=2
     func capturePhoto() async {
         logger.debug("Capture requested. Readiness: \(String(describing: self.captureReadiness))")
         do {
@@ -420,7 +420,8 @@ Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captu
             let photo = try await captureService.capturePhoto(with: photoFeatures)
             try await mediaLibrary.save(photo: photo)
         } catch {
-            logger.error("Photo capture failed. \(error)")
+            // Log the error, because the app doesn't show it to the person.
+            logger.error("Photo capture failed: \(error)")
             self.error = error
         }
     }
