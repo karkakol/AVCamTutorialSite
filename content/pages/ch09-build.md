@@ -136,7 +136,7 @@ Write `photoOutput.isZeroShutterLagEnabled = photoOutput.isZeroShutterLagSupport
         photoOutput.isZeroShutterLagEnabled = photoOutput.isZeroShutterLagSupported
         photoOutput.isResponsiveCaptureEnabled = photoOutput.isResponsiveCaptureSupported
         photoOutput.isFastCapturePrioritizationEnabled = photoOutput.isFastCapturePrioritizationSupported
-        photoOutput.isAutoDeferredPhotoDeliveryEnabled = photoOutput.isAutoDeferredPhotoDeliverySupported
+        updateDeferredPhotoDelivery()
 ```
 
 ### Step

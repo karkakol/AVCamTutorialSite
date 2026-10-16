@@ -59,3 +59,22 @@ Branch `chapter-08`, start `chapter-07`. One commit `c16d761`. Full change: `git
 ## Coordinator check (15 Oct 2026)
 - The chapter 8 build launches in the iPhone 18 Pro simulator with SimCam; the RAW control is hidden, as planned.
 - A first capture test seemed to save no photo. The cause was the test, not the code: since chapter 5 the toolbar sits under the viewfinder frame, so the capture button is at about y 747 points, not y 799 as in chapter 4. A tap at the button on the chapter 9 build (which contains chapter 8) saved `IMG_0025.JPG` and showed the thumbnail. The chapter 9 agent also triggered `capturePhoto()` without a tap on the chapter 8 build and got two saved photos. So the no-RAW path works in the Simulator.
+
+## Device finding and fix (16 Oct 2026)
+
+Full evidence: `research/08-raw.md`, section "Device finding". Pages: `ch08-concepts.md#what-a-device-test-showed`, and the new section "Turn off deferred delivery for RAW" in `ch08-build.md`.
+
+- **Finding A.** The user's iPhone with a Pro camera (model not known), Apple ProRAW chosen: the console showed "Capturing with RAW format: Apple ProRAW" and nothing more; Photos got a plain HEIF. Cause (consistent with the headers, not stated by them in one sentence): with automatic deferred delivery on (chapter 7), the output delivered a proxy for the processed photo and no RAW photo. The header says a proxy is never RAW ("deferred processing isn't available for raw photos").
+- **Fix A.** New commit `2ccbaa7` on `chapter-08` (old `c16d761`). `PhotoCapture` keeps `rawFormat`; `updateDeferredPhotoDelivery()` sets `isAutoDeferredPhotoDeliveryEnabled = isAutoDeferredPhotoDeliverySupported && rawFormat == .off`, only when the value changes; `updateConfiguration(for:)` calls it instead of the chapter 7 line; `setRAWFormat(_:)` stores the choice and calls it. `CaptureService.setRAWFormat(_:)` wraps it in `beginConfiguration()`/`commitConfiguration()`. `CameraModel.rawFormat` has a `didSet` that calls the service. The change happens on the menu choice (a pipeline rebuild), not per capture.
+- **Logs added.** `willBeginCaptureFor`: "Resolved settings: N photos, photo WxH, RAW WxH, proxy WxH". `didFinishCapturingDeferredPhotoProxy`: "Captured deferred photo proxy, N bytes". `updateCapabilities(for:)`: "RAW on <camera> (virtual: true/false): Apple ProRAW true/false, Bayer RAW true/false". `updateDeferredPhotoDelivery()`: "Deferred photo delivery (supported/enabled): x/y".
+- **Save path.** `MediaLibrary.save(photo:)` makes the RAW pair (DNG `.photo`, processed `.alternatePhoto`) only when `!photo.isProxy`. Proxy data is valid only as `.photoProxy` (header), so it never goes in as `.alternatePhoto`. A DNG with a proxy cannot happen after the fix; if it did, the DNG would be dropped and the proxy saved as before.
+- **Finding B and decision.** The menu showed Off and Apple ProRAW only. Bayer RAW exists only on single (physical) cameras (WWDC21 10160; header: ProRAW is for modes without Bayer RAW, such as fusion). The app's back camera is the virtual dual camera. Decision: keep the control; the pages explain it. No camera switch for Bayer RAW (needs a second device path, loses the lens change, and support is unknown before the switch).
+- **Rebase.** `chapter-09` … `chapter-20` and `main` rebased onto `2ccbaa7`. One conflict in `chapter-10` ("record video", `CaptureService.swift`): `setRAWFormat(_:)` and the new "Movie capture" methods at the same place; both kept. Each tip builds with zero warnings. Old SHAs: `scratchpad/old-branches-fix.txt` of the session.
+- **The user's checkout.** The branch `chapter-08` moved under the user's main checkout (refs only). See `docs/device-test-chapter-08.md` for the safe update.
+
+### Open device checks
+1. Apple ProRAW after the fix: "Resolved settings: 2 photos" with a RAW size and proxy 0x0; "Captured RAW photo, N bytes"; one asset with a RAW badge; "Export Unmodified Original" gives a DNG (and maybe the HEIF too).
+2. Off after ProRAW: deferred delivery "true/true" again; normal captures still fast.
+3. Bayer RAW on a physical camera (an iPhone without a telephoto camera, or the front camera if "RAW on ..." says true): the quality override to `.speed` works; no exception.
+4. The iPhone model, and the "RAW on ..." lines for the back and the front camera.
+5. Chapter 16 (zoom) and Bayer RAW: Bayer needs zoom 1.0. Only relevant on a physical camera; not handled yet.

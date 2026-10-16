@@ -15,7 +15,7 @@ You work in an order that keeps the app safe at each checkpoint. First you teach
 This is part 2 code inside part 1 of the numbering. The Apple sample has no RAW capture, so the design of this chapter is this tutorial's own. [Concepts: RAW and Apple ProRAW](ch08-concepts.md) explains the design and its limits.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. Nobody tested the RAW capture on a real iPhone for this tutorial. Where the text says what an iPhone does, it is an expectation from the SDK headers and the Apple documentation.
+> The Simulator with SimCam has no RAW format. The RAW control stays hidden there, and a capture gives a normal photo. The RAW capture itself needs a real iPhone with a Pro camera. One test on such an iPhone found that RAW and deferred delivery do not work together; the section "Turn off deferred delivery for RAW" is the fix. Where the text says what an iPhone does after the fix, it is an expectation from the SDK headers, the Apple documentation, and that test.
 
 Read [Concepts: RAW and Apple ProRAW](ch08-concepts.md) first if you want the background for each step.
 
@@ -222,21 +222,24 @@ A RAW request calls the method twice. Without the test, the second call would re
 ```
 
 ### Step
-In `MediaLibrary.swift`, change `save(photo:)` so that it saves the DNG as the `.photo` resource and the processed data as the `.alternatePhoto` resource when `photo.rawData` exists.
+In `MediaLibrary.swift`, change `save(photo:)` so that it saves the DNG as the `.photo` resource and the processed data as the `.alternatePhoto` resource when `photo.rawData` exists and the photo is not a proxy.
 
-Use `if let rawData = photo.rawData`. In that branch, call `addResource(with:data:options:)` twice on `creationRequest` with the same `options`: first `.photo` with `rawData`, then `.alternatePhoto` with `photo.data`. Put the comment "Save the DNG as the primary photo and the processed photo as its alternate." above them. The `else` branch keeps the old code, with its comment, one level deeper. Delete the old comment and the old call: they move into the `else` branch.
+Use `if let rawData = photo.rawData, !photo.isProxy`, with the comment "Proxy data is valid only as a `.photoProxy` resource, so a RAW pair needs a fully processed photo." above it. In that branch, call `addResource(with:data:options:)` twice on `creationRequest` with the same `options`: first `.photo` with `rawData`, then `.alternatePhoto` with `photo.data`. Put the comment "Save the DNG as the primary photo and the processed photo as its alternate." above them. The `else` branch keeps the old code, with its comment, one level deeper. Delete the old comment and the old call: they move into the `else` branch.
 
 Both resources go into one [`PHAssetCreationRequest`](https://developer.apple.com/documentation/photos/phassetcreationrequest), so Photos makes one asset. The order follows Apple's article about RAW capture. The concepts page explains why it is an open question. The `location` and the Live Photo code below stay as they are.
+
+The `!photo.isProxy` test is for deferred delivery from chapter 7. The data of a proxy is not a finished photo. Photos accepts it only as a `.photoProxy` resource, and it finishes the photo later. So a proxy never goes into the RAW pair. It takes the `else` branch. Later in this chapter, you turn deferred delivery off for RAW, so a RAW capture does not get a proxy.
 
 ```swift file=AVCam/Model/MediaLibrary.swift remove
             // Specify the appropriate resource type for the photo.
             creationRequest.addResource(with: photo.isProxy ? .photoProxy : .photo, data: photo.data, options: options)
 ```
 
-```swift file=AVCam/Model/MediaLibrary.swift highlight=3-10
+```swift file=AVCam/Model/MediaLibrary.swift highlight=3-11
             // Save primary photo.
             let options = PHAssetResourceCreationOptions()
-            if let rawData = photo.rawData {
+            // Proxy data is valid only as a `.photoProxy` resource, so a RAW pair needs a fully processed photo.
+            if let rawData = photo.rawData, !photo.isProxy {
                 // Save the DNG as the primary photo and the processed photo as its alternate.
                 creationRequest.addResource(with: .photo, data: rawData, options: options)
                 creationRequest.addResource(with: .alternatePhoto, data: photo.data, options: options)
@@ -313,8 +316,7 @@ Add the comment "Enabling Apple ProRAW adds its formats to the available RAW for
 
 Without this line, the list of RAW formats holds only Bayer formats. Enabling Apple ProRAW makes the pipeline build again, which takes time, so it must happen before the session starts. `CaptureService` calls this method before `startRunning()`. The line comes before `updateCapabilities(for:)`, which reads the list.
 
-```swift file=AVCam/Capture/PhotoCapture.swift highlight=2-3
-        photoOutput.isAutoDeferredPhotoDeliveryEnabled = photoOutput.isAutoDeferredPhotoDeliverySupported
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=1-2
         // Enabling Apple ProRAW adds its formats to the available RAW formats.
         photoOutput.isAppleProRAWEnabled = photoOutput.isAppleProRAWSupported
         updateCapabilities(for: device)
@@ -425,6 +427,175 @@ Action: Product > Run (Command-R), then tap the capture button
 Result: The app saves the photo and shows its thumbnail, as before. The console shows no RAW line.
 ```
 
+## Turn off deferred delivery for RAW
+
+Chapter 7 turned on automatic deferred photo delivery. A first test on a real iPhone showed that this setting and RAW do not work together: the app asked for Apple ProRAW, but no RAW photo arrived. In this section, you turn deferred delivery off while a RAW format is chosen. You also add log lines that show what the photo output decides for each capture. [Concepts: What a device test showed](ch08-concepts.md#what-a-device-test-showed) gives the full story.
+
+### Step
+In `PhotoCapture.swift`, below the `capabilities` property, add the property `private var rawFormat = RAWFormat.off`.
+
+Put the comment "The RAW format that a person chooses in the UI." above it. The photo service needs its own copy of the choice, because it sets up the photo output when the camera changes, not only when the person captures.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-5
+    // The current capabilities available.
+    private(set) var capabilities: CaptureCapabilities = .unknown
+    
+    // The RAW format that a person chooses in the UI.
+    private var rawFormat = RAWFormat.off
+    
+    // A count of Live Photo captures currently in progress.
+```
+
+### Step
+Below `updateCapabilities(for:)`, add the private method `updateDeferredPhotoDelivery()` that turns deferred delivery on only when `rawFormat` is `.off`.
+
+Put the comment "Enables deferred photo delivery only while no RAW format is in use." above the method. In the body, compute the constant `isEnabled`: `photoOutput.isAutoDeferredPhotoDeliverySupported && rawFormat == .off`. Then assign `isEnabled` to [`photoOutput.isAutoDeferredPhotoDeliveryEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isautodeferredphotodeliveryenabled), but only inside an `if` that tests whether the value is different. Copy the two comments from the code.
+
+[`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) is never a RAW photo: the SDK header says that deferred processing is not available for RAW. Each change of `isAutoDeferredPhotoDeliveryEnabled` makes the capture pipeline build again, which takes time. The `if` prevents this work when the value stays the same.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=4-13
+                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
+    }
+    
+    // Enables deferred photo delivery only while no RAW format is in use.
+    private func updateDeferredPhotoDelivery() {
+        // Deferred processing isn't available for RAW photos. With deferred delivery on, a RAW request
+        // can deliver a proxy for the processed photo and no RAW photo at all.
+        let isEnabled = photoOutput.isAutoDeferredPhotoDeliverySupported && rawFormat == .off
+        // A change reconfigures the capture pipeline, which takes time. Change the value only when necessary.
+        if photoOutput.isAutoDeferredPhotoDeliveryEnabled != isEnabled {
+            photoOutput.isAutoDeferredPhotoDeliveryEnabled = isEnabled
+        }
+    }
+```
+
+### Step
+At the end of `updateDeferredPhotoDelivery()`, log the supported and the enabled state of deferred delivery with `logger.debug`.
+
+The text is "Deferred photo delivery (supported/enabled): " followed by `self.photoOutput.isAutoDeferredPhotoDeliverySupported`, a slash, and `isEnabled`. The log message is a closure that runs later, so Swift asks for `self.` in front of the property. On a device, this line tells you which state the output has after each change.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=4
+        if photoOutput.isAutoDeferredPhotoDeliveryEnabled != isEnabled {
+            photoOutput.isAutoDeferredPhotoDeliveryEnabled = isEnabled
+        }
+        logger.debug("Deferred photo delivery (supported/enabled): \(self.photoOutput.isAutoDeferredPhotoDeliverySupported)/\(isEnabled)")
+    }
+```
+
+### Step
+In `updateConfiguration(for:)`, replace the line that sets `isAutoDeferredPhotoDeliveryEnabled` with a call to `updateDeferredPhotoDelivery()`.
+
+Delete the old line from chapter 7. The old line turned deferred delivery on for every camera that supports it. The call now also respects the RAW choice, so a change of camera does not turn deferred delivery on again while RAW is chosen.
+
+```swift file=AVCam/Capture/PhotoCapture.swift remove
+        photoOutput.isAutoDeferredPhotoDeliveryEnabled = photoOutput.isAutoDeferredPhotoDeliverySupported
+```
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=2
+        photoOutput.isFastCapturePrioritizationEnabled = photoOutput.isFastCapturePrioritizationSupported
+        updateDeferredPhotoDelivery()
+        // Enabling Apple ProRAW adds its formats to the available RAW formats.
+```
+
+### Step
+Between `updateCapabilities(for:)` and `updateDeferredPhotoDelivery()`, add the method `setRAWFormat(_:)` that stores the choice and calls `updateDeferredPhotoDelivery()`.
+
+The method is internal, because `CaptureService` calls it. It takes one parameter `rawFormat` of type `RAWFormat` and assigns it to `self.rawFormat`. Copy the three `///` comment lines from the code.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=1-7
+    /// Updates the photo output for the RAW format that a person chooses.
+    ///
+    /// The `CaptureService` calls this method when the RAW format changes.
+    func setRAWFormat(_ rawFormat: RAWFormat) {
+        self.rawFormat = rawFormat
+        updateDeferredPhotoDelivery()
+    }
+    
+    // Enables deferred photo delivery only while no RAW format is in use.
+```
+
+### Step
+In `CaptureService.swift`, below `capturePhoto(with:)`, add the method `setRAWFormat(_:)` that calls `photoCapture.setRAWFormat(rawFormat)` inside a configuration pair.
+
+Call `captureSession.beginConfiguration()` first, then `defer { captureSession.commitConfiguration() }`, then the call to `photoCapture`. Add the `///` comment "Prepares the photo output for the RAW format that a person chooses." and the `//` comment from the code.
+
+The session runs while the person uses the menu. The documentation advises to set `isAutoDeferredPhotoDeliveryEnabled` before `startRunning()`, but a change during the run is allowed; it only takes time. The configuration pair makes the session apply the change in one step, as `changeCaptureDevice(to:)` does for a camera change.
+
+```swift file=AVCam/CaptureService.swift highlight=5-11
+    func capturePhoto(with features: PhotoFeatures) async throws -> Photo {
+        try await photoCapture.capturePhoto(with: features)
+    }
+    
+    /// Prepares the photo output for the RAW format that a person chooses.
+    func setRAWFormat(_ rawFormat: RAWFormat) {
+        // The change can reconfigure the capture pipeline. Bracket it in a begin/commit configuration pair.
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+        photoCapture.setRAWFormat(rawFormat)
+    }
+```
+
+### Step
+In `PhotoCaptureDelegate`, at the end of `willBeginCaptureFor`, log the resolved settings: the expected photo count and the photo, RAW, and proxy dimensions.
+
+Read [`resolvedSettings.photoDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/photodimensions), [`rawPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/rawphotodimensions), and [`deferredPhotoProxyDimensions`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/deferredphotoproxydimensions) into the constants `photo`, `raw`, and `proxy`. Then log "Resolved settings: " with [`expectedPhotoCount`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings/expectedphotocount) and the `width` and `height` of each constant. Copy the comment from the code.
+
+[`AVCaptureResolvedPhotoSettings`](https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings) tells what the photo output really does for this capture, before any photo arrives. A RAW capture without deferred delivery has an expected count of 2 and a RAW size that is not 0x0. A proxy size that is not 0x0 means that a proxy replaces the processed photo.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-9
+    func photoOutput(_ output: AVCapturePhotoOutput, willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        // Determine if this is a live capture.
+        isLivePhoto = resolvedSettings.livePhotoMovieDimensions != .zero
+        activityContinuation.yield(.photoCapture(isLivePhoto: isLivePhoto))
+        // Log what the photo output decides for this capture. A RAW capture expects two photos.
+        let photo = resolvedSettings.photoDimensions
+        let raw = resolvedSettings.rawPhotoDimensions
+        let proxy = resolvedSettings.deferredPhotoProxyDimensions
+        logger.debug("Resolved settings: \(resolvedSettings.expectedPhotoCount) photos, photo \(photo.width)x\(photo.height), RAW \(raw.width)x\(raw.height), proxy \(proxy.width)x\(proxy.height)")
+    }
+```
+
+### Step
+In `didFinishCapturingDeferredPhotoProxy`, log "Captured deferred photo proxy, N bytes" as the last line.
+
+Use `self.photoData?.count ?? 0` for N. Now the console shows which callback delivered the photo: this line for a proxy, and "Captured RAW photo" for a DNG. In the device test, the console showed neither line for the RAW photo, and this line did not exist yet.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=4
+        // Capture the data for this photo.
+        photoData = deferredPhotoProxy?.fileDataRepresentation()
+        isProxyPhoto = true
+        logger.debug("Captured deferred photo proxy, \(self.photoData?.count ?? 0) bytes")
+    }
+```
+
+### Step
+In `updateCapabilities(for:)`, log which RAW kinds the camera offers, with the name of the camera and its `isVirtualDevice` value.
+
+Below the initializer call, copy `capabilities` into a local constant of the same name, so that the log closure does not read the property of `self`. Then log "RAW on ", `device.localizedName`, the value of [`device.isVirtualDevice`](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice), and the two flags. Copy the comment from the code.
+
+Bayer RAW exists only on a physical camera, such as the wide camera alone. This app uses the virtual dual camera on the back when the iPhone has one, so that camera offers Apple ProRAW only. The log line shows this on the device.
+
+```swift file=AVCam/Capture/PhotoCapture.swift highlight=5-8
+    private func updateCapabilities(for device: AVCaptureDevice) {
+        capabilities = CaptureCapabilities(isLivePhotoCaptureSupported: photoOutput.isLivePhotoCaptureSupported,
+                                           isAppleProRAWSupported: rawPixelFormat(for: .appleProRAW) != nil,
+                                           isBayerRAWSupported: rawPixelFormat(for: .bayerRAW) != nil)
+        // Bayer RAW exists only on a physical camera. A virtual camera, such as the dual camera, offers Apple ProRAW only.
+        let capabilities = capabilities
+        logger.debug("RAW on \(device.localizedName) (virtual: \(device.isVirtualDevice)): Apple ProRAW \(capabilities.isAppleProRAWSupported), Bayer RAW \(capabilities.isBayerRAWSupported)")
+    }
+```
+
+### Step
+Build and run the app, and look at the Xcode console.
+
+No code calls `setRAWFormat(_:)` yet. At the start, the console shows the RAW line and the deferred delivery line for the camera. In the Simulator with SimCam, both RAW flags are `false`.
+
+```settings title="Checkpoint"
+Action: Product > Run (Command-R), then tap the capture button
+Result: The app saves the photo as before. The console shows "RAW on ..." with both RAW kinds false, "Deferred photo delivery (supported/enabled): ...", and a "Resolved settings: 1 photos, ..." line for the capture.
+```
+
 ## Pass the choice through the model
 
 The camera model keeps the choice of the person, and it keeps the abilities of the current camera. In this section, you add both to the model, to the preview model, and to the `Camera` protocol. You add the protocol members last, so that the project compiles after each step.
@@ -432,16 +603,21 @@ The camera model keeps the choice of the person, and it keeps the abilities of t
 ### Step
 In `CameraModel.swift`, below `qualityPrioritization`, add the property `rawFormat` with the value `RAWFormat.off`, and the property `captureCapabilities` with the value `CaptureCapabilities.unknown`.
 
-Write `var rawFormat = RAWFormat.off` and `private(set) var captureCapabilities = CaptureCapabilities.unknown`. Give each a `///` comment: "A value that indicates which RAW format to capture along with the processed photo." and "The capture features that the current camera configuration supports."
+Write `var rawFormat = RAWFormat.off` with a `didSet` observer, and `private(set) var captureCapabilities = CaptureCapabilities.unknown`. Give each a `///` comment: "A value that indicates which RAW format to capture along with the processed photo." and "The capture features that the current camera configuration supports." In `didSet`, write the comment "Turn deferred photo delivery off for RAW, and on again for no RAW." and `Task { await captureService.setRAWFormat(rawFormat) }`.
 
-The model sets `captureCapabilities` itself, so only the model can write it. The views read it to decide what to show.
+The `didSet` observer runs each time the value changes: when the person picks a choice in the menu, and when the reset below sets `.off`. The `Task` is necessary because `didSet` is synchronous and `CaptureService` is an actor. The model sets `captureCapabilities` itself, so only the model can write it. The views read it to decide what to show.
 
-```swift file=AVCam/CameraModel.swift highlight=4-5,7-8
+```swift file=AVCam/CameraModel.swift highlight=4-10,12-13
     /// A value that indicates how to balance the photo capture quality versus speed.
     var qualityPrioritization = QualityPrioritization.quality
     
     /// A value that indicates which RAW format to capture along with the processed photo.
-    var rawFormat = RAWFormat.off
+    var rawFormat = RAWFormat.off {
+        didSet {
+            // Turn deferred photo delivery off for RAW, and on again for no RAW.
+            Task { await captureService.setRAWFormat(rawFormat) }
+        }
+    }
     
     /// The capture features that the current camera configuration supports.
     private(set) var captureCapabilities = CaptureCapabilities.unknown
@@ -648,16 +824,16 @@ Build and run the app, and take a photo.
 In the Simulator with SimCam, the camera has no RAW format. The RAW menu is hidden, and the toolbar looks as in chapter 7. A capture saves a normal photo and shows its thumbnail. To see the menu without an iPhone, open the preview at the end of `FeatureToolbar.swift` in the Xcode canvas. The preview model reports both formats, so the menu shows there.
 
 > [!IMPORTANT]
-> The RAW capture itself needs an iPhone with a Pro camera. Nobody tested it for this tutorial. On such an iPhone, the toolbar shows an `r.square` button. Choose Apple ProRAW or RAW and take a photo. The Xcode console is expected to show "Capturing with RAW format: Apple ProRAW" (or "RAW"), and then "Captured RAW photo, N bytes". N is the size of the DNG, often many megabytes. The Photos app is expected to show one photo with a RAW badge. In Photos, the command "Export unmodified original" is expected to give the DNG file. The "RAW" choice may not show on the virtual back camera, because Bayer RAW needs a single camera.
+> The RAW capture itself needs an iPhone with a Pro camera. On such an iPhone, the toolbar shows an `r.square` button. Choose Apple ProRAW and take a photo. The Xcode console is expected to show "Deferred photo delivery (supported/enabled): true/false" after the choice, then "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size, and "Captured RAW photo, N bytes". N is the size of the DNG, often many megabytes. The Photos app is expected to show one photo with a RAW badge, and the export of the unmodified original is expected to give the DNG file. The "RAW" choice does not show on the virtual back camera, because Bayer RAW needs a physical camera. The line "RAW on ..." shows what each camera offers.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then tap the capture button
 Result: The RAW menu is hidden in the Simulator. A capture saves a normal photo and shows its thumbnail.
-Note: On an iPhone with a Pro camera, the RAW menu shows, and a RAW capture saves one asset with the DNG and the processed photo.
+Note: On an iPhone with a Pro camera, the RAW menu shows Off and Apple ProRAW, and a RAW capture saves one asset with the DNG and the processed photo.
 ```
 
 ### Experiment
-On a real iPhone with a Pro camera, choose Apple ProRAW, turn the Live Photo button on, and take a photo. Then choose RAW, set the quality menu to "Quality", and take a photo. Read the console after each capture, and look at both photos in the Photos app.
+On a real iPhone with a Pro camera, choose Apple ProRAW, turn the Live Photo button on, and take a photo. Read the "Resolved settings" line: the count is 2, and the proxy size is 0x0. Then choose Off and take a photo: deferred delivery is on again, and the count is 1. If your iPhone has no telephoto camera, the back camera is the physical wide camera. Then choose RAW, set the quality menu to "Quality", and take a photo.
 
 ### Text
 Your code is now the same as the `chapter-08` branch. The app captures RAW on a device that supports it, and it falls back to a normal photo on all others. In the next chapter, you make capture feel faster with responsive capture and a readiness state for the capture button.

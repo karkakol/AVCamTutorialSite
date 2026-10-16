@@ -103,7 +103,7 @@ In a fast series, the output cannot give each photo the full processing. This sw
 
 ### Deferred photo delivery
 
-[Chapter 7](ch07-concepts.md) added deferred delivery. This chapter adds nothing to it. It only belongs to the list, because the output can give a proxy for a photo to make the series faster. The delegate must handle [`photoOutput(_:didFinishCapturingDeferredPhotoProxy:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishcapturingdeferredphotoproxy:error:)) when the switch is on.
+[Chapter 7](ch07-concepts.md) added deferred delivery. [Chapter 8](ch08-concepts.md#what-a-device-test-showed) turns it off while a RAW format is chosen, because a RAW capture cannot use it. This chapter adds nothing to it. It only belongs to the list, because the output can give a proxy for a photo to make the series faster. The delegate must handle [`photoOutput(_:didFinishCapturingDeferredPhotoProxy:error:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishcapturingdeferredphotoproxy:error:)) when the switch is on.
 
 ### The quality prioritization interaction
 

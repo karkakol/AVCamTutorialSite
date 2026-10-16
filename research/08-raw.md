@@ -1,6 +1,6 @@
 # RAW and Apple ProRAW: research (15 Oct 2026)
 
-Sources: SDK headers of iPhoneOS 27.1 [H] (`AVCapturePhotoOutput.h`, `AVCaptureDevice.h`, `PHAssetCreationRequest.h`, `PHAssetResource.h`, `PhotosTypes.h`, `PHAsset.h`), Apple documentation from the JSON endpoint [D], the WWDC21 session 10160 transcript [W], the app code on branch `chapter-07` [A], and `research/05-simcam.md` and `notes/chapter-07.md` for the Simulator [S]. Nothing was run. Nothing was tested on a real iPhone.
+Sources: SDK headers of iPhoneOS 27.1 [H], a device test of the chapter 8 build on the user's iPhone with a Pro camera on 16 Oct 2026 [T] (`AVCapturePhotoOutput.h`, `AVCaptureDevice.h`, `PHAssetCreationRequest.h`, `PHAssetResource.h`, `PhotosTypes.h`, `PHAsset.h`), Apple documentation from the JSON endpoint [D], the WWDC21 session 10160 transcript [W], the app code on branch `chapter-07` [A], and `research/05-simcam.md` and `notes/chapter-07.md` for the Simulator [S]. Nothing was run. Nothing was tested on a real iPhone.
 
 ## Surprises (read first)
 
@@ -78,7 +78,30 @@ Two kinds of RAW exist. [H][W]
 ### Deferred delivery and RAW
 
 - [H] `AVCaptureDeferredPhotoProxy.isRawPhoto` is "Always NO, as deferred processing isn't available for raw photos."
-- The header does not say what a RAW+HEIF request does when `isAutoDeferredPhotoDeliveryEnabled` is true (chapter 7 turns it on [A]). Two cases are possible: the processed photo arrives as a proxy, or it arrives as a normal photo. The delegate must handle both, and the save code must cope with a proxy plus a DNG. Test on a device. If the combination fails, the fallback is to set `isAutoDeferredPhotoDeliveryEnabled = false` while a RAW mode is chosen (a lengthy reconfiguration, so do it inside `beginConfiguration()` and `commitConfiguration()`).
+- The header does not say what a RAW+HEIF request does when `isAutoDeferredPhotoDeliveryEnabled` is true (chapter 7 turns it on [A]). Answered by the device test on 16 Oct 2026, see "Device finding" below: no RAW photo arrived [T]. The fix sets `isAutoDeferredPhotoDeliveryEnabled = false` while a RAW mode is chosen.
+
+## Device finding (16 Oct 2026)
+
+### A. Apple ProRAW with deferred delivery on: no RAW photo
+
+- [T] Chapter 8 build (`c16d761`), RAW menu on Apple ProRAW, one capture. Console: "Capturing with RAW format: Apple ProRAW", then no "Captured RAW photo, N bytes" (the log of the `isRawPhoto` branch of `didFinishProcessingPhoto`), no "Error capturing photo" line, no "Error capturing deferred photo" line. Photos received a plain HEIF without a RAW badge. The iPhone model is not known yet.
+- [H] `AVCapturePhotoOutput.autoDeferredPhotoDeliverySupported`: "When it's appropriate for the receiver to deliver a photo proxy for deferred processing, the delegate callback -captureOutput:didFinishCapturingDeferredPhotoProxy:error: will be invoked instead of -captureOutput:didFinishProcessingPhoto:error:."
+- [H] `AVCaptureDeferredPhotoProxy`, property `rawPhoto`: "Always NO, as deferred processing isn't available for raw photos."
+- [H] `AVCaptureDeferredPhotoProxy`: the proxy data must be added with `PHAssetResourceTypePhotoProxy`; "If the data provided to the PHAssetCreationRequest does not come from an AVCaptureDeferredPhotoProxy, then PHAssetCreationRequest will fail". [D] The `AVCaptureDeferredPhotoProxy` page says the same in shorter form.
+- [H] `autoDeferredPhotoDeliveryEnabled`: "Setting this value to either YES or NO requires a lengthy reconfiguration of the capture pipeline, so you should set this property before calling -[AVCaptureSession startRunning]." [D] The same on the `isAutoDeferredPhotoDeliveryEnabled` page. "Should", not "must": a change while the session runs is allowed and costs a pipeline rebuild.
+- [H] `AVCaptureResolvedPhotoSettings.expectedPhotoCount`: the number of `didFinishProcessingPhoto` calls; `rawPhotoDimensions` is {0,0} for a non-RAW request; `deferredPhotoProxyDimensions` is {0,0} without deferred delivery, and with a proxy, `photoDimensions` is the size of the final photo.
+- Conclusion: the hypothesis is consistent with every source and with the symptom, but no source states it outright. The headers say a proxy replaces the processed photo and that a proxy is never RAW; they do not say that a RAW request with deferred delivery loses the RAW photo. The proxy branch of the build had no log line, so the console could not show the proxy. Status: confirmed as the most likely cause; the next device test with the new log lines confirms or refutes it ("Resolved settings" with a proxy size not 0x0 and a RAW size of 0x0 before the fix would prove it; after the fix, the count must be 2 and the proxy size 0x0).
+- Decision: `PhotoCapture.updateDeferredPhotoDelivery()` enables deferred delivery only when `rawFormat == .off`; `CameraModel.rawFormat.didSet` calls `CaptureService.setRAWFormat(_:)`, which wraps `PhotoCapture.setRAWFormat(_:)` in `beginConfiguration()`/`commitConfiguration()`; `updateConfiguration(for:)` calls the same method, so a camera change respects the choice. The change happens on the menu choice, not per capture, because each change rebuilds the pipeline.
+- Save path: [H] proxy data is valid only as `.photoProxy`. The first version would have added proxy data as `.alternatePhoto` next to a DNG (not reached in the test, because no DNG came). The fix makes the RAW pair only when `!photo.isProxy`; a proxy always takes the old `.photoProxy` path.
+
+### B. No Bayer RAW in the menu
+
+- [T] The menu offered Off and Apple ProRAW only.
+- [H] `appleProRAWEnabled`: Apple ProRAW formats "allow capturing RAW photos in modes where there is no traditional sensor/Bayer RAW available. Examples are any modes that rely on fusion of multiple captures." [D] Same on the `isAppleProRAWEnabled` page.
+- [W] WWDC21 session 10160: "Bayer RAW is only supported on single-camera AVCaptureDevices, like wide and tele."
+- [D] `builtInDualCamera` is a wide plus telephoto camera that fuses images; [A] chapter 2 discovers `.builtInDualCamera` first on the back (chapter 16 later adds the triple and dual wide cameras before it). So on an iPhone with a telephoto camera the app's back camera is virtual, and Bayer RAW is absent. Neither the headers nor the documentation say it in one sentence for virtual devices; the session does.
+- Decision: keep the control as it is; the chapter explains that Bayer RAW appears only on a physical camera (for example the back camera of an iPhone without a telephoto camera, where discovery falls back to `.builtInWideAngleCamera`). Reason: a camera switch for Bayer RAW needs a second device path, drops the lens change of the virtual device, and the app cannot know whether the physical camera offers Bayer RAW before it switches. A log line "RAW on <camera> (virtual: ...)" shows the facts per camera on a device.
+- Open: the front camera (`.builtInTrueDepthCamera` first) — not known whether it offers Bayer RAW.
 
 ### Constant color (not combinable with RAW)
 
@@ -165,11 +188,11 @@ My lean, for the user to confirm: A as planned if the goal is "what the system c
 
 ## Open items for the device check (phase 6)
 
-1. Does a RAW+HEIF request with deferred delivery on give a proxy or a normal photo for the HEIF?
+1. Does a RAW+HEIF request with deferred delivery on give a proxy or a normal photo for the HEIF? Answered [T] 16 Oct 2026: no RAW photo arrived, Photos got a HEIF. Deferred delivery is now off for RAW.
 2. `rawPhotoDimensions` for ProRAW with the largest `maxPhotoDimensions`; file size.
 3. Does Photos show a RAW badge for option A? Which resource does Photos show first?
 4. Do normal photos keep their speed (zero shutter lag, responsive capture) after `isAppleProRAWEnabled = true`? (It reconfigures the pipeline.)
-5. Is Bayer RAW listed with ProRAW enabled on the tester's iPhone? On which camera?
+5. Is Bayer RAW listed with ProRAW enabled on the tester's iPhone? On which camera? Answered in part [T]: not on the virtual back camera. Front camera unknown.
 6. What does the app do if the user zooms (Bayer rule)? Chapter 7 has no zoom control [A]; later chapters may add one.
 
 ## Verified links

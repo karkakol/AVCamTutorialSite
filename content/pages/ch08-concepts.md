@@ -14,7 +14,7 @@ In this chapter, the app gets a RAW control. When the person selects a RAW forma
 The chapters before this one used the code of the Apple sample. The sample has no RAW capture. Thus this chapter is part 2 code ("Beyond the sample") inside the numbering of part 1. The design is this tutorial's own, and it is one of several possible designs. This article explains the camera facts that each design must obey, then the decisions of this design, and what is still open.
 
 > [!IMPORTANT]
-> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. Nobody ran a RAW capture on a real iPhone for this tutorial. The facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
+> The Simulator with SimCam has no RAW format, so the RAW control is hidden there, and a capture gives a normal photo. One RAW capture ran on a real iPhone with a Pro camera, and it found a defect in the first version of this chapter. [What a device test showed](#what-a-device-test-showed) tells the story and the fix. The other facts below come from the SDK headers, from the Apple documentation, and from a WWDC session. Where a statement is an expectation or a conclusion, the text says so.
 
 ## How it works
 
@@ -109,7 +109,7 @@ Constant color is a feature from iOS 18. It asks for a photo with colors that do
 
 In chapter 7, you turned on deferred photo delivery. The photo output can then give a proxy instead of a finished photo. The proxy class [`AVCaptureDeferredPhotoProxy`](https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy) has the property `isRawPhoto`, and its value is always `false`: the system cannot defer a RAW photo.
 
-The SDK does not say what a RAW request does when deferred delivery is on. Two results are possible. The processed photo can arrive as a proxy, with the DNG as a normal photo. Or both can arrive as normal photos. The delegate handles both. The save code does not look at the proxy flag when it has a DNG. Nobody tested this on a device.
+The SDK does not say what a RAW request does when deferred delivery is on. A test on a real iPhone gave the answer for one device: no RAW photo arrived. So the app turns deferred delivery off while a RAW format is chosen, and on again when the choice is Off. [`isAutoDeferredPhotoDeliveryEnabled`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isautodeferredphotodeliveryenabled) is a property of the output, not of one capture. Each change makes the pipeline build again, which takes time. Thus the app changes it when the person picks a RAW choice, not when the person takes the photo.
 
 ### What the app does not use
 
@@ -119,7 +119,7 @@ The photo output offers more than AVCam uses. These are the main points:
 |---|---|---|
 | Smaller DNG files | Since iOS 18, the settings can set the bit depth of the DNG and a lossy compression, through the `rawFileFormat` property of the settings. | Not in AVCam |
 | A preview inside the DNG | The settings can ask for a JPEG preview inside the DNG file, through `rawEmbeddedThumbnailPhotoFormat`. Other apps show the preview. | Not in AVCam |
-| RAW size | `rawPhotoDimensions` in the resolved settings gives the size of the RAW photo. The size follows the [`maxPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/maxphotodimensions) that you know from chapter 3. | The log shows the data size only |
+| RAW size | `rawPhotoDimensions` in the resolved settings gives the size of the RAW photo. The size follows the [`maxPhotoDimensions`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/maxphotodimensions) that you know from chapter 3. | The "Resolved settings" log line shows it |
 | Prepared settings | [`setPreparedPhotoSettingsArray(_:completionHandler:)`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/setpreparedphotosettingsarray(_:completionhandler:)) prepares the buffers of a RAW request before the first capture. | Not in AVCam |
 | Constant color | A photo with stable colors, with a fallback photo. [`isConstantColorSupported`](https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isconstantcolorsupported) | Not in AVCam |
 
@@ -137,19 +137,51 @@ The photo output offers more than AVCam uses. These are the main points:
 
 **A fallback at three places.** If the device offers no RAW, three things protect the app. The menu is hidden when the list has only Off. After a camera switch, `CameraModel` sets the choice back to Off if the new camera does not support it. `rawPixelFormat(for:)` returns `nil`, and then the code takes the normal path. In the Simulator, this is what happens: the RAW control is hidden, and a capture saves a normal photo.
 
+**Bayer RAW only on a physical camera.** Bayer RAW is the data of one sensor, so only a physical camera has it. The WWDC session 10160 says that Bayer RAW works only with single cameras, such as the wide or the telephoto camera. The SDK header says that Apple ProRAW exists for modes that have no Bayer RAW, such as the modes that fuse several captures. Chapter 2 asks for the dual camera first on the back, and the dual camera is a virtual device. So on an iPhone with a telephoto camera, the menu offers Off and Apple ProRAW only. On an iPhone with no telephoto camera, the back camera is the physical wide camera, and RAW can show. The app keeps this behavior. A different design could switch to the physical wide camera while the person chooses RAW. That design needs a second camera path, it loses the lens change of the dual camera, and the app cannot know before the switch if the wide camera has Bayer RAW. For a first RAW chapter, a menu that shows what the current camera offers is simpler and honest.
+
 **Types of the app in the model.** As in chapter 7, the views and the model use `RAWFormat`, not an AVFoundation type. The raw values of `RAWFormat` are the app's own: they are not the values of the pixel formats.
 
 ### What nobody tested
 
 These points need a real iPhone with a Pro camera. Read each one as an expectation.
 
-- **The menu and the formats.** The menu shows Apple ProRAW and RAW as two choices. Bayer RAW may not show on the virtual back camera.
+- **The menu and the formats.** On the virtual back camera, the menu shows Off and Apple ProRAW only (seen on one iPhone with a Pro camera). Whether the front camera offers RAW is not known. The log line "RAW on ..." tells it for each camera.
 - **The photo in Photos.** The asset has a RAW badge. A look at the resources shows if the DNG or the processed photo is the main one, and if the library makes one asset or two.
-- **A proxy with a DNG.** With deferred delivery on, the code sends the processed data as `.alternatePhoto` even if it is a proxy. If the save fails, turn off deferred delivery while a RAW format is selected.
+- **RAW with deferred delivery off.** After the fix, the console must show "Resolved settings: 2 photos" with a RAW size that is not 0x0, and then "Captured RAW photo, N bytes". The first test ran before the fix.
 - **Live Photo with Bayer RAW.** The header allows it. If a device shows a problem, remove the movie URL for both formats.
 - **The size.** The photo size stays at the largest value, so a DNG can be very big. The log line "Captured RAW photo" shows the size.
 - **The speed of normal photos.** `isAppleProRAWEnabled` changes the capture pipeline. Check that a normal photo is still as fast.
 - **An error on one of the two photos.** If the RAW photo fails and the processed photo works, the delegate logs the error. The save then has the processed photo alone, or no data, and `noPhotoData` is the result.
+
+## What a device test showed
+
+The first version of this chapter ran on a real iPhone with a Pro camera. The test found one defect and confirmed one limit.
+
+### The symptom
+
+The person chose Apple ProRAW and took a photo. The Xcode console showed "Capturing with RAW format: Apple ProRAW", and then no other RAW line. The line "Captured RAW photo, N bytes" did not come, and no error line came. Photos got a plain HEIF photo with no RAW badge.
+
+### The cause
+
+Chapter 7 turned on automatic deferred photo delivery. With it, the photo output can send a proxy through `photoOutput(_:didFinishCapturingDeferredPhotoProxy:error:)` instead of a finished photo through `didFinishProcessingPhoto`. The SDK header says that deferred processing is not available for RAW photos. On the test device, the RAW request gave the proxy and no RAW photo at all. The app saved the proxy, and Photos finished it as a HEIF. The header does not describe this exact result, so it is a test result for one device. The conclusion is still safe for every device: RAW and deferred delivery do not go together.
+
+### The fix
+
+- `PhotoCapture` keeps the RAW choice, and `updateDeferredPhotoDelivery()` turns deferred delivery on only when the choice is Off. `CameraModel` sends each new choice through `CaptureService.setRAWFormat(_:)`, inside a configuration pair.
+- `MediaLibrary.save(photo:)` makes a RAW pair only with a finished photo. Proxy data is valid only as a `.photoProxy` resource, so it must never be the `.alternatePhoto` of a DNG.
+- New log lines show what the output decides: "RAW on ..." and "Deferred photo delivery (supported/enabled): ..." after each camera setup, "Resolved settings: ..." at the start of each capture, and "Captured deferred photo proxy, N bytes" for each proxy.
+
+### What the console shows now
+
+When the person picks Apple ProRAW, the console shows "Deferred photo delivery (supported/enabled): true/false". A capture then shows "Capturing with RAW format: Apple ProRAW", "Resolved settings: 2 photos, ..." with a RAW size that is not 0x0 and a proxy size of 0x0, and "Captured RAW photo, N bytes". When the person picks Off again, the console shows "true/true", and a normal capture can show "Captured deferred photo proxy" again.
+
+### What to expect in Photos
+
+Photos shows one asset with a RAW badge. The command File > Export > Export Unmodified Original on a Mac, or the export of the original on the iPhone, gives the DNG file. This part is an expectation until a test after the fix confirms it.
+
+### Bayer RAW on a virtual camera
+
+The same test showed only Off and Apple ProRAW in the menu. This is correct, not a defect. The back camera of the app is the virtual dual camera, and Bayer RAW exists only on a physical camera. See "Bayer RAW only on a physical camera" above for the reason, and why the app does not switch the camera for RAW.
 
 ## Common mistakes
 
@@ -160,6 +192,8 @@ These points need a real iPhone with a Pro camera. Read each one as an expectati
 - **You enable Apple ProRAW after `startRunning()`.** The pipeline builds again while the session runs. Do it before the start, and again after a change of camera.
 - **You use the quality menu for Bayer RAW.** Any value but `.speed` raises an exception.
 - **You set a Live Photo movie URL with Apple ProRAW.** The photo output raises an exception.
+- **You leave deferred delivery on for RAW.** The output can then give a proxy and no RAW photo. Turn `isAutoDeferredPhotoDeliveryEnabled` off while a RAW format is chosen.
+- **You look for Bayer RAW on a virtual camera.** The dual and triple cameras offer Apple ProRAW only. Bayer RAW needs a physical camera.
 - **You request RAW with no processed format.** You get the DNG alone, and your delegate waits for a photo that never comes.
 - **You test the Simulator and trust it.** The Simulator has no RAW. A working Simulator build says nothing about the RAW path.
 - **You offer constant color and RAW together.** They exclude each other.
@@ -181,6 +215,9 @@ isRawPhoto | https://developer.apple.com/documentation/avfoundation/avcapturepho
 fileDataRepresentation() | https://developer.apple.com/documentation/avfoundation/avcapturephoto/filedatarepresentation() | The file data of a photo, DNG for a RAW photo.
 photoOutput(_:didFinishProcessingPhoto:error:) | https://developer.apple.com/documentation/avfoundation/avcapturephotocapturedelegate/photooutput(_:didfinishprocessingphoto:error:) | The callback that you get once for each photo.
 AVCaptureDeferredPhotoProxy | https://developer.apple.com/documentation/avfoundation/avcapturedeferredphotoproxy | The proxy of a deferred photo, which is never RAW.
+isAutoDeferredPhotoDeliveryEnabled | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isautodeferredphotodeliveryenabled | The switch for deferred delivery, which the app turns off for RAW.
+AVCaptureResolvedPhotoSettings | https://developer.apple.com/documentation/avfoundation/avcaptureresolvedphotosettings | What the output decides for one capture: the photo count and the sizes.
+isVirtualDevice | https://developer.apple.com/documentation/avfoundation/avcapturedevice/isvirtualdevice | Whether a camera joins several physical cameras.
 setPreparedPhotoSettingsArray(_:completionHandler:) | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/setpreparedphotosettingsarray(_:completionhandler:) | Prepare the buffers of a RAW request.
 isConstantColorSupported | https://developer.apple.com/documentation/avfoundation/avcapturephotooutput/isconstantcolorsupported | The constant color feature, which cannot combine with RAW.
 PHAssetCreationRequest | https://developer.apple.com/documentation/photos/phassetcreationrequest | The request that saves an asset with several resources.
