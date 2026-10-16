@@ -14,7 +14,7 @@ This article explains how the photo output handles this problem, and how the app
 The number of this chapter is part of part 1, but its code is like the code of part 2, "Beyond the sample". The newest Apple sample has no readiness code. An older version of the sample had it, and the newest version removed it. The design here is this tutorial's own. It is one of many possible designs.
 
 > [!IMPORTANT]
-> Nobody ran this chapter on a real iPhone. In the Simulator with SimCam, the three capture switches report "not supported". The readiness value goes from `sessionNotRunning` to `notReadyMomentarily` after a capture, and it stays there. It never reports `ready`, and it never reports a waiting state. Thus the Simulator cannot show the dim button or the spinner. The facts in this article come from the comments in the Apple SDK, from the Apple documentation, and from the WWDC23 session. Where a statement is an expectation, the text says so.
+> In the Simulator with SimCam, the three capture switches report "not supported". The readiness value goes from `sessionNotRunning` to `notReadyMomentarily` after a capture, and it stays there. It never reports `ready`, and it never reports a waiting state. The chapter also ran on an iPhone 17 Pro Max with iOS 26. There, all four switches were on, and the readiness changed only between `ready` and `notReadyMomentarily`, also in a fast series. So neither the Simulator nor this iPhone showed the dim button or the spinner. The section [What a device test showed](#what-a-device-test-showed) has the results. The other facts in this article come from the comments in the Apple SDK, from the Apple documentation, and from the WWDC23 session. Where a statement is an expectation, the text says so.
 
 ## How it works
 
@@ -51,7 +51,7 @@ The diagram shows a typical order. The real order depends on the device and on t
 The rule for `.notReadyMomentarily` is the most important one: **do not disable the button, and do not dim it.** The state lasts a very short time. The SDK says that a change of the shutter in this state is distracting. If the button went dim for a fraction of a second after each tap, it would flicker. The output also continues to accept requests when it is not ready. It only needs more time to serve them.
 
 > [!NOTE]
-> The SDK says about the readiness states only what the table shows. How long each state lasts, and in which order the values appear for rapid taps, depends on the device. Nobody read these sequences on a real iPhone for this tutorial.
+> The SDK says about the readiness states only what the table shows. How long each state lasts, and in which order the values appear for rapid taps, depends on the device. On the test iPhone 17 Pro Max, a fast series showed only `ready` and `notReadyMomentarily`.
 
 ### The coordinator also tracks requests
 
@@ -95,7 +95,7 @@ Two things follow from this:
 
 With responsive capture, the output adds a buffer between the capture stage and the process stage. A new capture can start while the last photo is still in process. The cost is memory. The SDK also says that you must be ready for a delegate call `willBeginCapture` of photo B before `didFinishProcessingPhoto` of photo A. The processed photos still come in the order of capture.
 
-One more fact: a request for uncompressed output with a pixel format key switches the overlap off. The app asks for HEVC, so this does not apply. The SDK does not say how responsive capture treats a RAW request from chapter 8. Nobody checked this on a device.
+One more fact: a request for uncompressed output with a pixel format key switches the overlap off. The app asks for HEVC, so this does not apply. The SDK does not say how responsive capture treats a RAW request from chapter 8. The device test did not check a fast series of RAW captures.
 
 ### Fast capture prioritization
 
@@ -161,6 +161,32 @@ When captures overlap, the value of `captureActivity` follows the delegate that 
 - It has no menu for the switches. The switches are always on when supported.
 - It does not stop a capture from the Camera Control or from the AirPods remote when the output is busy. Those triggers come in later chapters. They call `camera.capturePhoto()`, so they would need a check of `captureReadiness` there.
 
+## What a device test showed
+
+The chapter ran on an iPhone 17 Pro Max with iOS 26, on top of the chapter 8 code. The test had three parts.
+
+### The switches
+
+At the start, the console showed `true/true` for all four lines: zero shutter lag, responsive capture, fast capture prioritization, and deferred photo delivery. Thus the `x = x.isSupported` lines turn each switch on, on this iPhone.
+
+### A fast series
+
+The person tapped the button about 15 times quickly, with the quality level Quality.
+
+- **Every tap counted.** The output took each request, and Photos got each photo.
+- **No waiting state.** The readiness changed only between `ready` and `notReadyMomentarily`. The values `notReadyWaitingForCapture` and `notReadyWaitingForProcessing` never came. So the button never went dim, and the spinner never showed. The button rules are still correct. They only had nothing to do on this phone.
+- **The output changed the photos instead of waiting.** The "Resolved settings" lines show it. The first and the last capture of the series took the deferred path: 5712x4284 (24 MP) with a proxy. The captures between them came at once: 4032x3024 (12 MP), proxy 0x0. This is responsive capture at work: the output keeps up with the taps, and it gives up the slow path while the taps come fast. Fast capture prioritization is on too, and it allows such a lower quality. The log does not show which of the two switches made the choice.
+
+### The readiness after a RAW capture
+
+With Apple ProRAW chosen, the readiness went to `sessionNotRunning` and back to `ready` after a capture, after the line "Saved asset". This value means that the session does not run, or that the output rebuilds its pipeline.
+
+The capture code cannot cause this by itself. `capturePhoto(with:)` and `MediaLibrary.save(photo:)` do not touch the session. The deferred delivery switch changes only when the person picks a RAW choice, in `setRAWFormat(_:)`, and not for each capture. In chapter 9, the app changes the session in two places only: `setRAWFormat(_:)` and `changeCaptureDevice(to:)`. Both use `beginConfiguration()` and `commitConfiguration()`. The session also stops when the app goes to the background.
+
+So the value comes from the next step of the person after the capture. In the test, three such steps were possible: the switch back to Off (deferred delivery goes on again, and the pipeline is built again), the switch to the front camera (the test checked Apple ProRAW on both cameras), or a visit to the Photos app to look at the DNG. The test log did not show which of the three it was. The log lines before the value tell you: "Deferred photo delivery (supported/enabled)" comes from a RAW choice, and "RAW on Front TrueDepth Camera" comes from a camera switch. Thus this is an observation, not a proven cause.
+
+The effect is harmless. `sessionNotRunning` does not disable the button, and the value goes back to `ready` by itself.
+
 ## Common mistakes
 
 - **You set an "enabled" value without a check.** The output raises an exception when the "supported" value is `false`. Always set `x = x.isSupported`.
@@ -172,7 +198,8 @@ When captures overlap, the value of `captureActivity` follows the delegate that 
 - **You call `startTrackingCaptureRequest` with settings that differ from the request.** Pass the same settings object to `capturePhoto`. A call with invalid settings raises an exception.
 - **You track a request and then never call `capturePhoto`.** Call `stopTrackingCaptureRequest(using:)`. Otherwise the coordinator waits for the request.
 - **You assume that the delegate calls come in a fixed order.** With responsive capture, `willBeginCapture` of the next photo can come before `didFinishProcessingPhoto` of the last one.
-- **You test the dim button in the Simulator.** It never reports a waiting state. Use the preview "Waiting for processing", or a real iPhone.
+- **You test the dim button in the Simulator.** It never reports a waiting state. A fast iPhone may not report one either: the test iPhone 17 Pro Max did not. Use the preview "Waiting for processing".
+- **You remove the button rules because your iPhone never shows a waiting state.** Another device, a flash capture, or a longer series can still reach one. The rules cost nothing when the state does not come.
 
 ## Documentation
 

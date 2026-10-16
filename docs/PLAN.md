@@ -11,7 +11,7 @@ A learner rebuilds Apple's AVCam sample app almost from nothing, one chapter at 
 | Path | Role | Rules |
 |---|---|---|
 | `/Users/karolkakol/tutorials/AVCamBuildingACameraApp` | Apple's sample. The reference for the final state. | READ ONLY. Never edit, never commit, never build into it (use a derived data path outside of it). |
-| `/Users/karolkakol/tutorials/AVCamTutorialApp` | The iOS project the learner builds. | One branch per chapter: `start`, `chapter-01` ... `chapter-15`. `main` equals the last finished chapter. Only the code agent for the current chapter commits here. |
+| `/Users/karolkakol/tutorials/AVCamTutorialApp` | The iOS project the learner builds. | One branch per chapter: `start`, `chapter-01` ... `chapter-20`. `main` equals the last finished chapter, now `chapter-20`. Only the code agent for the current chapter commits here. |
 | `/Users/karolkakol/tutorials/AVCamTutorialSite` | The static tutorial web site. | Agents write files only in the folders assigned to them. Agents do NOT run `git commit` here; the coordinator commits. |
 
 Folders in the site repository:
@@ -127,15 +127,17 @@ Result: Live Photo capture with a "LIVE" badge, a quality prioritization picker,
 ### Chapter 8 — RAW and Apple ProRAW (`chapter-08`)
 Result: a RAW menu in the features toolbar with Off and Apple ProRAW. The menu shows only when the camera supports Apple ProRAW. Bayer RAW moved to chapter 16 (it needs a single physical camera). Details and decisions: `docs/PLAN-raw-and-fast-capture.md`, `research/08-raw.md`, `notes/chapter-08.md`.
 - `DataTypes`: `RAWFormat`, `CaptureCapabilities` gets `isAppleProRAWSupported`, `PhotoFeatures` gets the RAW format.
-- `PhotoCapture`: the RAW pixel format choice, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat:)`, the callback for the RAW photo, the DNG saved alone with an embedded preview, the RAW+JPEG pair as the fallback.
+- `PhotoCapture`: the RAW pixel format choice, `AVCapturePhotoSettings(rawPixelFormatType:processedFormat: nil)` (the RAW photo alone), an embedded JPEG preview, `Photo.isRAW`; `MediaLibrary` saves the DNG alone (the Camera app model). Deferred delivery is off while Apple ProRAW is chosen.
+- Status: final (`aae9ddf`), verified on an iPhone 17 Pro Max with iOS 26 (device round 7).
 - `Camera` / `CameraModel` / `PreviewCameraModel`: `rawFormat`. Views: `FeatureToolbar` (the `rawMenu`).
-- Needs a real iPhone with a supported device for verification; the Simulator takes the fallback path.
+- The Simulator has no RAW format: the RAW menu is hidden there.
 
 ### Chapter 9 — Fast capture (`chapter-09`)
 Result: the capture button follows the readiness of the photo output. Details: `research/09-fast-capture.md`, `notes/chapter-09.md`.
 - `PhotoCapture`: responsive capture, fast capture prioritization, zero shutter lag, an `AVCapturePhotoOutputReadinessCoordinator` with a delegate that yields `CaptureReadiness` values.
 - `DataTypes`: `CaptureReadiness`. `CaptureService`, `Camera`, `CameraModel`, `PreviewCameraModel`: `captureReadiness`.
 - `CaptureButton`: `PhotoCaptureButton(readiness:)` dims or disables while the camera is not ready.
+- Status: final (`cd72e2c`). Device test on an iPhone 17 Pro Max (iOS 26): all four switches `true/true`; a fast series showed only `ready` and `notReadyMomentarily` (no waiting state, so no dim button); responsive capture gave 12 MP photos at once between deferred 24 MP photos. Chapters 10 to 20 are rebased onto it (16 Oct 2026).
 
 ### Chapter 10 — Record video (`chapter-10`)
 Result: a mode picker (and a swipe) changes between photo and video. The app records movies with sound, shows the recording time, and saves the movie to Photos.

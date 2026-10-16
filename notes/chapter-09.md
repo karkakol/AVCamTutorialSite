@@ -58,3 +58,24 @@ Open item from `notes/chapter-08.md`: a tap on the capture button saved no photo
 - The fault lies between the tap and `capturePhoto()`: the tap may not reach `PhotoCaptureButton`. The chapter 5 layout work added a tap gesture and a swipe gesture on the preview, and `CaptureModeView`. This is not proven; the agent cannot tap the screen.
 - Check for the coordinator: tap the button once and read the log (`xcrun simctl spawn <udid> log stream --level debug --predicate 'process == "AVCam"'`). The line "Capture requested. Readiness: ..." (new in this chapter) appears when the tap reaches the model. If it is missing, the tap does not reach the button. If it appears and "Photo capture failed" follows, send the error text. If it appears with no error, count the files in `.../Media/DCIM/100APPLE/` again.
 - The `logger.error("Photo capture failed: ...")` line in the `catch` of `CameraModel.capturePhoto()` moved to chapter 8 (commit `87747f2`, device finding two). Chapter 9 adds only the "Capture requested" line there.
+
+## Device results (16 Oct 2026, iPhone 17 Pro Max, iOS 26)
+This answers most of "What needs a real iPhone" above.
+- At start: "Zero shutter lag (supported/enabled): true/true", "Responsive capture … true/true", "Fast capture prioritization … true/true", "Deferred photo delivery … true/true".
+- About 15 fast taps with Quality: every tap accepted, every picture saved. The readiness only changed between `ready` and `notReadyMomentarily`; the two waiting states never came, so the dimmed button and the spinner cannot be seen on this phone (only in the preview "Waiting for processing").
+- Under fast taps the output dropped the deferred 24 MP path (5712x4284 with a proxy) and delivered 12 MP photos at once (4032x3024, proxy 0x0); the first and the last capture of a burst used the deferred path. Responsive capture at work (fast capture prioritization is also on; the log does not tell which switch decided).
+- After a RAW capture the readiness went to `sessionNotRunning` and back to `ready` (after "Saved asset").
+- Not checked: zero shutter lag time stamps, a fast series of RAW captures.
+
+### Cause of the `sessionNotRunning` dip (code reading, not proven)
+- `capturePhoto(with:)` and `MediaLibrary.save(photo:)` do not touch the session. `updateConfiguration(for:)` runs only from `updateCaptureCapabilities()` (session setup and `changeCaptureDevice(to:)`), not per capture. The deferred switch runs only in `setRAWFormat(_:)` (the RAW menu), inside `beginConfiguration()`/`commitConfiguration()`.
+- In chapter 9, the only session changes after start are `CaptureService.setRAWFormat(_:)` and `changeCaptureDevice(to:)` (also reached from `monitorSystemPreferredCamera()`). The session also stops in the background.
+- So the dip comes from the next action after the capture: back to Off (deferred delivery on again, pipeline rebuild), the switch to the front camera (round 7 tested both cameras), or a visit to Photos to check the DNG. The reported log has no line between "Saved asset" and the dip, so the cause is open. The check: the line before the dip is "Deferred photo delivery (supported/enabled)" (RAW choice) or "RAW on Front TrueDepth Camera" (camera switch); with neither line, the app was in the background (or another event stopped the session). Also: the mapping's `default` turns any unknown value into `sessionNotRunning`.
+- Pages: `ch09-concepts.md` section "What a device test showed" says this as an observation. `ch08-concepts.md` finding 7 and the conditions table no longer say that the capture causes the dip.
+
+## Integration (16 Oct 2026)
+- `chapter-10` … `chapter-20` rebased onto `chapter-09` `cd72e2c` (old SHAs: session scratchpad `old-branches-int.txt`). New: 10 `d776c43`, 11 `7f7aeff`, 12 `97936bb`, 13 `a57c768`, 14 `9742e0d`, 15 `394c99e`, 16 `5f9b114`, 17 `04ff27f`, 18 `1733104`, 19 `30096a3`, 20 `31e58d3`; `main` = `31e58d3`.
+- One conflict: chapter 11 (`5e7cd4e`, HDR) in `DataTypes.swift` `CaptureCapabilities`; resolved to `isLivePhotoCaptureSupported`, `isAppleProRAWSupported`, `isHDRSupported` (no Bayer flag). All other commits applied cleanly. Each tip differs from its old tip by exactly the chapter 8 final change (7 files). No file was added, so the `membershipExceptions` lists are unchanged.
+- Every tip builds with zero warnings (generic iOS Simulator, `-quiet`).
+- Pages: only `ch11-build.md` (section "Report HDR support", step 1) needed a fix: the Bayer lines left the fence, the `remove` box now shows `isAppleProRAWSupported: Bool = false) {`, highlight `7,10-11,14`.
+- `npm run validate`: 0 errors, 0 warnings. Replay ch08 to ch20 (78 sections): 74 `build=ok`; the known results ch15 s2 "FAILS" (no claim), ch15 s3 and ch19 s3/s4 "unclear (brace position)"; every end state equals its branch. `node src/build.mjs`: 42 pages.

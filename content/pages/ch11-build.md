@@ -135,26 +135,23 @@ In `DataTypes.swift`, add the `isHDRSupported` property to `CaptureCapabilities`
 The property is `let isHDRSupported: Bool`. The parameter `isHDRSupported: Bool = false` goes on its own line below the last parameter, and the initializer stores it in the property. The previous last parameter now ends with a comma instead of the parenthesis. The photo service does not pass it, so in photo mode the flag is `false`, and its code needs no change. The `unknown` value also has the flag `false`.
 
 ```swift file=AVCam/Model/DataTypes.swift remove
-         isBayerRAWSupported: Bool = false) {
+         isAppleProRAWSupported: Bool = false) {
 ```
 
-```swift file=AVCam/Model/DataTypes.swift highlight=8,12-13,17
+```swift file=AVCam/Model/DataTypes.swift highlight=7,10-11,14
 /// A structure that represents the capture capabilities of `CaptureService` in
 /// its current configuration.
 struct CaptureCapabilities {
 
     let isLivePhotoCaptureSupported: Bool
     let isAppleProRAWSupported: Bool
-    let isBayerRAWSupported: Bool
     let isHDRSupported: Bool
 
     init(isLivePhotoCaptureSupported: Bool = false,
          isAppleProRAWSupported: Bool = false,
-         isBayerRAWSupported: Bool = false,
          isHDRSupported: Bool = false) {
         self.isLivePhotoCaptureSupported = isLivePhotoCaptureSupported
         self.isAppleProRAWSupported = isAppleProRAWSupported
-        self.isBayerRAWSupported = isBayerRAWSupported
         self.isHDRSupported = isHDRSupported
     }
 

@@ -13,7 +13,9 @@ In this tutorial, you add the missing part of fast capture. Chapter 7 already en
 This chapter has the number 9 in part 1, but its code is not in the Apple sample, as in part 2, "Beyond the sample". The design is this tutorial's own. Read [Concepts: fast capture](ch09-concepts.md) first if you want the reasons for each step.
 
 > [!IMPORTANT]
-> In the Simulator with SimCam, the three capture switches report "not supported". The readiness value goes from `sessionNotRunning` to `notReadyMomentarily` after a capture, and it stays there. The Simulator never reports a waiting state. Thus you cannot see the dim button and the spinner in the Simulator. You can see them in the Xcode preview "Waiting for processing", and on a real iPhone. Nobody ran this chapter on a real iPhone. Where a step tells you what happens on an iPhone, the text comes from the Apple SDK and from the code, not from a test.
+> In the Simulator with SimCam, the three capture switches report "not supported". The readiness value goes from `sessionNotRunning` to `notReadyMomentarily` after a capture, and it stays there. The Simulator never reports a waiting state.
+>
+> This chapter also ran on an iPhone 17 Pro Max with iOS 26. All four switches logged `true/true`. In about 15 fast taps at the quality level Quality, the iPhone took every tap and saved every photo. The readiness changed only between `ready` and `notReadyMomentarily`. It never reported a waiting state, so the dim button and the spinner did not show on this iPhone either. You can see them in the Xcode preview "Waiting for processing". The section "What a device test showed" in [Concepts: fast capture](ch09-concepts.md#what-a-device-test-showed) has the details.
 
 ## Describe the readiness
 
@@ -159,11 +161,11 @@ First write the comment `// Log the state of the capture switches so a device te
 ### Step
 Build and run the app, and read the three log lines in the Xcode console.
 
-Type `supported` in the filter field of the console to find them. The simulated camera cannot do any of the three features, so the console shows `false/false` after each of the three texts. The existing `x = x.isSupported` pattern is safe here: it sets `false` to `false`. On a real iPhone with an A12 chip or later, you expect `true/true` for the three lines, but nobody checked this.
+Type `supported` in the filter field of the console to find them. The simulated camera cannot do any of the three features, so the console shows `false/false` after each of the three texts. The existing `x = x.isSupported` pattern is safe here: it sets `false` to `false`. On an iPhone 17 Pro Max with iOS 26, the three lines showed `true/true`, and the line "Deferred photo delivery (supported/enabled)" from chapter 8 showed `true/true` too.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), then read the Xcode console
-Result: Zero shutter lag (supported/enabled): false/false, and the same for responsive capture and fast capture prioritization. The app works as before.
+Result: Simulator: Zero shutter lag (supported/enabled): false/false, and the same for responsive capture and fast capture prioritization. iPhone 17 Pro Max: true/true for all three. The app works as before.
 ```
 
 ## Observe the readiness of the photo output
@@ -429,11 +431,11 @@ Add `logger.debug("Capture requested. Readiness: \(String(describing: self.captu
 ### Step
 Build and run the app. Tap the capture button one time, and read the log lines in the Xcode console.
 
-Type `readiness` in the filter field of the console. The first line is `Capture readiness changed to sessionNotRunning`: this is the value that the coordinator delivers when you set the delegate. After the tap, you see `Capture requested. Readiness: ...` and then `Capture readiness changed to notReadyMomentarily`. In the Simulator, the value stays there and never goes to `ready`. If no `Capture requested` line appears after a tap, the tap did not reach the capture button.
+Type `readiness` in the filter field of the console. The first line is `Capture readiness changed to sessionNotRunning`: this is the value that the coordinator delivers when you set the delegate. After the tap, you see `Capture requested. Readiness: ...` and then `Capture readiness changed to notReadyMomentarily`. In the Simulator, the value stays there and never goes to `ready`. On an iPhone 17 Pro Max, the value goes to `ready` when the session runs, to `notReadyMomentarily` after the tap, and back to `ready`. If no `Capture requested` line appears after a tap, the tap did not reach the capture button.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), tap the capture button once, then read the Xcode console
-Result: Capture readiness changed to sessionNotRunning at the start, then Capture requested and Capture readiness changed to notReadyMomentarily after the tap.
+Result: Capture readiness changed to sessionNotRunning at the start, then Capture requested and Capture readiness changed to notReadyMomentarily after the tap. On an iPhone: ready, then notReadyMomentarily, then ready again.
 ```
 
 ## Show the readiness on the capture button
@@ -519,7 +521,7 @@ Write the comment `// Dim the button in the two waiting states.` and `.opacity(r
 ### Step
 Below the preview "Photo", add the preview "Waiting for processing".
 
-Write `#Preview("Waiting for processing")` with a `PreviewBackground` that holds three lines. The first line is `let camera = PreviewCameraModel()`. The second line is `let _ = camera.captureReadiness = .notReadyWaitingForProcessing`: a view builder accepts a `let` declaration, but not a plain assignment, so the `let _ =` form turns the assignment into a declaration. The third line is `CaptureButton(camera: camera)`. This preview is the only place where you can see the dim state without a real iPhone.
+Write `#Preview("Waiting for processing")` with a `PreviewBackground` that holds three lines. The first line is `let camera = PreviewCameraModel()`. The second line is `let _ = camera.captureReadiness = .notReadyWaitingForProcessing`: a view builder accepts a `let` declaration, but not a plain assignment, so the `let _ =` form turns the assignment into a declaration. The third line is `CaptureButton(camera: camera)`. This preview is the only sure place to see the dim state: the Simulator never reports a waiting state, and the test iPhone 17 Pro Max did not report one either.
 
 ```swift file=AVCam/Views/Toolbars/MainToolbar/CaptureButton.swift highlight=7-13
 #Preview("Photo") {
@@ -552,15 +554,15 @@ Result: The capture button is at half opacity and a spinner is on it. In the pre
 ### Step
 Build and run the app, and tap the capture button quickly several times.
 
-In the Simulator, the button stays at full opacity, because the output reports `notReadyMomentarily` and never a waiting state. The button stays enabled, so each tap starts a capture, and the library gets several photos. The console shows a `Capture requested` line for each tap.
+In the Simulator, the button stays at full opacity, because the output reports `notReadyMomentarily` and never a waiting state. The button stays enabled, so each tap starts a capture, and the library gets several photos. The console shows a `Capture requested` line for each tap. On an iPhone 17 Pro Max, the result was the same: the button did not change, and each tap gave a photo.
 
 ```settings title="Checkpoint"
 Action: Product > Run (Command-R), tap the capture button quickly five times, then open the Photos app
-Result: Simulator: the button does not change, the log shows the readiness values, and the library has the new photos. A real iPhone: see the note below.
+Result: The button does not change, the log shows the readiness values, and the library has the new photos. This is true in the Simulator and on an iPhone 17 Pro Max.
 ```
 
 ### Important
-On a real iPhone, you expect a different result. The three switches log `true/true`. During a capture at the quality level `.quality`, the button goes dim and is disabled, and the spinner shows while the output processes the photo. After the capture, the value goes back to `ready`. For rapid taps, the log lines "Capture readiness changed to ..." show the sequence of values. Nobody ran this on a real iPhone. If you test it, also look at the photo time stamps: with zero shutter lag, they can be a little earlier than the taps.
+On an iPhone 17 Pro Max with iOS 26, about 15 fast taps at the quality level Quality gave this result. The output took every tap, and Photos got every photo. The readiness changed only between `ready` and `notReadyMomentarily`, so the button never went dim. The output did not wait: it changed the photos instead. The first and the last photo of the series came on the deferred path: 5712x4284 (24 MP) with a proxy. The photos between them came at once, as 4032x3024 (12 MP) with no proxy. This is responsive capture at work. A slower iPhone, a flash capture, or a longer series can still reach a waiting state, so keep the button rules. After a RAW capture, the readiness can also go to `sessionNotRunning` for a moment. The concepts article explains why. If you test this chapter, also look at the photo time stamps: with zero shutter lag, they can be a little earlier than the taps.
 
 ### Text
 The app now enables all four fast capture switches, and the capture button shows the readiness of the photo output. The Camera Control and the AirPods remote do not look at the readiness. When you add them in later chapters, check `captureReadiness` in `CameraModel.capturePhoto()` first.

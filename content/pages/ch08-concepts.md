@@ -212,7 +212,7 @@ The chapter ran seven times on an iPhone 17 Pro Max with iOS 26. Seven findings 
 ### 7. The DNG alone saves
 
 - **Symptom.** None. On the virtual "Back Dual Camera" and on the "Front TrueDepth Camera", the capture resolved to 2 photos (the request still had a processed photo), and the console showed "RAW preview: JPEG WxH", "Resource .photo: N bytes, file ....dng", "Saved asset ...", and "Saved the RAW as the DNG alone".
-- **Cause.** Photos accepts the model of the Camera app: the DNG file alone as `.photo`, with `shouldMoveFile`. Photos showed it as a RAW photo, and Unmodified Original gave the DNG. The front camera offers Apple ProRAW too. In chapter 9, the readiness went to `sessionNotRunning` and back to `ready` after a RAW capture, because the change of deferred delivery builds the pipeline again.
+- **Cause.** Photos accepts the model of the Camera app: the DNG file alone as `.photo`, with `shouldMoveFile`. Photos showed it as a RAW photo, and Unmodified Original gave the DNG. The front camera offers Apple ProRAW too. In chapter 9, the readiness went to `sessionNotRunning` and back to `ready` after a RAW capture. The capture itself does not cause this. [Chapter 9](ch09-concepts.md#what-a-device-test-showed) explains the possible causes.
 - **Fix.** The final code asks for the RAW photo alone (`processedFormat: nil`) and keeps only this save request. The pair code, the processed photo, and the fallbacks are gone.
 
 ### The conditions of a RAW capture
@@ -221,7 +221,7 @@ The chapter ran seven times on an iPhone 17 Pro Max with iOS 26. Seven findings 
 |---|---|---|
 | Live Photo | Not allowed: the movie URL must be `nil`. | `excludesLivePhoto` in `PhotoCapture`, and the locked Live Photo button. |
 | Quality prioritization | Not supported for RAW. The device accepted the setter for Apple ProRAW, and refused it for Bayer RAW. | No setter for any RAW request. |
-| Deferred delivery | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while Apple ProRAW is chosen. The change builds the pipeline again, so the readiness of chapter 9 shows `sessionNotRunning` for a moment. |
+| Deferred delivery | Not available for RAW. | `updateDeferredPhotoDelivery()` turns it off while Apple ProRAW is chosen. The change builds the pipeline again, so the readiness of chapter 9 can show `sessionNotRunning` for a moment after a new RAW choice. |
 | Processed photo | Not needed. | `processedFormat: nil`. One photo per capture. |
 | Save | The DNG alone as `.photo`, from a `.dng` file. | `MediaLibrary.save(rawData:location:)`, one request. |
 | Constant color | Not allowed with RAW. | The app has no constant color. |

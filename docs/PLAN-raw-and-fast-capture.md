@@ -2,7 +2,11 @@
 
 Written 15 Oct 2026. Goal: two new chapters that sit after chapter 7 ("Photo features") as chapters 8 and 9, with the old chapters 8 to 18 renumbered to 10 to 20. The work is split so that cheaper models (Sonnet) do the mechanical and the writing parts, and the Fable coordinator only plans, decides, and checks.
 
-## Status (16 Oct 2026, after device round 7)
+## Status: integrated (16 Oct 2026)
+
+Both chapters are final and integrated. `chapter-08` = `aae9ddf`, `chapter-09` = `cd72e2c`. `chapter-10` … `chapter-20` are rebased onto the new `chapter-09` (one conflict: `CaptureCapabilities` in chapter 11, resolved to live photo, Apple ProRAW, HDR); `main` = `chapter-20`. Every tip builds with zero warnings. The pages of chapters 10 to 20 are fixed (only `ch11-build.md` needed a change), `npm run validate` gives 0 errors and 0 warnings, and the replay of ch08 to ch20 passes. Chapter 9 has its device results (iPhone 17 Pro Max, iOS 26) on both pages. Old SHAs: session scratchpad `old-branches-int.txt`. Details: `notes/chapter-09.md`, section "Integration".
+
+## Status (16 Oct 2026, after device round 7, history)
 
 Chapter 8 offers Off and Apple ProRAW only; Bayer RAW moves to chapter 16 (see `notes/chapter-16.md` and `research/08-raw.md` section H). Round 7 on the iPhone 17 Pro Max (iOS 26) verified the Camera app model on the virtual Back Dual Camera and on the Front TrueDepth Camera: the DNG alone as `.photo` from a temporary `.dng` file with `shouldMoveFile` saved, Photos showed it as RAW, and the front camera offers Apple ProRAW. Final code: one commit `aae9ddf` on `chapter-07` (replaces `108eea6`). A ProRAW request asks for the RAW photo alone (`processedFormat: nil`) with a full-size embedded JPEG preview; `Photo.isRAW` marks the DNG in `Photo.data`; `MediaLibrary.save(rawData:location:)` has one request and no fallback. The RAW+JPEG pair (processed `.photo`, DNG `.alternatePhoto`, verified in round 6) is described on the concepts page as an alternative. `chapter-09` is rebased onto it (`cd72e2c`). `chapter-10` … `chapter-20` and `main` still sit on the old `04bee6a`; rebase them next (chapter 11 `CaptureCapabilities`: live photo, Apple ProRAW, HDR) and fix the `ch10-build.md` and `ch11-build.md` fences. Open: one optional device check (the badge text of a DNG-only picture, and the "1 photos" line of the RAW-only request). The paragraphs below are the history of the decision.
 
